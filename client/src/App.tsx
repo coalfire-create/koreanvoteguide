@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -5,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { SplashScreen } from "@/components/splash-screen";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Members from "@/pages/members";
@@ -33,9 +35,12 @@ const sidebarStyle = {
 };
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
         <SidebarProvider style={sidebarStyle as React.CSSProperties}>
           <div className="flex min-h-screen w-full">
             <AppSidebar />
