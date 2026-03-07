@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SplashScreen } from "@/components/splash-screen";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import AuthPage from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Members from "@/pages/members";
@@ -14,6 +16,7 @@ import MemberDetail from "@/pages/member-detail";
 import Candidates from "@/pages/candidates";
 import BillSearch from "@/pages/bill-search";
 import Evaluation from "@/pages/evaluation";
+import { Loader2 } from "lucide-react";
 
 function Router() {
   return (
@@ -34,27 +37,54 @@ const sidebarStyle = {
   "--sidebar-width-icon": "3rem",
 };
 
+function AuthenticatedApp() {
+  const { user, isLoading, logout } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  return (
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div className="flex min-h-screen w-full">
+        <AppSidebar userName={user.name} onLogout={logout} />
+        <div className="flex flex-col flex-1 min-w-0">
+          <header className="flex items-center justify-between gap-2 p-2 border-b sticky top-0 z-50 bg-background">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <span className="text-sm font-semibold text-muted-foreground">이유있는 투표</span>
+            </div>
+            <span className="text-xs text-muted-foreground pr-2" data-testid="text-user-name">
+              {user.name}님
+            </span>
+          </header>
+          <main className="flex-1 overflow-auto">
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
 function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
-        <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-          <div className="flex min-h-screen w-full">
-            <AppSidebar />
-            <div className="flex flex-col flex-1 min-w-0">
-              <header className="flex items-center gap-2 p-2 border-b sticky top-0 z-50 bg-background">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <span className="text-sm font-semibold text-muted-foreground">이유있는 투표</span>
-              </header>
-              <main className="flex-1 overflow-auto">
-                <Router />
-              </main>
-            </div>
-          </div>
-        </SidebarProvider>
+        <AuthProvider>
+          {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+          <AuthenticatedApp />
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

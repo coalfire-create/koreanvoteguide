@@ -31,7 +31,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
             >
-              나의 투표는
+              나의 투표에는
             </motion.p>
 
             <motion.p

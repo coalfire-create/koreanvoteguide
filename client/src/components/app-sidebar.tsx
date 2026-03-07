@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, UserCheck, Search, BarChart3, Home } from "lucide-react";
+import { Users, UserCheck, Search, BarChart3, Home, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +10,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "홈", url: "/", icon: Home },
@@ -20,7 +22,12 @@ const navItems = [
   { title: "객관적 평가", url: "/evaluation", icon: BarChart3 },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  userName?: string;
+  onLogout?: () => void;
+}
+
+export function AppSidebar({ userName, onLogout }: AppSidebarProps) {
   const [location] = useLocation();
 
   return (
@@ -65,6 +72,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {userName && onLogout && (
+        <SidebarFooter className="p-3 border-t">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-medium truncate" data-testid="text-sidebar-user">{userName}님</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onLogout}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }
