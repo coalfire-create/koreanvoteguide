@@ -2,7 +2,9 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, UserCheck, Search, BarChart3, ArrowRight, TrendingUp, Vote, Eye } from "lucide-react";
-import { assemblyMembers } from "@/lib/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAssemblyMembers } from "@/lib/api-data";
+import { LastUpdated } from "@/components/last-updated";
 
 const features = [
   {
@@ -35,8 +37,31 @@ const features = [
   },
 ];
 
+function TopMembersSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <Card key={i}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
-  const topMembers = [...assemblyMembers]
+  const { members, isLoading } = useAssemblyMembers();
+
+  const topMembers = [...members]
     .sort((a, b) => b.score.totalScore - a.score.totalScore)
     .slice(0, 3);
 
@@ -75,6 +100,10 @@ export default function Home() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="flex justify-end mb-4">
+          <LastUpdated />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
           {features.map((feature) => (
             <Link key={feature.title} href={feature.link}>
@@ -103,32 +132,36 @@ export default function Home() {
             <TrendingUp className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold">활동 우수 의원</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topMembers.map((member, index) => (
-              <Link key={member.id} href={`/members/${member.id}`}>
-                <Card className="hover-elevate cursor-pointer" data-testid={`card-top-member-${member.id}`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                        {index + 1}
+          {isLoading ? (
+            <TopMembersSkeleton />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {topMembers.map((member, index) => (
+                <Link key={member.id} href={`/members/${member.id}`}>
+                  <Card className="hover-elevate cursor-pointer" data-testid={`card-top-member-${member.id}`}>
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{member.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{member.party} · {member.district}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{member.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{member.party} · {member.district}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>출석률 {member.score.attendanceRate}%</span>
+                        </div>
+                        <div className="text-lg font-bold text-primary">{member.score.totalScore}점</div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>출석률 {member.score.attendanceRate}%</span>
-                      </div>
-                      <div className="text-lg font-bold text-primary">{member.score.totalScore}점</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="text-center py-8 border-t">

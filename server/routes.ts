@@ -7,6 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
 import { pool } from "./db";
+import { fetchAssemblyData } from "./scheduler";
 
 const scryptAsync = promisify(scrypt);
 
@@ -194,6 +195,87 @@ export async function registerRoutes(
       return res.status(400).json({ error: "잘못된 요청입니다" });
     }
     res.json({ success: true, candidateId, rating });
+  });
+
+  app.get("/api/status", async (_req, res) => {
+    try {
+      const status = await storage.getSchedulerStatus();
+      if (!status) {
+        return res.json({
+          lastRun: null,
+          success: null,
+          message: "스케줄러가 아직 실행되지 않았습니다",
+          consecutiveFailures: 0,
+        });
+      }
+      res.json({
+        lastRun: status.lastRun,
+        success: status.success,
+        message: status.errorMessage || "정상",
+        consecutiveFailures: status.consecutiveFailures,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "상태 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/members", async (_req, res) => {
+    try {
+      const cached = await storage.getCachedData("members");
+      if (cached && cached.length > 0) {
+        return res.json({ source: "api", data: cached });
+      }
+      return res.json({ source: "mock", data: null });
+    } catch (error) {
+      res.status(500).json({ error: "의원 데이터 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/bills", async (_req, res) => {
+    try {
+      const cached = await storage.getCachedData("bills");
+      if (cached && cached.length > 0) {
+        return res.json({ source: "api", data: cached });
+      }
+      return res.json({ source: "mock", data: null });
+    } catch (error) {
+      res.status(500).json({ error: "법안 데이터 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/votes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const cached = await storage.getCachedData("votes");
+      if (cached && cached.length > 0) {
+        const memberVotes = cached.filter((v: any) => v.HG_NM === id || v.MONA_CD === id);
+        return res.json({ source: "api", data: memberVotes });
+      }
+      return res.json({ source: "mock", data: null });
+    } catch (error) {
+      res.status(500).json({ error: "표결 데이터 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/attendance", async (_req, res) => {
+    try {
+      const cached = await storage.getCachedData("attendance");
+      if (cached && cached.length > 0) {
+        return res.json({ source: "api", data: cached });
+      }
+      return res.json({ source: "mock", data: null });
+    } catch (error) {
+      res.status(500).json({ error: "출석 데이터 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/refresh", requireAuth, async (_req, res) => {
+    try {
+      const result = await fetchAssemblyData();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "수동 갱신 중 오류가 발생했습니다" });
+    }
   });
 
   return httpServer;

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -126,6 +126,36 @@ export interface Bill {
     vote: VoteType;
   }[];
 }
+
+export const assemblyDataCache = pgTable("assembly_data_cache", {
+  key: text("key").primaryKey(),
+  data: jsonb("data").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const schedulerStatus = pgTable("scheduler_status", {
+  id: varchar("id").primaryKey().default(sql`'main'`),
+  lastRun: timestamp("last_run"),
+  success: boolean("success"),
+  errorMessage: text("error_message"),
+  consecutiveFailures: integer("consecutive_failures").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAssemblyDataCacheSchema = createInsertSchema(assemblyDataCache).pick({
+  key: true,
+  data: true,
+});
+export type InsertAssemblyDataCache = z.infer<typeof insertAssemblyDataCacheSchema>;
+export type AssemblyDataCache = typeof assemblyDataCache.$inferSelect;
+
+export const insertSchedulerStatusSchema = createInsertSchema(schedulerStatus).pick({
+  success: true,
+  errorMessage: true,
+  consecutiveFailures: true,
+});
+export type InsertSchedulerStatus = z.infer<typeof insertSchedulerStatusSchema>;
+export type SchedulerStatus = typeof schedulerStatus.$inferSelect;
 
 export const ratingSchema = z.object({
   candidateId: z.string(),

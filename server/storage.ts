@@ -1,4 +1,4 @@
-import { type User, type InsertUser, users, verificationCodes } from "@shared/schema";
+import { type User, type InsertUser, users, verificationCodes, assemblyDataCache, schedulerStatus } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -10,6 +10,8 @@ export interface IStorage {
   createVerificationCode(phone: string, code: string, expiresAt: Date): Promise<void>;
   getVerificationCode(phone: string, code: string): Promise<{ id: string; phone: string; code: string; expiresAt: Date; used: boolean } | undefined>;
   markVerificationCodeUsed(id: string): Promise<void>;
+  getCachedData(key: string): Promise<any[] | null>;
+  getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -54,6 +56,27 @@ export class DatabaseStorage implements IStorage {
 
   async markVerificationCodeUsed(id: string): Promise<void> {
     await db.update(verificationCodes).set({ used: true }).where(eq(verificationCodes.id, id));
+  }
+
+  async getCachedData(key: string): Promise<any[] | null> {
+    const [record] = await db.select().from(assemblyDataCache).where(eq(assemblyDataCache.key, key));
+    if (!record) return null;
+    const data = record.data;
+    if (typeof data === "string") {
+      try { return JSON.parse(data); } catch { return null; }
+    }
+    return Array.isArray(data) ? data : null;
+  }
+
+  async getSchedulerStatus() {
+    const [record] = await db.select().from(schedulerStatus).where(eq(schedulerStatus.id, "main"));
+    if (!record) return null;
+    return {
+      lastRun: record.lastRun,
+      success: record.success,
+      errorMessage: record.errorMessage,
+      consecutiveFailures: record.consecutiveFailures,
+    };
   }
 }
 

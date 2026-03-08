@@ -4,13 +4,24 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { assemblyMembers, getPartyColor, getVoteBgColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
+import { getPartyColor, getVoteBgColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
+import { useAssemblyMembers } from "@/lib/api-data";
 
 export default function MemberDetail() {
   const { id } = useParams<{ id: string }>();
-  const member = assemblyMembers.find((m) => m.id === id);
+  const { members, isLoading } = useAssemblyMembers();
+  const member = members.find((m) => m.id === id);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+        <p className="text-muted-foreground mt-4">데이터를 불러오는 중...</p>
+      </div>
+    );
+  }
 
   if (!member) {
     return (
@@ -151,57 +162,69 @@ export default function MemberDetail() {
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[250px]">법안명</TableHead>
-                      <TableHead className="w-24 text-center">투표</TableHead>
-                      <TableHead className="w-28 text-right">날짜</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {member.votingRecords.map((record) => (
-                      <TableRow key={record.billId} data-testid={`row-vote-${record.billId}`}>
-                        <TableCell className="font-medium">
-                          <Link href={`/bills?q=${encodeURIComponent(record.billName.substring(0, 6))}`} className="hover:underline">
-                            {record.billName}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${getVoteBgColor(record.vote)}`}>
-                            {record.vote}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{record.date}</TableCell>
+                {member.votingRecords.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[250px]">법안명</TableHead>
+                        <TableHead className="w-24 text-center">투표</TableHead>
+                        <TableHead className="w-28 text-right">날짜</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {member.votingRecords.map((record) => (
+                        <TableRow key={record.billId} data-testid={`row-vote-${record.billId}`}>
+                          <TableCell className="font-medium">
+                            <Link href={`/bills?q=${encodeURIComponent(record.billName.substring(0, 6))}`} className="hover:underline">
+                              {record.billName}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${getVoteBgColor(record.vote)}`}>
+                              {record.vote}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">{record.date}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground text-sm">
+                    투표 기록이 없습니다
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="activities">
-          <div className="space-y-3">
-            {member.activities.map((activity) => (
-              <Card key={activity.id} data-testid={`card-activity-${activity.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">{activityIcon(activity.type)}</div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h4 className="font-semibold text-sm">{activity.title}</h4>
-                        <Badge variant="secondary" className="text-[10px]">{activityLabel(activity.type)}</Badge>
+          {member.activities.length > 0 ? (
+            <div className="space-y-3">
+              {member.activities.map((activity) => (
+                <Card key={activity.id} data-testid={`card-activity-${activity.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">{activityIcon(activity.type)}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h4 className="font-semibold text-sm">{activity.title}</h4>
+                          <Badge variant="secondary" className="text-[10px]">{activityLabel(activity.type)}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1.5">{activity.date}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{activity.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1.5">{activity.date}</p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              공개 활동 기록이 없습니다
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

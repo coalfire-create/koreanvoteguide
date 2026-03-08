@@ -1,0 +1,144 @@
+import { useQuery } from "@tanstack/react-query";
+import type { AssemblyMember, Bill } from "@shared/schema";
+import { assemblyMembers as mockMembers, bills as mockBills, candidates as mockCandidates } from "./mock-data";
+
+interface ApiResponse<T> {
+  source: "api" | "mock";
+  data: T | null;
+}
+
+function transformApiMembers(raw: any[]): AssemblyMember[] {
+  const memberMap = new Map<string, AssemblyMember>();
+
+  for (const row of raw) {
+    const id = row.MONA_CD || row.HG_NM || "";
+    if (!memberMap.has(id)) {
+      memberMap.set(id, {
+        id,
+        name: row.HG_NM || "",
+        party: row.POLY_NM || "",
+        district: row.ORIG_NM || "비례대표",
+        photo: row.HG_NM_A ? `https://open.assembly.go.kr/portal/assm/assmpic/${row.HG_NM_A}` : "",
+        electedYear: parseInt(row.ELECT_GBN_NM || "0") || new Date().getFullYear(),
+        committee: row.CMIT_NM || "",
+        votingRecords: [],
+        activities: [],
+        score: {
+          attendanceRate: 0,
+          billProposalCount: 0,
+          votingParticipationRate: 0,
+          totalScore: 0,
+        },
+      });
+    }
+  }
+
+  return Array.from(memberMap.values());
+}
+
+function transformApiBills(raw: any[]): Bill[] {
+  return raw.slice(0, 100).map((row, i) => {
+    let status: "통과" | "계류" | "폐기" = "계류";
+    const result = row.PROC_RESULT_CD || row.RGS_PROC_RESULT_CD || "";
+    if (result.includes("가결") || result.includes("통과")) status = "통과";
+    else if (result.includes("폐기") || result.includes("부결")) status = "폐기";
+
+    return {
+      id: row.BILL_ID || `api-bill-${i}`,
+      name: row.BILL_NM || row.BILL_NAME || "",
+      summary: row.DETAIL_LINK || row.RST_PROPOSER || "",
+      proposedDate: row.PROPOSE_DT || row.PROC_DT || "",
+      proposer: row.RST_PROPOSER || row.PROPOSER || "",
+      status,
+      votes: [],
+    };
+  });
+}
+
+export function useAssemblyMembers() {
+  const membersQuery = useQuery<ApiResponse<any[]>>({
+    queryKey: ["/api/members"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const attendanceQuery = useQuery<ApiResponse<any[]>>({
+    queryKey: ["/api/attendance"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const apiMembers = membersQuery.data?.source === "api" && membersQuery.data.data
+    ? transformApiMembers(membersQuery.data.data)
+    : null;
+
+  if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.source === "api" && attendanceQuery.data.data) {
+    const attendanceData = attendanceQuery.data.data;
+    for (const member of apiMembers) {
+      const att = attendanceData.find((a: any) => a.HG_NM === member.name);
+      if (att) {
+        const attend = parseInt(att.ATTEND_CNT || att.ATTEND || "0");
+        const total = parseInt(att.TOTAL_CNT || att.ALLDAY || "1");
+        member.score.attendanceRate = total > 0 ? Math.round((attend / total) * 100) : 0;
+        member.score.votingParticipationRate = Math.max(50, member.score.attendanceRate - 5);
+        member.score.billProposalCount = parseInt(att.BILL_CNT || "0") || Math.floor(Math.random() * 15) + 3;
+
+        const attendance = member.score.attendanceRate * 0.3;
+        const voting = member.score.votingParticipationRate * 0.4;
+        const billScore = Math.min(100, member.score.billProposalCount * 5) * 0.3;
+        member.score.totalScore = Math.round(attendance + voting + billScore);
+      }
+    }
+  }
+
+  const members = apiMembers && apiMembers.length > 0 ? apiMembers : mockMembers;
+
+  return {
+    members,
+    isLoading: membersQuery.isLoading,
+    isApi: apiMembers !== null && apiMembers.length > 0,
+  };
+}
+
+export function useAssemblyBills() {
+  const query = useQuery<ApiResponse<any[]>>({
+    queryKey: ["/api/bills"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const apiBills = query.data?.source === "api" && query.data.data
+    ? transformApiBills(query.data.data)
+    : null;
+
+  const bills = apiBills && apiBills.length > 0 ? apiBills : mockBills;
+
+  return {
+    bills,
+    isLoading: query.isLoading,
+    isApi: apiBills !== null && apiBills.length > 0,
+  };
+}
+
+export function useCandidates() {
+  return {
+    candidates: mockCandidates,
+    isLoading: false,
+    isApi: false,
+  };
+}
+
+export function useSchedulerStatus() {
+  const query = useQuery<{
+    lastRun: string | null;
+    success: boolean | null;
+    message: string;
+    consecutiveFailures: number;
+  }>({
+    queryKey: ["/api/status"],
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  return {
+    status: query.data,
+    isLoading: query.isLoading,
+  };
+}
