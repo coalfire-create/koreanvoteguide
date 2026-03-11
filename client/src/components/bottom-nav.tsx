@@ -1,12 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Users, UserCheck, Search, BarChart3, Home, MessageSquare } from "lucide-react";
+import { Home, MessageSquare, MoreHorizontal } from "lucide-react";
 
 const navItems = [
   { title: "홈", url: "/", icon: Home },
-  { title: "국회의원", url: "/members", icon: Users },
   { title: "커뮤니티", url: "/community", icon: MessageSquare },
-  { title: "법안", url: "/bills", icon: Search },
-  { title: "평가", url: "/evaluation", icon: BarChart3 },
+  { title: "더보기", url: "/more", icon: MoreHorizontal },
 ];
 
 export function BottomNav() {
@@ -18,8 +16,9 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" data-testid="nav-bottom">
       <div className="flex items-center justify-around h-14 max-w-lg mx-auto px-1">
         {navItems.map((item) => {
-          const isActive = location === item.url ||
-            (item.url !== "/" && location.startsWith(item.url));
+          const isActive = item.url === "/"
+            ? location === "/"
+            : location.startsWith(item.url);
           return (
             <Link
               key={item.url}

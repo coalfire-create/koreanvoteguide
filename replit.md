@@ -17,7 +17,7 @@ A civic transparency web app helping Korean citizens make informed voting decisi
 client/src/
 ├── App.tsx                    # Main app with bottom nav + routing (no auth gate)
 ├── components/
-│   ├── bottom-nav.tsx         # Bottom navigation bar (5 tabs)
+│   ├── bottom-nav.tsx         # Bottom navigation bar (3 tabs: 홈, 커뮤니티, 더보기)
 │   ├── last-updated.tsx       # "마지막 업데이트" timestamp component
 │   ├── splash-screen.tsx      # Animated splash screen (Framer Motion)
 │   └── ui/                    # Shadcn components
@@ -35,6 +35,7 @@ client/src/
 │   ├── candidates.tsx         # Candidates with tabs (presidential/local)
 │   ├── bill-search.tsx        # Bill search with vote breakdown
 │   ├── evaluation.tsx         # Objective scoring dashboard
+│   ├── more.tsx               # 더보기 page with card menu links
 │   ├── community.tsx          # Community post list (requires auth)
 │   ├── community-detail.tsx   # Post detail with reactions, comments, reports
 │   ├── community-write.tsx    # Write new post (requires auth)
@@ -59,10 +60,13 @@ server/
 8. **Data Scheduler** - Hourly cron job fetching from 열린국회정보 API
 
 ## Navigation
-- Bottom navigation bar with 5 tabs: 홈, 국회의원, 커뮤니티, 법안, 평가
-- Top header with logo + login/logout button
+- Bottom navigation bar with 3 tabs: 홈, 커뮤니티, 더보기
+- Top header with logo + login/logout button + hamburger menu (≡)
+- Hamburger menu opens Sheet (slide-in drawer from right) with: 국회의원, 후보자, 법안 검색, 객관적 평가
+- 더보기 page: Card-based menu linking to same 4 pages
 - Login page at /login route (not auth-gated)
 - All main pages accessible without login; community requires auth
+- Home page: minimalist Google-style with centered logo + search bar (no hero, no cards)
 
 ## Community System
 - **Auth gating**: Community access requires login; redirects to login page with message

@@ -3,11 +3,37 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getPartyColor, getVoteBgColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
+import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
 import { useAssemblyMembers } from "@/lib/api-data";
+
+function getAttendanceColor(rate: number) {
+  if (rate >= 90) return "bg-emerald-500";
+  if (rate > 70) return "bg-yellow-500";
+  return "bg-red-500";
+}
+
+function getAttendanceTextColor(rate: number) {
+  if (rate >= 90) return "text-emerald-600";
+  if (rate > 70) return "text-yellow-600";
+  return "text-red-600";
+}
+
+function getVoteBadgeVariant(vote: string): { className: string } {
+  switch (vote) {
+    case "찬성":
+      return { className: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100" };
+    case "반대":
+      return { className: "bg-red-100 text-red-700 border-red-200 hover:bg-red-100" };
+    case "불출석":
+    case "미참석":
+    case "기권":
+      return { className: "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100" };
+    default:
+      return { className: "" };
+  }
+}
 
 export default function MemberDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,9 +65,9 @@ export default function MemberDetail() {
 
   const activityIcon = (type: string) => {
     switch (type) {
-      case "speech": return <Mic className="w-4 h-4 text-blue-500 dark:text-blue-400" />;
-      case "event": return <CalendarDays className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />;
-      case "press": return <Newspaper className="w-4 h-4 text-amber-500 dark:text-amber-400" />;
+      case "speech": return <Mic className="w-4 h-4 text-blue-500" />;
+      case "event": return <CalendarDays className="w-4 h-4 text-emerald-500" />;
+      case "press": return <Newspaper className="w-4 h-4 text-amber-500" />;
       default: return null;
     }
   };
@@ -55,13 +81,26 @@ export default function MemberDetail() {
     }
   };
 
+  const billProposalScore = Math.min(100, member.score.billProposalCount * 5);
+
   const scoreFormula = `종합 점수 = (출석률 × 0.3) + (표결 참여율 × 0.4) + (법안 발의 점수 × 0.3)
 법안 발의 점수 = 최솟값(100, 발의 법안 수 × 5)
 
 출석률: ${member.score.attendanceRate}% × 0.3 = ${(member.score.attendanceRate * 0.3).toFixed(1)}점
 표결 참여율: ${member.score.votingParticipationRate}% × 0.4 = ${(member.score.votingParticipationRate * 0.4).toFixed(1)}점
-법안 발의 점수: 최솟값(100, ${member.score.billProposalCount} × 5) = ${Math.min(100, member.score.billProposalCount * 5)}% × 0.3 = ${(Math.min(100, member.score.billProposalCount * 5) * 0.3).toFixed(1)}점
+법안 발의 점수: 최솟값(100, ${member.score.billProposalCount} × 5) = ${billProposalScore}% × 0.3 = ${(billProposalScore * 0.3).toFixed(1)}점
 종합: ${member.score.totalScore}점 (${getScoreGrade(member.score.totalScore)})`;
+
+  const voteStats = member.votingRecords.reduce(
+    (acc, r) => {
+      if (r.vote === "찬성") acc.agree++;
+      else if (r.vote === "반대") acc.disagree++;
+      else acc.other++;
+      return acc;
+    },
+    { agree: 0, disagree: 0, other: 0 }
+  );
+  const totalVotes = member.votingRecords.length;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -111,31 +150,58 @@ export default function MemberDetail() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card>
+        <Card data-testid="card-attendance">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">출석률</p>
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-2xl font-bold">{member.score.attendanceRate}%</span>
+            <div className="flex items-end gap-2 mb-3">
+              <span className={`text-2xl font-bold ${getAttendanceTextColor(member.score.attendanceRate)}`}>
+                {member.score.attendanceRate}%
+              </span>
+              {member.score.attendanceRate >= 90 && (
+                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] mb-1">우수</Badge>
+              )}
+              {member.score.attendanceRate <= 70 && (
+                <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100 text-[10px] mb-1">미흡</Badge>
+              )}
             </div>
-            <Progress value={member.score.attendanceRate} className="h-2" />
+            <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.attendanceRate)}`}
+                style={{ width: `${member.score.attendanceRate}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-voting-participation">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">표결 참여율</p>
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-2xl font-bold">{member.score.votingParticipationRate}%</span>
+            <div className="flex items-end gap-2 mb-3">
+              <span className={`text-2xl font-bold ${getAttendanceTextColor(member.score.votingParticipationRate)}`}>
+                {member.score.votingParticipationRate}%
+              </span>
             </div>
-            <Progress value={member.score.votingParticipationRate} className="h-2" />
+            <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.votingParticipationRate)}`}
+                style={{ width: `${member.score.votingParticipationRate}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-bill-proposals">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">발의 법안</p>
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 mb-3">
               <span className="text-2xl font-bold">{member.score.billProposalCount}</span>
               <span className="text-sm text-muted-foreground mb-0.5">건</span>
             </div>
+            <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full transition-all bg-primary"
+                style={{ width: `${billProposalScore}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">발의 점수: {billProposalScore}/100</p>
           </CardContent>
         </Card>
       </div>
@@ -146,7 +212,7 @@ export default function MemberDetail() {
             <Info className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm">평가 산출 공식</h3>
           </div>
-          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 dark:bg-muted/30 rounded-md p-3" data-testid="text-score-formula">
+          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 rounded-md p-3" data-testid="text-score-formula">
             {scoreFormula}
           </pre>
         </CardContent>
@@ -159,36 +225,43 @@ export default function MemberDetail() {
         </TabsList>
 
         <TabsContent value="votes">
+          {totalVotes > 0 && (
+            <div className="flex items-center gap-3 mb-4 flex-wrap" data-testid="vote-stats-summary">
+              <Badge className="bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100">
+                찬성 {voteStats.agree}건
+              </Badge>
+              <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">
+                반대 {voteStats.disagree}건
+              </Badge>
+              <Badge className="bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100">
+                기권/불출석 {voteStats.other}건
+              </Badge>
+              <span className="text-xs text-muted-foreground">총 {totalVotes}건</span>
+            </div>
+          )}
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 {member.votingRecords.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[250px]">법안명</TableHead>
-                        <TableHead className="w-24 text-center">투표</TableHead>
-                        <TableHead className="w-28 text-right">날짜</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {member.votingRecords.map((record) => (
-                        <TableRow key={record.billId} data-testid={`row-vote-${record.billId}`}>
-                          <TableCell className="font-medium">
-                            <Link href={`/bills?q=${encodeURIComponent(record.billName.substring(0, 6))}`} className="hover:underline">
-                              {record.billName}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${getVoteBgColor(record.vote)}`}>
-                              {record.vote}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">{record.date}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div className="divide-y">
+                    {member.votingRecords.map((record) => (
+                      <div key={record.billId} className="flex items-center gap-3 px-4 py-3" data-testid={`row-vote-${record.billId}`}>
+                        <div className="flex-1 min-w-0">
+                          <Link href={`/bills?q=${encodeURIComponent(record.billName.substring(0, 6))}`} className="hover:underline text-sm font-medium">
+                            {record.billName}
+                          </Link>
+                          <p className="text-xs text-muted-foreground mt-0.5">{record.date}</p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`shrink-0 ${getVoteBadgeVariant(record.vote).className}`}
+                          data-testid={`badge-vote-${record.billId}`}
+                        >
+                          {record.vote}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="p-8 text-center text-muted-foreground text-sm">
                     투표 기록이 없습니다
