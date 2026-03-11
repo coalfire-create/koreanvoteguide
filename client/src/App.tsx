@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { BottomNav } from "@/components/bottom-nav";
 import { SplashScreen } from "@/components/splash-screen";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
@@ -16,7 +15,7 @@ import Candidates from "@/pages/candidates";
 import BillSearch from "@/pages/bill-search";
 import Evaluation from "@/pages/evaluation";
 import AuthPage from "@/pages/auth";
-import { LogIn } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 
@@ -35,45 +34,49 @@ function Router() {
   );
 }
 
-const sidebarStyle = {
-  "--sidebar-width": "15rem",
-  "--sidebar-width-icon": "3rem",
-};
-
 function MainApp() {
   const { user, isLoading, logout } = useAuth();
+  const [location] = useLocation();
+  const isLoginPage = location === "/login";
 
   return (
-    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar userName={user?.name} onLogout={user ? logout : undefined} />
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 p-2 border-b sticky top-0 z-50 bg-background">
+    <div className="flex flex-col min-h-screen w-full">
+      {!isLoginPage && (
+        <header className="flex items-center justify-between gap-2 px-4 py-2.5 border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <Link href="/" data-testid="link-home-logo">
             <div className="flex items-center gap-2">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <span className="text-sm font-semibold text-muted-foreground">이유있는 투표</span>
+              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xs">투</span>
+              </div>
+              <span className="text-sm font-bold">이유있는 투표</span>
             </div>
-            {!isLoading && (
-              user ? (
-                <span className="text-xs text-muted-foreground pr-2" data-testid="text-user-name">
+          </Link>
+          {!isLoading && (
+            user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground" data-testid="text-user-name">
                   {user.name}님
                 </span>
-              ) : (
-                <Link href="/login">
-                  <Button variant="ghost" size="sm" data-testid="button-header-login">
-                    <LogIn className="w-4 h-4 mr-1.5" />
-                    로그인
-                  </Button>
-                </Link>
-              )
-            )}
-          </header>
-          <main className="flex-1 overflow-auto">
-            <Router />
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={logout} data-testid="button-logout">
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" size="sm" data-testid="button-header-login">
+                  <LogIn className="w-4 h-4 mr-1.5" />
+                  로그인
+                </Button>
+              </Link>
+            )
+          )}
+        </header>
+      )}
+      <main className="flex-1 overflow-auto pb-16">
+        <Router />
+      </main>
+      <BottomNav />
+    </div>
   );
 }
 
