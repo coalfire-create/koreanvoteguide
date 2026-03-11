@@ -8,7 +8,6 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SplashScreen } from "@/components/splash-screen";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import AuthPage from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Members from "@/pages/members";
@@ -16,7 +15,10 @@ import MemberDetail from "@/pages/member-detail";
 import Candidates from "@/pages/candidates";
 import BillSearch from "@/pages/bill-search";
 import Evaluation from "@/pages/evaluation";
-import { Loader2 } from "lucide-react";
+import AuthPage from "@/pages/auth";
+import { LogIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 function Router() {
   return (
@@ -27,6 +29,7 @@ function Router() {
       <Route path="/candidates" component={Candidates} />
       <Route path="/bills" component={BillSearch} />
       <Route path="/evaluation" component={Evaluation} />
+      <Route path="/login" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -37,34 +40,33 @@ const sidebarStyle = {
   "--sidebar-width-icon": "3rem",
 };
 
-function AuthenticatedApp() {
+function MainApp() {
   const { user, isLoading, logout } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage />;
-  }
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex min-h-screen w-full">
-        <AppSidebar userName={user.name} onLogout={logout} />
+        <AppSidebar userName={user?.name} onLogout={user ? logout : undefined} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-2 p-2 border-b sticky top-0 z-50 bg-background">
             <div className="flex items-center gap-2">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <span className="text-sm font-semibold text-muted-foreground">이유있는 투표</span>
             </div>
-            <span className="text-xs text-muted-foreground pr-2" data-testid="text-user-name">
-              {user.name}님
-            </span>
+            {!isLoading && (
+              user ? (
+                <span className="text-xs text-muted-foreground pr-2" data-testid="text-user-name">
+                  {user.name}님
+                </span>
+              ) : (
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" data-testid="button-header-login">
+                    <LogIn className="w-4 h-4 mr-1.5" />
+                    로그인
+                  </Button>
+                </Link>
+              )
+            )}
           </header>
           <main className="flex-1 overflow-auto">
             <Router />
@@ -83,7 +85,7 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
-          <AuthenticatedApp />
+          <MainApp />
         </AuthProvider>
         <Toaster />
       </TooltipProvider>

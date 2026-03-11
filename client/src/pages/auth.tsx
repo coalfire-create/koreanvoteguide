@@ -4,18 +4,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Vote, Eye, EyeOff, Phone, CheckCircle, Loader2 } from "lucide-react";
+import { Vote, Eye, EyeOff, Phone, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation, Link } from "wouter";
 
 export default function AuthPage() {
+  const { user } = useAuth();
+  const [, nav] = useLocation();
+
+  if (user) {
+    nav("/");
+    return null;
+  }
+
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 py-12"
       style={{ backgroundColor: "#0a0f1e" }}
     >
       <div className="w-full max-w-md">
+        <div className="mb-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid="button-back-home">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              홈으로 돌아가기
+            </Button>
+          </Link>
+        </div>
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-md bg-primary flex items-center justify-center mx-auto mb-4">
             <Vote className="w-7 h-7 text-primary-foreground" />
@@ -58,6 +75,7 @@ export default function AuthPage() {
 function LoginForm() {
   const { login } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -73,6 +91,7 @@ function LoginForm() {
     try {
       await login(username, password);
       toast({ title: "로그인 성공", description: "환영합니다!" });
+      navigate("/");
     } catch (err: any) {
       const msg = err.message?.includes("401")
         ? "아이디 또는 비밀번호가 올바르지 않습니다"
@@ -130,6 +149,7 @@ function LoginForm() {
 function RegisterForm() {
   const { register } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -190,6 +210,7 @@ function RegisterForm() {
     try {
       await register({ username, password, name, phone, verificationCode });
       toast({ title: "회원가입 완료", description: "환영합니다! 자동으로 로그인됩니다." });
+      navigate("/");
     } catch (err: any) {
       const msg = err.message?.includes("400")
         ? "입력 정보를 다시 확인해주세요"

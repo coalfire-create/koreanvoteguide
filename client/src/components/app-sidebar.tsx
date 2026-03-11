@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, UserCheck, Search, BarChart3, Home, LogOut } from "lucide-react";
+import { Users, UserCheck, Search, BarChart3, Home, LogOut, LogIn } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -72,8 +72,8 @@ export function AppSidebar({ userName, onLogout }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      {userName && onLogout && (
-        <SidebarFooter className="p-3 border-t">
+      <SidebarFooter className="p-3 border-t">
+        {userName && onLogout ? (
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-xs font-medium truncate" data-testid="text-sidebar-user">{userName}님</p>
@@ -87,8 +87,15 @@ export function AppSidebar({ userName, onLogout }: AppSidebarProps) {
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
-        </SidebarFooter>
-      )}
+        ) : (
+          <Link href="/login">
+            <Button variant="outline" size="sm" className="w-full" data-testid="button-sidebar-login">
+              <LogIn className="w-4 h-4 mr-1.5" />
+              로그인 / 회원가입
+            </Button>
+          </Link>
+        )}
+      </SidebarFooter>
     </Sidebar>
   );
 }
