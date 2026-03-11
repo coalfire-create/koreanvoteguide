@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, TrendingUp } from "lucide-react";
 import { useAssemblyMembers } from "@/lib/api-data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const { members } = useAssemblyMembers();
   const [, navigate] = useLocation();
+
+  const { data: trending = [] } = useQuery<{ memberId: string; name: string; count: number }[]>({
+    queryKey: ["/api/members/trending"],
+    refetchInterval: 30000,
+  });
 
   const filtered = query.trim().length > 0
     ? members.filter(
@@ -21,6 +28,20 @@ export default function Home() {
           m.district.includes(query)
       )
     : [];
+
+  const handleMemberClick = async (memberId: string, memberName: string) => {
+    apiRequest("POST", `/api/members/${memberId}/click`, { name: memberName }).catch(() => {});
+    navigate(`/members/${memberId}`);
+  };
+
+  const trendingWithDetails = trending
+    .map((t) => {
+      const member = members.find((m) => m.id === t.memberId);
+      return member ? { ...t, member } : null;
+    })
+    .filter(Boolean) as { memberId: string; name: string; count: number; member: (typeof members)[0] }[];
+
+  const showTrending = !showResults || query.trim().length === 0;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] bg-white px-6">
@@ -60,7 +81,7 @@ export default function Home() {
                   {filtered.slice(0, 8).map((member) => (
                     <button
                       key={member.id}
-                      onClick={() => navigate(`/members/${member.id}`)}
+                      onClick={() => handleMemberClick(member.id, member.name)}
                       className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
                       data-testid={`search-result-${member.id}`}
                     >
@@ -94,6 +115,32 @@ export default function Home() {
                 검색 결과가 없습니다
               </p>
             )}
+          </div>
+        )}
+
+        {showTrending && trendingWithDetails.length > 0 && (
+          <div className="mt-8 w-full text-left" data-testid="section-trending">
+            <div className="flex items-center gap-1.5 mb-3 px-1">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span className="text-xs font-semibold text-gray-500">실시간 인기 검색 정치인</span>
+            </div>
+            <div className="flex flex-wrap gap-2 px-1">
+              {trendingWithDetails.map((item, index) => (
+                <button
+                  key={item.memberId}
+                  onClick={() => handleMemberClick(item.memberId, item.name)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                  data-testid={`trending-member-${item.memberId}`}
+                >
+                  <span className="text-xs font-bold text-primary w-4">{index + 1}</span>
+                  <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                    <span className={`w-1.5 h-1.5 rounded-full mr-1 ${getPartyColor(item.member.party)}`} />
+                    {item.member.party}
+                  </Badge>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

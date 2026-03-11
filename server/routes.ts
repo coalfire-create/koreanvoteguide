@@ -29,6 +29,33 @@ function generateAnonNickname(): string {
 
 const userNicknameCache = new Map<string, string>();
 
+const searchClicks = new Map<string, { name: string; count: number; timestamps: number[] }>();
+
+function recordSearchClick(memberId: string, memberName: string) {
+  const now = Date.now();
+  const cutoff = now - 3600000;
+  const entry = searchClicks.get(memberId) || { name: memberName, count: 0, timestamps: [] };
+  entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+  entry.timestamps.push(now);
+  entry.count = entry.timestamps.length;
+  entry.name = memberName;
+  searchClicks.set(memberId, entry);
+}
+
+function getTrendingMembers(limit = 5): { memberId: string; name: string; count: number }[] {
+  const now = Date.now();
+  const cutoff = now - 3600000;
+  const results: { memberId: string; name: string; count: number }[] = [];
+  for (const [memberId, entry] of searchClicks) {
+    entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+    entry.count = entry.timestamps.length;
+    if (entry.count > 0) {
+      results.push({ memberId, name: entry.name, count: entry.count });
+    }
+  }
+  return results.sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
 function getOrCreateNickname(userId: string): string {
   if (!userNicknameCache.has(userId)) {
     userNicknameCache.set(userId, generateAnonNickname());
@@ -256,6 +283,19 @@ export async function registerRoutes(
     } catch (error) {
       res.status(500).json({ error: "의원 데이터 조회 중 오류가 발생했습니다" });
     }
+  });
+
+  app.post("/api/members/:id/click", async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (id && name) {
+      recordSearchClick(id, name);
+    }
+    res.json({ ok: true });
+  });
+
+  app.get("/api/members/trending", async (_req, res) => {
+    res.json(getTrendingMembers(5));
   });
 
   app.get("/api/bills", async (_req, res) => {
