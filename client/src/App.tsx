@@ -14,6 +14,9 @@ import MemberDetail from "@/pages/member-detail";
 import Candidates from "@/pages/candidates";
 import BillSearch from "@/pages/bill-search";
 import Evaluation from "@/pages/evaluation";
+import Community from "@/pages/community";
+import CommunityDetail from "@/pages/community-detail";
+import CommunityWrite from "@/pages/community-write";
 import AuthPage from "@/pages/auth";
 import { LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,9 @@ function Router() {
       <Route path="/candidates" component={Candidates} />
       <Route path="/bills" component={BillSearch} />
       <Route path="/evaluation" component={Evaluation} />
+      <Route path="/community" component={Community} />
+      <Route path="/community/write" component={CommunityWrite} />
+      <Route path="/community/:id" component={CommunityDetail} />
       <Route path="/login" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

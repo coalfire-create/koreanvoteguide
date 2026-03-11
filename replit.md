@@ -15,9 +15,9 @@ A civic transparency web app helping Korean citizens make informed voting decisi
 ## Project Structure
 ```
 client/src/
-├── App.tsx                    # Main app with auth gate + sidebar + routing
+├── App.tsx                    # Main app with bottom nav + routing (no auth gate)
 ├── components/
-│   ├── app-sidebar.tsx        # Navigation sidebar with user info + logout
+│   ├── bottom-nav.tsx         # Bottom navigation bar (5 tabs)
 │   ├── last-updated.tsx       # "마지막 업데이트" timestamp component
 │   ├── splash-screen.tsx      # Animated splash screen (Framer Motion)
 │   └── ui/                    # Shadcn components
@@ -35,13 +35,16 @@ client/src/
 │   ├── candidates.tsx         # Candidates with tabs (presidential/local)
 │   ├── bill-search.tsx        # Bill search with vote breakdown
 │   ├── evaluation.tsx         # Objective scoring dashboard
+│   ├── community.tsx          # Community post list (requires auth)
+│   ├── community-detail.tsx   # Post detail with reactions, comments, reports
+│   ├── community-write.tsx    # Write new post (requires auth)
 │   └── not-found.tsx          # 404 page (Korean)
 shared/
 └── schema.ts                  # Drizzle schema + TypeScript interfaces
 server/
 ├── db.ts                      # PostgreSQL connection pool
 ├── scheduler.ts               # Cron job: fetches Assembly API data hourly
-├── routes.ts                  # API routes (auth + data + status + refresh)
+├── routes.ts                  # API routes (auth + data + community + status)
 └── storage.ts                 # Database storage interface
 ```
 
@@ -51,8 +54,26 @@ server/
 3. **후보자** - Candidate profiles with promises, timelines, star ratings
 4. **법안 검색** - Bill search with per-member vote breakdown
 5. **객관적 평가** - Data-driven scoring: attendance (30%) + voting participation (40%) + bill proposals (30%)
-6. **Splash Screen** - Cinematic animated intro with particle effects
-7. **Data Scheduler** - Hourly cron job fetching from 열린국회정보 API
+6. **커뮤니티** - Anonymous community with posts, comments, agree/disagree polls, like/dislike, reports
+7. **Splash Screen** - Cinematic animated intro with particle effects
+8. **Data Scheduler** - Hourly cron job fetching from 열린국회정보 API
+
+## Navigation
+- Bottom navigation bar with 5 tabs: 홈, 국회의원, 커뮤니티, 법안, 평가
+- Top header with logo + login/logout button
+- Login page at /login route (not auth-gated)
+- All main pages accessible without login; community requires auth
+
+## Community System
+- **Auth gating**: Community access requires login; redirects to login page with message
+- **Anonymous posting**: All authors shown as "익명의 유권자"
+- **Random nicknames**: Server generates nicknames like "정의로운 올빼미 #302" per user session
+- **Privacy**: API strips userId from all responses; isAuthor computed server-side
+- **Two-dimensional reactions**: Stance (찬성/반대) and Sentiment (좋아요/싫어요) are independent
+- **Agree/disagree poll**: Progress bar showing percentage with total vote count
+- **Comments**: Author badge ("글쓴이") for post author's comments
+- **Reports**: Dropdown with 5 report reasons (허위 정보, 욕설/비방, 스팸/광고, 혐오 표현, 기타)
+- **FAB**: Floating write button at bottom-right
 
 ## Scheduler System
 - **Cron**: Runs every hour (0 * * * *) via node-cron
@@ -67,13 +88,17 @@ server/
 - PostgreSQL-backed user accounts with hashed passwords (scrypt)
 - Phone verification with 6-digit codes (demo mode: code displayed on screen)
 - Session management via connect-pg-simple
-- Protected routes: must login to access main app
+- App browsable without login; community features require auth
 
 ## Database Tables
 - `users` - id, username, password (hashed), name, phone, phone_verified, created_at
 - `verification_codes` - id, phone, code, expires_at, used, created_at
 - `assembly_data_cache` - key (text PK), data (jsonb), updated_at
 - `scheduler_status` - id, last_run, success, error_message, consecutive_failures
+- `community_posts` - id, user_id, title, content, anon_nickname, likes, dislikes, agree_count, disagree_count, created_at
+- `community_comments` - id, post_id, user_id, content, anon_nickname, created_at
+- `community_reactions` - id, post_id, user_id, type, dimension (sentiment|stance), created_at
+- `community_reports` - id, post_id, comment_id, user_id, reason, created_at
 - `session` - auto-managed by connect-pg-simple
 
 ## API Endpoints
@@ -83,12 +108,18 @@ server/
 - `POST /api/auth/logout` - Logout
 - `GET /api/auth/me` - Get current user
 - `POST /api/candidates/rate` - Rate candidate (requires auth)
-- `GET /api/status` - Scheduler status (last run, success, failures)
+- `GET /api/status` - Scheduler status
 - `GET /api/members` - Cached assembly members
 - `GET /api/bills` - Cached bills
 - `GET /api/votes/:id` - Member vote records
 - `GET /api/attendance` - Attendance data
 - `POST /api/refresh` - Manual data refresh (requires auth)
+- `GET /api/community/posts` - List posts (sanitized, no userId)
+- `GET /api/community/posts/:id` - Post detail with comments + reactions
+- `POST /api/community/posts` - Create post (requires auth)
+- `POST /api/community/posts/:id/comments` - Add comment (requires auth)
+- `POST /api/community/posts/:id/react` - React to post (requires auth)
+- `POST /api/community/report` - Report post/comment (requires auth)
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string

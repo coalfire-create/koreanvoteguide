@@ -1,10 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Users, UserCheck, Search, BarChart3, Home } from "lucide-react";
+import { Users, UserCheck, Search, BarChart3, Home, MessageSquare } from "lucide-react";
 
 const navItems = [
   { title: "홈", url: "/", icon: Home },
   { title: "국회의원", url: "/members", icon: Users },
-  { title: "후보자", url: "/candidates", icon: UserCheck },
+  { title: "커뮤니티", url: "/community", icon: MessageSquare },
   { title: "법안", url: "/bills", icon: Search },
   { title: "평가", url: "/evaluation", icon: BarChart3 },
 ];

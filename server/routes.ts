@@ -2,12 +2,39 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { type Server } from "http";
 import session from "express-session";
 import { storage } from "./storage";
-import { registerSchema, loginSchema, phoneVerificationSchema } from "@shared/schema";
+import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema } from "@shared/schema";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
 import { pool } from "./db";
 import { fetchAssemblyData } from "./scheduler";
+
+const ANON_ADJECTIVES = [
+  "정의로운", "깨어있는", "용감한", "현명한", "따뜻한",
+  "단단한", "빛나는", "자유로운", "공정한", "성실한",
+  "청렴한", "지혜로운", "당당한", "올곧은", "열정적인",
+];
+const ANON_NOUNS = [
+  "올빼미", "시민", "여우", "독수리", "고래",
+  "사자", "나무", "바다", "해바라기", "별",
+  "펭귄", "수달", "다람쥐", "부엉이", "하늘",
+];
+
+function generateAnonNickname(): string {
+  const adj = ANON_ADJECTIVES[Math.floor(Math.random() * ANON_ADJECTIVES.length)];
+  const noun = ANON_NOUNS[Math.floor(Math.random() * ANON_NOUNS.length)];
+  const num = Math.floor(100 + Math.random() * 900);
+  return `${adj} ${noun} #${num}`;
+}
+
+const userNicknameCache = new Map<string, string>();
+
+function getOrCreateNickname(userId: string): string {
+  if (!userNicknameCache.has(userId)) {
+    userNicknameCache.set(userId, generateAnonNickname());
+  }
+  return userNicknameCache.get(userId)!;
+}
 
 const scryptAsync = promisify(scrypt);
 
@@ -275,6 +302,108 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "수동 갱신 중 오류가 발생했습니다" });
+    }
+  });
+
+  function sanitizePost(post: any) {
+    const { userId, ...safe } = post;
+    return { ...safe, displayName: "익명의 유권자", nickname: post.anonNickname };
+  }
+
+  function sanitizeComment(comment: any, postUserId: string) {
+    const { userId, ...safe } = comment;
+    return { ...safe, displayName: "익명의 유권자", isAuthor: comment.userId === postUserId };
+  }
+
+  app.get("/api/community/posts", async (_req, res) => {
+    try {
+      const posts = await storage.getPosts();
+      res.json(posts.map(sanitizePost));
+    } catch (error) {
+      console.error("Get posts error:", error);
+      res.status(500).json({ error: "게시글 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/community/posts/:id", async (req, res) => {
+    try {
+      const post = await storage.getPost(req.params.id);
+      if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      const comments = await storage.getComments(post.id);
+      let userReactions: { sentiment: string | null; stance: string | null } = { sentiment: null, stance: null };
+      if (req.session.userId) {
+        userReactions = await storage.getUserReactions(post.id, req.session.userId);
+      }
+      res.json({
+        post: sanitizePost(post),
+        comments: comments.map((c) => sanitizeComment(c, post.userId)),
+        userReactions,
+      });
+    } catch (error) {
+      console.error("Get post error:", error);
+      res.status(500).json({ error: "게시글 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/posts", requireAuth, async (req, res) => {
+    try {
+      const result = insertPostSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "제목과 내용을 입력하세요" });
+      }
+      const nickname = getOrCreateNickname(req.session.userId!);
+      const post = await storage.createPost(req.session.userId!, result.data.title, result.data.content, nickname);
+      res.json(sanitizePost(post));
+    } catch (error) {
+      console.error("Create post error:", error);
+      res.status(500).json({ error: "게시글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/posts/:id/comments", requireAuth, async (req, res) => {
+    try {
+      const result = insertCommentSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "댓글 내용을 입력하세요" });
+      }
+      const post = await storage.getPost(req.params.id);
+      if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      const nickname = getOrCreateNickname(req.session.userId!);
+      const comment = await storage.createComment(post.id, req.session.userId!, result.data.content, nickname);
+      res.json(sanitizeComment(comment, post.userId));
+    } catch (error) {
+      console.error("Create comment error:", error);
+      res.status(500).json({ error: "댓글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/posts/:id/react", requireAuth, async (req, res) => {
+    try {
+      const { type } = req.body;
+      if (!["like", "dislike", "agree", "disagree"].includes(type)) {
+        return res.status(400).json({ error: "잘못된 반응 유형입니다" });
+      }
+      await storage.addReaction(req.params.id, req.session.userId!, type);
+      const post = await storage.getPost(req.params.id);
+      const userReactions = await storage.getUserReactions(req.params.id, req.session.userId!);
+      res.json({ post: post ? sanitizePost(post) : null, userReactions });
+    } catch (error) {
+      console.error("React error:", error);
+      res.status(500).json({ error: "반응 처리 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/report", requireAuth, async (req, res) => {
+    try {
+      const result = insertReportSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "신고 사유를 입력하세요" });
+      }
+      await storage.createReport(req.session.userId!, result.data.reason, result.data.postId, result.data.commentId);
+      res.json({ success: true, message: "신고가 접수되었습니다" });
+    } catch (error) {
+      console.error("Report error:", error);
+      res.status(500).json({ error: "신고 처리 중 오류가 발생했습니다" });
     }
   });
 

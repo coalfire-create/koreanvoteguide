@@ -127,6 +127,66 @@ export interface Bill {
   }[];
 }
 
+export const communityPosts = pgTable("community_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  anonNickname: text("anon_nickname").notNull(),
+  likes: integer("likes").default(0).notNull(),
+  dislikes: integer("dislikes").default(0).notNull(),
+  agreeCount: integer("agree_count").default(0).notNull(),
+  disagreeCount: integer("disagree_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const communityComments = pgTable("community_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  anonNickname: text("anon_nickname").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const communityReactions = pgTable("community_reactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  type: text("type").notNull(),
+  dimension: text("dimension").notNull().default("sentiment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const communityReports = pgTable("community_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id"),
+  commentId: varchar("comment_id"),
+  userId: varchar("user_id").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPostSchema = createInsertSchema(communityPosts).pick({
+  title: true,
+  content: true,
+});
+export type InsertPost = z.infer<typeof insertPostSchema>;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+
+export const insertCommentSchema = createInsertSchema(communityComments).pick({
+  content: true,
+});
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type CommunityComment = typeof communityComments.$inferSelect;
+
+export const insertReportSchema = z.object({
+  postId: z.string().optional(),
+  commentId: z.string().optional(),
+  reason: z.string().min(1),
+});
+export type InsertReport = z.infer<typeof insertReportSchema>;
+
 export const assemblyDataCache = pgTable("assembly_data_cache", {
   key: text("key").primaryKey(),
   data: jsonb("data").notNull(),
