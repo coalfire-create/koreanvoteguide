@@ -6,12 +6,34 @@ import { sql } from "drizzle-orm";
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
 const API_KEY = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
 const AGE = "22";
+const PAGE_SIZE = 100;
+const DELAY_MS = 500;
 
-async function fetchPage(serviceId: string, params: Record<string, string> = {}): Promise<any[]> {
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+interface PageResult {
+  rows: any[];
+  totalCount: number;
+}
+
+async function fetchOnePage(
+  serviceId: string,
+  pIndex: number,
+  extraParams: Record<string, string> = {}
+): Promise<PageResult> {
   if (!API_KEY) throw new Error("API 키가 설정되지 않았습니다 (OPEN_ASSEMBLY_API_KEY 또는 ASSEMBLY_API_KEY)");
 
   const response = await axios.get(`${API_BASE}/${serviceId}`, {
-    params: { Key: API_KEY, Type: "json", pIndex: "1", pSize: "300", AGE, ...params },
+    params: {
+      Key: API_KEY,
+      Type: "json",
+      AGE,
+      pIndex: String(pIndex),
+      pSize: String(PAGE_SIZE),
+      ...extraParams,
+    },
     timeout: 30000,
   });
 
@@ -21,16 +43,45 @@ async function fetchPage(serviceId: string, params: Record<string, string> = {})
     if (errorInfo?.CODE && errorInfo.CODE !== "INFO-000") {
       throw new Error(`API 오류: ${errorInfo.MESSAGE || errorInfo.CODE}`);
     }
-    return [];
+    return { rows: [], totalCount: 0 };
   }
 
-  const result = serviceData[0]?.head?.[1]?.RESULT;
+  const head = serviceData[0]?.head;
+  const result = head?.[1]?.RESULT;
   if (result?.CODE && result.CODE !== "INFO-000") {
     throw new Error(`API 오류: ${result.MESSAGE || result.CODE}`);
   }
 
+  const totalCount: number = parseInt(head?.[0]?.list_total_count) || 0;
   const rows = serviceData[1]?.row;
-  return Array.isArray(rows) ? rows : [];
+  return { rows: Array.isArray(rows) ? rows : [], totalCount };
+}
+
+async function fetchAllPages(
+  serviceId: string,
+  extraParams: Record<string, string> = {}
+): Promise<any[]> {
+  const allRows: any[] = [];
+  let pIndex = 1;
+
+  console.log(`[api-sync] ${serviceId} 1페이지 조회 중...`);
+  const first = await fetchOnePage(serviceId, pIndex, extraParams);
+  allRows.push(...first.rows);
+
+  const totalCount = first.totalCount;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  console.log(`[api-sync] 전체 ${totalCount}건 / ${totalPages}페이지`);
+
+  while (pIndex < totalPages) {
+    pIndex++;
+    await delay(DELAY_MS);
+    console.log(`[api-sync] ${serviceId} ${pIndex}/${totalPages} 페이지 조회 중...`);
+    const page = await fetchOnePage(serviceId, pIndex, extraParams);
+    if (page.rows.length === 0) break;
+    allRows.push(...page.rows);
+  }
+
+  return allRows;
 }
 
 export async function syncLegislators(): Promise<{ synced: number; errors: string[] }> {
@@ -39,12 +90,15 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
   let synced = 0;
 
   try {
-    const rows = await fetchPage("nwvrqwxyaytdsfvhu");
-    console.log(`[api-sync] 국회의원 ${rows.length}명 수신`);
+    const rows = await fetchAllPages("nwvrqwxyaytdsfvhu");
+    console.log(`[api-sync] 국회의원 총 ${rows.length}명 수신`);
 
     for (const row of rows) {
       const monaCd = row.MONA_CD || row.HG_NM;
-      if (!monaCd) { errors.push(`MONA_CD 없음: ${JSON.stringify(row).substring(0, 80)}`); continue; }
+      if (!monaCd) {
+        errors.push(`MONA_CD 없음: ${JSON.stringify(row).substring(0, 80)}`);
+        continue;
+      }
 
       try {
         await db
@@ -54,7 +108,9 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
             name: row.HG_NM || "",
             party: row.POLY_NM || "",
             district: row.ORIG_NM || "비례대표",
-            photoUrl: row.HG_NM_A ? `https://open.assembly.go.kr/portal/assm/assmpic/${row.HG_NM_A}` : "",
+            photoUrl: row.HG_NM_A
+              ? `https://open.assembly.go.kr/portal/assm/assmpic/${row.HG_NM_A}`
+              : "",
             committee: row.CMIT_NM || "",
             electedTerm: 22,
             syncedAt: new Date(),
@@ -86,17 +142,20 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
 }
 
 export async function syncBills(): Promise<{ synced: number; errors: string[] }> {
-  console.log("[api-sync] 법안 동기화 시작...");
+  console.log("[api-sync] 법안 동기화 시작 (전체 페이지 수집)...");
   const errors: string[] = [];
   let synced = 0;
 
   try {
-    const rows = await fetchPage("nzmimeepazxkubdpn", { pSize: "100" });
-    console.log(`[api-sync] 법안 ${rows.length}건 수신`);
+    const rows = await fetchAllPages("nzmimeepazxkubdpn");
+    console.log(`[api-sync] 법안 총 ${rows.length}건 수신`);
 
     for (const row of rows) {
       const billId = row.BILL_ID;
-      if (!billId) { errors.push(`BILL_ID 없음`); continue; }
+      if (!billId) {
+        errors.push(`BILL_ID 없음`);
+        continue;
+      }
 
       try {
         await db
@@ -144,13 +203,13 @@ export async function syncBills(): Promise<{ synced: number; errors: string[] }>
 }
 
 export async function syncVotes(): Promise<{ synced: number; errors: string[] }> {
-  console.log("[api-sync] 표결 동기화 시작...");
+  console.log("[api-sync] 표결 동기화 시작 (전체 페이지 수집)...");
   const errors: string[] = [];
   let synced = 0;
 
   try {
-    const rows = await fetchPage("ncocpgfiemocjntve", { pSize: "100" });
-    console.log(`[api-sync] 표결 기록 ${rows.length}건 수신`);
+    const rows = await fetchAllPages("ncocpgfiemocjntve");
+    console.log(`[api-sync] 표결 기록 총 ${rows.length}건 수신`);
 
     for (const row of rows) {
       const billId = row.BILL_ID;
@@ -206,9 +265,9 @@ export async function syncAll(): Promise<{
   const start = Date.now();
 
   const legResult = await syncLegislators();
-  await new Promise(r => setTimeout(r, 500));
+  await delay(DELAY_MS);
   const billResult = await syncBills();
-  await new Promise(r => setTimeout(r, 500));
+  await delay(DELAY_MS);
   const voteResult = await syncVotes();
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
