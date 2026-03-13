@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -223,3 +223,44 @@ export const ratingSchema = z.object({
 });
 
 export type RatingInput = z.infer<typeof ratingSchema>;
+
+export const legislators = pgTable("legislators", {
+  monaCd: text("mona_cd").primaryKey(),
+  name: text("name").notNull(),
+  party: text("party").notNull(),
+  district: text("district").notNull(),
+  photoUrl: text("photo_url").default("").notNull(),
+  committee: text("committee").default("").notNull(),
+  electedTerm: integer("elected_term").default(22).notNull(),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+});
+
+export const assemblyBills = pgTable("assembly_bills", {
+  billId: text("bill_id").primaryKey(),
+  billNo: text("bill_no").default("").notNull(),
+  billName: text("bill_name").notNull(),
+  proposer: text("proposer").default("").notNull(),
+  proposeDate: text("propose_date").default("").notNull(),
+  result: text("result").default("").notNull(),
+  committee: text("committee").default("").notNull(),
+  yesCount: integer("yes_count").default(0).notNull(),
+  noCount: integer("no_count").default(0).notNull(),
+  abstainCount: integer("abstain_count").default(0).notNull(),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+});
+
+export const assemblyVotes = pgTable("assembly_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billId: text("bill_id").notNull(),
+  legislatorId: text("legislator_id").notNull(),
+  legislatorName: text("legislator_name").notNull(),
+  party: text("party").default("").notNull(),
+  voteResult: text("vote_result").notNull(),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  billLegislatorUniq: uniqueIndex("bill_legislator_uniq").on(table.billId, table.legislatorId),
+}));
+
+export type Legislator = typeof legislators.$inferSelect;
+export type AssemblyBill = typeof assemblyBills.$inferSelect;
+export type AssemblyVote = typeof assemblyVotes.$inferSelect;

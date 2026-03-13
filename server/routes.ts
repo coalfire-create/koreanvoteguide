@@ -6,8 +6,11 @@ import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema,
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, db } from "./db";
 import { fetchAssemblyData } from "./scheduler";
+import { syncAll, syncLegislators, syncBills, syncVotes } from "./api-sync";
+import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 const ANON_ADJECTIVES = [
   "정의로운", "깨어있는", "용감한", "현명한", "따뜻한",
@@ -46,13 +49,13 @@ function getTrendingMembers(limit = 5): { memberId: string; name: string; count:
   const now = Date.now();
   const cutoff = now - 3600000;
   const results: { memberId: string; name: string; count: number }[] = [];
-  for (const [memberId, entry] of searchClicks) {
-    entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+  Array.from(searchClicks.entries()).forEach(([memberId, entry]) => {
+    entry.timestamps = entry.timestamps.filter((t: number) => t > cutoff);
     entry.count = entry.timestamps.length;
     if (entry.count > 0) {
       results.push({ memberId, name: entry.name, count: entry.count });
     }
-  }
+  });
   return results.sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
@@ -342,6 +345,78 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "수동 갱신 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/sync", requireAuth, async (_req, res) => {
+    try {
+      const result = await syncAll();
+      res.json({ ok: true, result });
+    } catch (error: any) {
+      res.status(500).json({ error: `동기화 실패: ${error.message}` });
+    }
+  });
+
+  app.post("/api/sync/legislators", requireAuth, async (_req, res) => {
+    try {
+      const result = await syncLegislators();
+      res.json({ ok: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/sync/bills", requireAuth, async (_req, res) => {
+    try {
+      const result = await syncBills();
+      res.json({ ok: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/sync/votes", requireAuth, async (_req, res) => {
+    try {
+      const result = await syncVotes();
+      res.json({ ok: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/legislators", async (_req, res) => {
+    try {
+      const rows = await db.select().from(legislators).orderBy(legislators.name);
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/bills", async (_req, res) => {
+    try {
+      const rows = await db.select().from(assemblyBills).orderBy(desc(assemblyBills.proposeDate));
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/bills/:billId/votes", async (req, res) => {
+    try {
+      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, req.params.billId));
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/legislators/:id/votes", async (req, res) => {
+    try {
+      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

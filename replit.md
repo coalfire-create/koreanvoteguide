@@ -97,13 +97,24 @@ server/
 ## Database Tables
 - `users` - id, username, password (hashed), name, phone, phone_verified, created_at
 - `verification_codes` - id, phone, code, expires_at, used, created_at
-- `assembly_data_cache` - key (text PK), data (jsonb), updated_at
+- `assembly_data_cache` - key (text PK), data (jsonb), updated_at (JSONB cache for raw API data)
 - `scheduler_status` - id, last_run, success, error_message, consecutive_failures
+- `legislators` - mona_cd (PK), name, party, district, photo_url, committee, elected_term, synced_at
+- `assembly_bills` - bill_id (PK), bill_no, bill_name, proposer, propose_date, result, committee, yes_count, no_count, abstain_count, synced_at
+- `assembly_votes` - id (PK UUID), bill_id (FK), legislator_id (FK), legislator_name, party, vote_result, synced_at; unique on (bill_id, legislator_id)
 - `community_posts` - id, user_id, title, content, anon_nickname, likes, dislikes, agree_count, disagree_count, created_at
 - `community_comments` - id, post_id, user_id, content, anon_nickname, created_at
 - `community_reactions` - id, post_id, user_id, type, dimension (sentiment|stance), created_at
 - `community_reports` - id, post_id, comment_id, user_id, reason, created_at
 - `session` - auto-managed by connect-pg-simple
+
+## Data Sync (api-sync.ts)
+- `server/api-sync.ts` - 열린국회정보 API → structured tables sync utility
+- `syncLegislators()` - 국회의원 296명 upsert (mona_cd 기준)
+- `syncBills()` - 법안 100건 upsert (bill_id 기준)
+- `syncVotes()` - 표결 기록 upsert (bill_id + legislator_id unique 기준)
+- `syncAll()` - 위 3개 순차 실행
+- API key: OPEN_ASSEMBLY_API_KEY 또는 ASSEMBLY_API_KEY (fallback)
 
 ## API Endpoints
 - `POST /api/auth/send-code` - Send phone verification code
@@ -118,6 +129,14 @@ server/
 - `GET /api/votes/:id` - Member vote records
 - `GET /api/attendance` - Attendance data
 - `POST /api/refresh` - Manual data refresh (requires auth)
+- `POST /api/sync` - Full sync: legislators + bills + votes (requires auth)
+- `POST /api/sync/legislators` - Sync legislators only (requires auth)
+- `POST /api/sync/bills` - Sync bills only (requires auth)
+- `POST /api/sync/votes` - Sync votes only (requires auth)
+- `GET /api/db/legislators` - Query structured legislators table
+- `GET /api/db/bills` - Query structured bills table
+- `GET /api/db/bills/:billId/votes` - Get all votes for a specific bill
+- `GET /api/db/legislators/:id/votes` - Get all votes by a specific legislator
 - `GET /api/community/posts` - List posts (sanitized, no userId)
 - `GET /api/community/posts/:id` - Post detail with comments + reactions
 - `POST /api/community/posts` - Create post (requires auth)
