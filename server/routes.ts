@@ -9,6 +9,7 @@ import pgSession from "connect-pg-simple";
 import { pool, db } from "./db";
 import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes } from "./api-sync";
+import { calculatePoliticianStance } from "./stance";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import axios from "axios";
@@ -475,6 +476,15 @@ export async function registerRoutes(
     try {
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));
       res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/legislators/:id/stance", async (req, res) => {
+    try {
+      const stance = await calculatePoliticianStance(req.params.id as string);
+      res.json(stance);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

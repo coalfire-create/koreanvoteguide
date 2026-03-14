@@ -3,10 +3,66 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
 import { useAssemblyMembers } from "@/lib/api-data";
+import { useQuery } from "@tanstack/react-query";
+
+interface StanceData {
+  econScore: number;
+  socialScore: number;
+  envScore: number;
+  scoredBillCount: number;
+  hasData: boolean;
+}
+
+interface SpectrumBarProps {
+  score: number;
+  leftLabel: string;
+  rightLabel: string;
+  color: "blue" | "purple" | "green";
+  title: string;
+  testId: string;
+}
+
+function SpectrumBar({ score, leftLabel, rightLabel, color, title, testId }: SpectrumBarProps) {
+  const pct = ((score + 10) / 20) * 100;
+  const centerPct = 50;
+
+  const trackColor = color === "blue" ? "bg-blue-500" : color === "purple" ? "bg-purple-500" : "bg-green-500";
+  const markerBorder = color === "blue" ? "border-blue-600" : color === "purple" ? "border-purple-600" : "border-green-600";
+  const titleColor = color === "blue" ? "text-blue-700" : color === "purple" ? "text-purple-700" : "text-green-700";
+
+  const fillLeft = Math.min(pct, centerPct);
+  const fillWidth = Math.abs(pct - centerPct);
+
+  return (
+    <div data-testid={testId}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={`text-xs font-semibold ${titleColor}`}>{title}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {score > 0 ? "+" : ""}{score.toFixed(1)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+        <span>{leftLabel}</span>
+        <span>{rightLabel}</span>
+      </div>
+      <div className="relative h-3 rounded-full bg-gray-100 overflow-visible">
+        <div
+          className={`absolute inset-y-0 rounded-full transition-all duration-700 ease-out ${trackColor} opacity-70`}
+          style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
+        />
+        <div className="absolute inset-y-0 left-1/2 w-px bg-gray-400 -translate-x-px z-10" />
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-2 shadow-md z-20 transition-all duration-700 ease-out ${markerBorder}`}
+          style={{ left: `calc(${pct}% - 8px)` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function getAttendanceColor(rate: number) {
   if (rate >= 90) return "bg-emerald-500";
@@ -39,6 +95,13 @@ export default function MemberDetail() {
   const { id } = useParams<{ id: string }>();
   const { members, isLoading } = useAssemblyMembers();
   const member = members.find((m) => m.id === id);
+
+  const stanceQuery = useQuery<StanceData>({
+    queryKey: ["/api/db/legislators", id, "stance"],
+    queryFn: () => fetch(`/api/db/legislators/${id}/stance`).then((r) => r.json()),
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+  });
 
   if (isLoading) {
     return (
@@ -205,6 +268,57 @@ export default function MemberDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-6" data-testid="card-stance">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm">이념 성향 분석</h3>
+            {stanceQuery.data?.scoredBillCount != null && stanceQuery.data.scoredBillCount > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {stanceQuery.data.scoredBillCount}개 법안 기준
+              </span>
+            )}
+          </div>
+          {stanceQuery.isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !stanceQuery.data?.hasData ? (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              아직 분석된 법안 점수 데이터가 없습니다.<br />
+              관리자가 법안 성향 점수를 입력하면 자동으로 계산됩니다.
+            </p>
+          ) : (
+            <div className="space-y-5" data-testid="stance-bars">
+              <SpectrumBar
+                score={stanceQuery.data.econScore}
+                title="경제"
+                leftLabel="친기업/성장"
+                rightLabel="친노동/분배"
+                color="blue"
+                testId="spectrum-bar-econ"
+              />
+              <SpectrumBar
+                score={stanceQuery.data.socialScore}
+                title="사회"
+                leftLabel="보존/질서"
+                rightLabel="변화/인권"
+                color="purple"
+                testId="spectrum-bar-social"
+              />
+              <SpectrumBar
+                score={stanceQuery.data.envScore}
+                title="환경"
+                leftLabel="개발/성장"
+                rightLabel="환경 보존"
+                color="green"
+                testId="spectrum-bar-env"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardContent className="p-4">

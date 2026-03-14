@@ -100,7 +100,7 @@ server/
 - `assembly_data_cache` - key (text PK), data (jsonb), updated_at (JSONB cache for raw API data)
 - `scheduler_status` - id, last_run, success, error_message, consecutive_failures
 - `legislators` - mona_cd (PK), name, party, district, photo_url, committee, elected_term, synced_at
-- `assembly_bills` - bill_id (PK), bill_no, bill_name, proposer, propose_date, result, committee, yes_count, no_count, abstain_count, synced_at
+- `assembly_bills` - bill_id (PK), bill_no, bill_name, proposer, propose_date, result, committee, yes_count, no_count, abstain_count, econ_score (REAL nullable), social_score (REAL nullable), env_score (REAL nullable), synced_at
 - `assembly_votes` - id (PK UUID), bill_id (FK), legislator_id (FK), legislator_name, party, vote_result, synced_at; unique on (bill_id, legislator_id)
 - `community_posts` - id, user_id, title, content, anon_nickname, likes, dislikes, agree_count, disagree_count, created_at
 - `community_comments` - id, post_id, user_id, content, anon_nickname, created_at
@@ -137,6 +137,7 @@ server/
 - `GET /api/db/bills` - Query structured bills table
 - `GET /api/db/bills/:billId/votes` - Get all votes for a specific bill
 - `GET /api/db/legislators/:id/votes` - Get all votes by a specific legislator
+- `GET /api/db/legislators/:id/stance` - Calculate ideology stance scores (econ/social/env) from bill votes
 - `GET /api/community/posts` - List posts (sanitized, no userId)
 - `GET /api/community/posts/:id` - Post detail with comments + reactions
 - `POST /api/community/posts` - Create post (requires auth)

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, boolean, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -246,6 +246,9 @@ export const assemblyBills = pgTable("assembly_bills", {
   yesCount: integer("yes_count").default(0).notNull(),
   noCount: integer("no_count").default(0).notNull(),
   abstainCount: integer("abstain_count").default(0).notNull(),
+  econScore: real("econ_score"),
+  socialScore: real("social_score"),
+  envScore: real("env_score"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 });
 
