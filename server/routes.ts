@@ -11,6 +11,66 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes } from "./api-sync";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+import axios from "axios";
+import { XMLParser } from "fast-xml-parser";
+
+// ===== 뉴스 캐시 (15분) =====
+let newsCache: { items: NewsItem[]; cachedAt: number } | null = null;
+const NEWS_CACHE_TTL = 15 * 60 * 1000;
+
+interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+}
+
+function extractText(val: any): string {
+  if (!val) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "number") return String(val);
+  if (val.__cdata) return String(val.__cdata);
+  if (val["#text"]) return String(val["#text"]);
+  return String(val);
+}
+
+async function fetchKoreanPoliticsNews(): Promise<NewsItem[]> {
+  const RSS_FEEDS = [
+    { url: "https://www.yna.co.kr/rss/politics.xml", source: "연합뉴스" },
+    { url: "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml", source: "조선일보" },
+  ];
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "@_",
+    cdataPropName: "__cdata",
+  });
+  const allItems: NewsItem[] = [];
+
+  for (const feed of RSS_FEEDS) {
+    try {
+      const res = await axios.get(feed.url, { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } });
+      const parsed = parser.parse(res.data);
+      const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
+      const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+      for (const item of items.slice(0, 15)) {
+        const title = extractText(item.title);
+        const link = typeof item.link === "string"
+          ? item.link
+          : extractText(item.link?.["@_href"]) || extractText(item.guid) || "";
+        const pubDate = extractText(item.pubDate || item.updated || item.published || "");
+        if (title && link) {
+          allItems.push({ title: title.trim(), link, pubDate, source: feed.source });
+        }
+      }
+    } catch (err: any) {
+      console.error(`[news] ${feed.source} RSS 오류:`, err.message);
+    }
+  }
+
+  console.log(`[news] 수집된 뉴스: ${allItems.length}건`);
+  return allItems.slice(0, 20);
+}
 
 const ANON_ADJECTIVES = [
   "정의로운", "깨어있는", "용감한", "현명한", "따뜻한",
@@ -505,6 +565,21 @@ export async function registerRoutes(
     } catch (error) {
       console.error("React error:", error);
       res.status(500).json({ error: "반응 처리 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/news", async (_req, res) => {
+    try {
+      const now = Date.now();
+      if (newsCache && now - newsCache.cachedAt < NEWS_CACHE_TTL) {
+        return res.json(newsCache.items);
+      }
+      const items = await fetchKoreanPoliticsNews();
+      newsCache = { items, cachedAt: now };
+      res.json(items);
+    } catch (error) {
+      console.error("News fetch error:", error);
+      res.json(newsCache?.items || []);
     }
   });
 
