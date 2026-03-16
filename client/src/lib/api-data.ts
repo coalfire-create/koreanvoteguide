@@ -46,7 +46,7 @@ function transformApiBills(raw: any[]): Bill[] {
     return {
       id: row.BILL_ID || `api-bill-${i}`,
       name: row.BILL_NM || row.BILL_NAME || "",
-      summary: row.DETAIL_LINK || row.RST_PROPOSER || "",
+      summary: row.COMMITTEE || "",
       proposedDate: row.PROPOSE_DT || row.PROC_DT || "",
       proposer: row.RST_PROPOSER || row.PROPOSER || "",
       status,
