@@ -208,7 +208,7 @@ export async function syncVotes(): Promise<{ synced: number; errors: string[] }>
   let synced = 0;
 
   try {
-    const rows = await fetchAllPages("ncocpgfiemocjntve");
+    const rows = await fetchAllPages("nojepdqqaweusdfbi");
     console.log(`[api-sync] 표결 기록 총 ${rows.length}건 수신`);
 
     for (const row of rows) {
@@ -254,6 +254,30 @@ export async function syncVotes(): Promise<{ synced: number; errors: string[] }>
 
   console.log(`[api-sync] 표결 동기화 완료: ${synced}건, 오류: ${errors.length}건`);
   return { synced, errors };
+}
+
+export interface MemberVote {
+  legislatorId: string;
+  legislatorName: string;
+  party: string;
+  voteResult: string;
+}
+
+export async function fetchBillMemberVotes(billId: string): Promise<MemberVote[]> {
+  console.log(`[api-sync] 법안 ${billId} 의원 표결 조회 시작...`);
+  try {
+    const rows = await fetchAllPages("nojepdqqaweusdfbi", { BILL_ID: billId });
+    console.log(`[api-sync] 법안 ${billId} 표결 ${rows.length}건 수신`);
+    return rows.map((r: any) => ({
+      legislatorId: r.MONA_CD || "",
+      legislatorName: r.HG_NM || "",
+      party: r.POLY_NM || "",
+      voteResult: r.RESULT_VOTE_MOD || "알 수 없음",
+    }));
+  } catch (err: any) {
+    console.error(`[api-sync] 법안 ${billId} 표결 조회 실패: ${err.message}`);
+    return [];
+  }
 }
 
 export async function fetchEnactedBillsFromApi(fetchPageCount = 30): Promise<any[]> {

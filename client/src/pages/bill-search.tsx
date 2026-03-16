@@ -1,17 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info, CheckCircle2, Clock } from "lucide-react";
+import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info, CheckCircle2, Clock, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, MinusCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAssemblyBills, useEnactedBills } from "@/lib/api-data";
 import { useQuery } from "@tanstack/react-query";
 import { LastUpdated } from "@/components/last-updated";
 import type { Bill } from "@shared/schema";
+
+interface MemberVote {
+  legislatorId: string;
+  legislatorName: string;
+  party: string;
+  voteResult: string;
+}
 
 interface BillDbDetail {
   billId: string;
@@ -112,6 +120,139 @@ function generateDescription(bill: Bill, dbDetail: BillDbDetail | undefined): st
   }
 
   return desc;
+}
+
+const PARTY_COLORS: Record<string, string> = {
+  "더불어민주당": "bg-blue-100 text-blue-800",
+  "국민의힘": "bg-red-100 text-red-800",
+  "조국혁신당": "bg-teal-100 text-teal-800",
+  "개혁신당": "bg-orange-100 text-orange-800",
+  "진보당": "bg-purple-100 text-purple-800",
+  "기본소득당": "bg-green-100 text-green-800",
+  "사회민주당": "bg-pink-100 text-pink-800",
+  "무소속": "bg-gray-100 text-gray-600",
+};
+
+function partyColor(party: string) {
+  return PARTY_COLORS[party] || "bg-slate-100 text-slate-600";
+}
+
+function MemberVotesSection({ billId }: { billId: string }) {
+  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ 찬성: true, 반대: true, 기권: false, "불참/알 수 없음": false });
+
+  const query = useQuery<{ source: string; votes: MemberVote[] }>({
+    queryKey: ["/api/bills", billId, "member-votes"],
+    queryFn: () => fetch(`/api/bills/${billId}/member-votes`).then((r) => r.json()),
+    enabled: open,
+    staleTime: 12 * 60 * 60 * 1000,
+    retry: 1,
+  });
+
+  const votes = query.data?.votes ?? [];
+  const byResult = votes.reduce<Record<string, MemberVote[]>>((acc, v) => {
+    const key = v.voteResult.includes("찬성") ? "찬성"
+      : v.voteResult.includes("반대") ? "반대"
+      : v.voteResult.includes("기권") ? "기권"
+      : v.voteResult.includes("불참") ? "불참"
+      : "알 수 없음";
+    (acc[key] ??= []).push(v);
+    return acc;
+  }, {});
+
+  const ORDER = ["찬성", "반대", "기권", "불참", "알 수 없음"];
+  const ICONS: Record<string, ReactNode> = {
+    찬성: <ThumbsUp className="w-3.5 h-3.5" />,
+    반대: <ThumbsDown className="w-3.5 h-3.5" />,
+    기권: <MinusCircle className="w-3.5 h-3.5" />,
+    불참: <MinusCircle className="w-3.5 h-3.5" />,
+    "알 수 없음": <MinusCircle className="w-3.5 h-3.5" />,
+  };
+  const COLORS: Record<string, string> = {
+    찬성: "text-blue-600 bg-blue-50 border-blue-200",
+    반대: "text-red-600 bg-red-50 border-red-200",
+    기권: "text-amber-600 bg-amber-50 border-amber-200",
+    불참: "text-gray-500 bg-gray-50 border-gray-200",
+    "알 수 없음": "text-gray-400 bg-gray-50 border-gray-100",
+  };
+
+  return (
+    <div className="border rounded-xl overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+        onClick={() => setOpen(!open)}
+        data-testid="button-toggle-member-votes"
+      >
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm">의원별 표결 현황</span>
+          {votes.length > 0 && (
+            <Badge variant="secondary" className="text-xs">{votes.length}명</Badge>
+          )}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="p-4 space-y-3">
+          {query.isLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              국회 API에서 의원 표결 데이터를 가져오는 중입니다...
+            </div>
+          )}
+
+          {query.isError && (
+            <p className="text-xs text-red-500 text-center py-4">표결 데이터를 불러오지 못했습니다</p>
+          )}
+
+          {!query.isLoading && !query.isError && votes.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">이 법안에 대한 의원 표결 기록이 없습니다</p>
+          )}
+
+          {votes.length > 0 && ORDER.map((result) => {
+            const group = byResult[result] ?? [];
+            if (group.length === 0) return null;
+            const isExpanded = expanded[result] ?? false;
+            const colorClass = COLORS[result as keyof typeof COLORS];
+            return (
+              <div key={result} className={`border rounded-xl overflow-hidden ${colorClass}`}>
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                  onClick={() => setExpanded((e) => ({ ...e, [result]: !e[result] }))}
+                >
+                  <div className="flex items-center gap-2">
+                    {ICONS[result as keyof typeof ICONS]}
+                    <span className="font-semibold text-sm">{result}</span>
+                    <span className="text-xs font-bold">{group.length}명</span>
+                  </div>
+                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {isExpanded && (
+                  <div className="px-3 pb-3 bg-white/60">
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {group.map((v) => (
+                        <span
+                          key={v.legislatorId || v.legislatorName}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${partyColor(v.party)}`}
+                          title={v.party}
+                          data-testid={`badge-vote-${v.legislatorId}`}
+                        >
+                          {v.legislatorName}
+                          <span className="text-[9px] opacity-60">{v.party.replace("더불어민주당", "민주").replace("국민의힘", "국힘").replace("조국혁신당", "조혁").replace("개혁신당", "개혁").replace("진보당", "진보").replace("무소속", "무소")}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function BillDetailSheet({
@@ -285,6 +426,8 @@ function BillDetailSheet({
                   )}
                 </div>
               </div>
+
+              {isRealBill && <MemberVotesSection billId={bill.id} />}
 
               {isRealBill && (
                 <a

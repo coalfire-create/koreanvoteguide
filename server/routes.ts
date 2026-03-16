@@ -8,7 +8,7 @@ import { promisify } from "util";
 import pgSession from "connect-pg-simple";
 import { pool, db } from "./db";
 import { fetchAssemblyData } from "./scheduler";
-import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi } from "./api-sync";
+import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
 import { eq, desc, inArray } from "drizzle-orm";
@@ -18,6 +18,11 @@ import { XMLParser } from "fast-xml-parser";
 // ===== 뉴스 캐시 (15분) =====
 let newsCache: { items: NewsItem[]; cachedAt: number } | null = null;
 const NEWS_CACHE_TTL = 15 * 60 * 1000;
+
+// ===== 법안별 의원 표결 캐시 (12시간) =====
+const billVotesCache = new Map<string, { votes: MemberVote[]; cachedAt: number }>();
+const BILL_VOTES_CACHE_TTL = 12 * 60 * 60 * 1000;
+const billVotesFetching = new Map<string, Promise<MemberVote[]>>();
 
 interface NewsItem {
   title: string;
@@ -507,6 +512,44 @@ export async function registerRoutes(
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, req.params.billId));
       res.json(rows);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bills/:billId/member-votes", async (req, res) => {
+    const { billId } = req.params;
+    try {
+      const cached = billVotesCache.get(billId);
+      if (cached && Date.now() - cached.cachedAt < BILL_VOTES_CACHE_TTL) {
+        return res.json({ source: "cache", votes: cached.votes });
+      }
+
+      const dbRows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, billId));
+      if (dbRows.length > 0) {
+        const votes: MemberVote[] = dbRows.map((r) => ({
+          legislatorId: r.legislatorId,
+          legislatorName: r.legislatorName || "",
+          party: r.party || "",
+          voteResult: r.voteResult || "",
+        }));
+        billVotesCache.set(billId, { votes, cachedAt: Date.now() });
+        return res.json({ source: "db", votes });
+      }
+
+      if (billVotesFetching.has(billId)) {
+        const votes = await billVotesFetching.get(billId)!;
+        return res.json({ source: "api", votes });
+      }
+
+      const fetchPromise = fetchBillMemberVotes(billId);
+      billVotesFetching.set(billId, fetchPromise);
+      const votes = await fetchPromise;
+      billVotesFetching.delete(billId);
+      billVotesCache.set(billId, { votes, cachedAt: Date.now() });
+
+      return res.json({ source: "api", votes });
+    } catch (error: any) {
+      billVotesFetching.delete(billId);
       res.status(500).json({ error: error.message });
     }
   });
