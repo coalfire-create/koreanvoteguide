@@ -3,10 +3,9 @@ import { useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Search, FileText, Loader2, ExternalLink, Users, Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAssemblyBills } from "@/lib/api-data";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +23,87 @@ interface BillDbDetail {
   yesCount: number;
   noCount: number;
   abstainCount: number;
+  econScore: number | null;
+  socialScore: number | null;
+  envScore: number | null;
+}
+
+function SpectrumBar({
+  label,
+  leftLabel,
+  rightLabel,
+  score,
+  leftColor,
+  rightColor,
+}: {
+  label: string;
+  leftLabel: string;
+  rightLabel: string;
+  score: number | null;
+  leftColor: string;
+  rightColor: string;
+}) {
+  const hasScore = score !== null && score !== undefined;
+  const pct = hasScore ? ((score! + 10) / 20) * 100 : 50;
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold text-foreground">{label}</span>
+        {hasScore ? (
+          <span className="text-xs font-bold text-primary">{score! > 0 ? `+${score}` : score}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">데이터 없음</span>
+        )}
+      </div>
+      <div className="relative h-3 rounded-full overflow-hidden"
+        style={{ background: `linear-gradient(to right, ${leftColor}, #e5e7eb 40%, #e5e7eb 60%, ${rightColor})` }}>
+        {hasScore && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-gray-700 shadow-md transition-all duration-500"
+            style={{ left: `calc(${pct}% - 6px)` }}
+          />
+        )}
+      </div>
+      <div className="flex justify-between mt-0.5">
+        <span className="text-[9px] text-muted-foreground">{leftLabel}</span>
+        <span className="text-[9px] text-muted-foreground">{rightLabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function generateDescription(bill: Bill, dbDetail: BillDbDetail | undefined): string {
+  const name = (dbDetail?.billName || bill.name || "").replace(/\s*일부개정법률안$/, "").replace(/\s*전부개정법률안$/, "").replace(/\s*법률안$/, "");
+  const committee = dbDetail?.committee || bill.summary || "";
+  const proposer = dbDetail?.proposer || bill.proposer || "";
+  const date = dbDetail?.proposeDate || bill.proposedDate || "";
+  const result = dbDetail?.result || "";
+
+  let desc = `「${name}」`;
+
+  if (bill.name.includes("일부개정")) {
+    desc += "은 기존 법률의 일부 조항을 수정·보완하는 개정안입니다.";
+  } else if (bill.name.includes("전부개정")) {
+    desc += "은 기존 법률 전체를 전면 개정하는 법안입니다.";
+  } else if (bill.name.includes("특별법") || bill.name.includes("특례법")) {
+    desc += "은 특정 사안에 대한 특별한 법적 근거를 마련하는 법안입니다.";
+  } else {
+    desc += "은 새로운 법적 근거를 마련하는 법안입니다.";
+  }
+
+  if (committee) desc += ` ${committee} 소관으로`;
+  if (proposer) desc += ` ${proposer}에 의해`;
+  if (date) desc += ` ${date}에 발의되었습니다.`;
+  else desc += " 발의되었습니다.";
+
+  if (result && result !== "계류") {
+    desc += ` 현재 ${result} 상태입니다.`;
+  } else {
+    desc += " 현재 심사 진행 중입니다.";
+  }
+
+  return desc;
 }
 
 function BillDetailSheet({
@@ -51,8 +131,9 @@ function BillDetailSheet({
 
   if (!bill) return null;
 
-  const committee = dbQuery.data?.committee || bill.summary || "";
-  const result = dbQuery.data?.result || bill.status || "";
+  const d = dbQuery.data;
+  const committee = d?.committee || bill.summary || "";
+  const result = d?.result || bill.status || "";
 
   const resultStyle = (r: string) => {
     if (r.includes("가결") || r === "통과") return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -60,16 +141,20 @@ function BillDetailSheet({
     return "bg-amber-100 text-amber-700 border-amber-200";
   };
 
-  const yesCount = dbQuery.data?.yesCount ?? 0;
-  const noCount = dbQuery.data?.noCount ?? 0;
-  const abstainCount = dbQuery.data?.abstainCount ?? 0;
+  const yesCount = d?.yesCount ?? 0;
+  const noCount = d?.noCount ?? 0;
+  const abstainCount = d?.abstainCount ?? 0;
   const totalVotes = yesCount + noCount + abstainCount;
+
+  const hasScores = d && (d.econScore !== null || d.socialScore !== null || d.envScore !== null);
+
+  const description = !dbQuery.isLoading ? generateDescription(bill, d) : "";
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="bottom"
-        className="max-h-[82vh] overflow-y-auto rounded-t-2xl px-0 pb-10"
+        className="max-h-[88vh] overflow-y-auto rounded-t-2xl px-0 pb-10"
       >
         <SheetHeader className="px-5 pb-3">
           <div className="flex items-start gap-2 mb-2">
@@ -81,17 +166,27 @@ function BillDetailSheet({
           <Badge variant="outline" className={`self-start text-xs ${resultStyle(result)}`}>
             {result || "계류"}
           </Badge>
+          <SheetDescription className="sr-only">법안 상세 정보 및 이념 성향 분석</SheetDescription>
         </SheetHeader>
 
         <Separator />
 
         <div className="px-5 pt-4 space-y-4">
           {dbQuery.isLoading && isRealBill ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-10 w-full rounded-xl" />
             </div>
           ) : (
             <>
+              {description && (
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3 flex gap-2">
+                  <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">{description}</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-muted/50 rounded-xl p-3">
                   <p className="text-[10px] text-muted-foreground mb-1">발의일</p>
@@ -99,7 +194,7 @@ function BillDetailSheet({
                 </div>
                 <div className="bg-muted/50 rounded-xl p-3">
                   <p className="text-[10px] text-muted-foreground mb-1">법안 번호</p>
-                  <p className="text-sm font-medium">{dbQuery.data?.billNo || "—"}</p>
+                  <p className="text-sm font-medium">{d?.billNo || "—"}</p>
                 </div>
               </div>
 
@@ -143,17 +238,54 @@ function BillDetailSheet({
                     </div>
                   </div>
                   <div className="h-2 rounded-full bg-gray-100 overflow-hidden flex">
-                    <div
-                      className="bg-blue-400 h-full transition-all"
-                      style={{ width: `${(yesCount / totalVotes) * 100}%` }}
-                    />
-                    <div
-                      className="bg-red-400 h-full transition-all"
-                      style={{ width: `${(noCount / totalVotes) * 100}%` }}
-                    />
+                    <div className="bg-blue-400 h-full transition-all" style={{ width: `${(yesCount / totalVotes) * 100}%` }} />
+                    <div className="bg-red-400 h-full transition-all" style={{ width: `${(noCount / totalVotes) * 100}%` }} />
                   </div>
                 </div>
               )}
+
+              <div>
+                <p className="text-xs font-bold mb-3 text-foreground">이념 성향 분석</p>
+                {hasScores ? (
+                  <div className="bg-muted/40 rounded-xl p-4 space-y-1">
+                    <SpectrumBar
+                      label="경제"
+                      leftLabel="친기업 / 규제완화"
+                      rightLabel="친노동 / 복지 / 증세"
+                      score={d!.econScore}
+                      leftColor="#3b82f6"
+                      rightColor="#ef4444"
+                    />
+                    <SpectrumBar
+                      label="사회"
+                      leftLabel="보존 / 질서 / 안보"
+                      rightLabel="변화 / 인권 / 소수자"
+                      score={d!.socialScore}
+                      leftColor="#8b5cf6"
+                      rightColor="#ec4899"
+                    />
+                    <SpectrumBar
+                      label="환경"
+                      leftLabel="개발 / 성장 / 원전"
+                      rightLabel="환경보존 / 친환경"
+                      score={d!.envScore}
+                      leftColor="#f59e0b"
+                      rightColor="#22c55e"
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-muted/40 rounded-xl p-4">
+                    <div className="space-y-1">
+                      <SpectrumBar label="경제" leftLabel="친기업 / 규제완화" rightLabel="친노동 / 복지 / 증세" score={null} leftColor="#3b82f6" rightColor="#ef4444" />
+                      <SpectrumBar label="사회" leftLabel="보존 / 질서 / 안보" rightLabel="변화 / 인권 / 소수자" score={null} leftColor="#8b5cf6" rightColor="#ec4899" />
+                      <SpectrumBar label="환경" leftLabel="개발 / 성장 / 원전" rightLabel="환경보존 / 친환경" score={null} leftColor="#f59e0b" rightColor="#22c55e" />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center mt-2">
+                      아직 분석된 성향 데이터가 없습니다
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {isRealBill && (
                 <a
@@ -205,9 +337,7 @@ function BillCard({
               {bill.name}
             </button>
           </div>
-          <span
-            className={`shrink-0 inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${statusColor[bill.status]}`}
-          >
+          <span className={`shrink-0 inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${statusColor[bill.status]}`}>
             {bill.status}
           </span>
         </div>
@@ -219,17 +349,11 @@ function BillCard({
               {bill.summary}
             </span>
           )}
-          {bill.proposer && (
-            <span>발의: {bill.proposer}</span>
-          )}
-          {bill.proposedDate && (
-            <span>{bill.proposedDate}</span>
-          )}
+          {bill.proposer && <span>발의: {bill.proposer}</span>}
+          {bill.proposedDate && <span>{bill.proposedDate}</span>}
         </div>
 
-        <p className="text-xs text-primary/60 mt-2">
-          ▸ 클릭해서 상세 정보 보기
-        </p>
+        <p className="text-xs text-primary/60 mt-2">▸ 클릭해서 상세 정보 및 성향 분석 보기</p>
       </CardContent>
     </Card>
   );
@@ -289,7 +413,7 @@ export default function BillSearch() {
           <LastUpdated />
         </div>
         <p className="text-muted-foreground text-sm">
-          법안을 검색하고 클릭해서 상세 정보를 확인하세요
+          법안을 클릭해서 설명과 이념 성향 분석을 확인하세요
         </p>
       </div>
 
