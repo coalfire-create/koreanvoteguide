@@ -3,7 +3,7 @@ import type { AssemblyMember, Bill } from "@shared/schema";
 import { assemblyMembers as mockMembers, bills as mockBills, candidates as mockCandidates } from "./mock-data";
 
 interface ApiResponse<T> {
-  source: "api" | "mock";
+  source: "api" | "mock" | "cache" | "db";
   data: T | null;
 }
 
@@ -37,18 +37,37 @@ function transformApiMembers(raw: any[]): AssemblyMember[] {
 }
 
 function transformApiBills(raw: any[]): Bill[] {
-  return raw.slice(0, 100).map((row, i) => {
+  return raw.map((row, i) => {
     let status: "통과" | "계류" | "폐기" = "계류";
-    const result = row.PROC_RESULT_CD || row.RGS_PROC_RESULT_CD || "";
+    const result = row.PROC_RESULT || row.PROC_RESULT_CD || row.RGS_PROC_RESULT_CD || "";
     if (result.includes("가결") || result.includes("통과")) status = "통과";
     else if (result.includes("폐기") || result.includes("부결")) status = "폐기";
 
     return {
       id: row.BILL_ID || `api-bill-${i}`,
       name: row.BILL_NM || row.BILL_NAME || "",
-      summary: row.COMMITTEE || "",
+      summary: row.COMMITTEE || row.COMMITTEE_NM || "",
       proposedDate: row.PROPOSE_DT || row.PROC_DT || "",
       proposer: row.RST_PROPOSER || row.PROPOSER || "",
+      status,
+      votes: [],
+    };
+  });
+}
+
+function transformDbBills(raw: any[]): Bill[] {
+  return raw.map((row) => {
+    let status: "통과" | "계류" | "폐기" = "계류";
+    const result = row.result || "";
+    if (result.includes("가결") || result.includes("통과")) status = "통과";
+    else if (result.includes("폐기") || result.includes("부결")) status = "폐기";
+
+    return {
+      id: row.billId || row.bill_id || "",
+      name: row.billName || row.bill_name || "",
+      summary: row.committee || "",
+      proposedDate: row.proposeDate || row.propose_date || "",
+      proposer: row.proposer || "",
       status,
       votes: [],
     };
@@ -104,7 +123,7 @@ export function useAssemblyBills() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const apiBills = query.data?.source === "api" && query.data.data
+  const apiBills = query.data?.data
     ? transformApiBills(query.data.data)
     : null;
 
@@ -114,6 +133,27 @@ export function useAssemblyBills() {
     bills,
     isLoading: query.isLoading,
     isApi: apiBills !== null && apiBills.length > 0,
+  };
+}
+
+export function useEnactedBills() {
+  const query = useQuery<ApiResponse<any[]>>({
+    queryKey: ["/api/bills/enacted"],
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const data = query.data?.data ?? [];
+  const source = query.data?.source;
+
+  const bills: Bill[] = data.length > 0
+    ? (source === "db" ? transformDbBills(data) : transformApiBills(data))
+    : [];
+
+  return {
+    bills,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    count: bills.length,
   };
 }
 

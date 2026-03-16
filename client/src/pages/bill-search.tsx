@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info, CheckCircle2, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAssemblyBills } from "@/lib/api-data";
+import { useAssemblyBills, useEnactedBills } from "@/lib/api-data";
 import { useQuery } from "@tanstack/react-query";
 import { LastUpdated } from "@/components/last-updated";
 import type { Bill } from "@shared/schema";
@@ -56,8 +57,10 @@ function SpectrumBar({
           <span className="text-xs text-muted-foreground">데이터 없음</span>
         )}
       </div>
-      <div className="relative h-3 rounded-full overflow-hidden"
-        style={{ background: `linear-gradient(to right, ${leftColor}, #e5e7eb 40%, #e5e7eb 60%, ${rightColor})` }}>
+      <div
+        className="relative h-3 rounded-full overflow-hidden"
+        style={{ background: `linear-gradient(to right, ${leftColor}, #e5e7eb 40%, #e5e7eb 60%, ${rightColor})` }}
+      >
         {hasScore && (
           <div
             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-gray-700 shadow-md transition-all duration-500"
@@ -74,7 +77,10 @@ function SpectrumBar({
 }
 
 function generateDescription(bill: Bill, dbDetail: BillDbDetail | undefined): string {
-  const name = (dbDetail?.billName || bill.name || "").replace(/\s*일부개정법률안$/, "").replace(/\s*전부개정법률안$/, "").replace(/\s*법률안$/, "");
+  const name = (dbDetail?.billName || bill.name || "")
+    .replace(/\s*일부개정법률안$/, "")
+    .replace(/\s*전부개정법률안$/, "")
+    .replace(/\s*법률안$/, "");
   const committee = dbDetail?.committee || bill.summary || "";
   const proposer = dbDetail?.proposer || bill.proposer || "";
   const date = dbDetail?.proposeDate || bill.proposedDate || "";
@@ -97,8 +103,10 @@ function generateDescription(bill: Bill, dbDetail: BillDbDetail | undefined): st
   if (date) desc += ` ${date}에 발의되었습니다.`;
   else desc += " 발의되었습니다.";
 
-  if (result && result !== "계류") {
-    desc += ` 현재 ${result} 상태입니다.`;
+  if (result && (result.includes("가결") || result === "통과")) {
+    desc += " 국회에서 가결·통과된 법률입니다.";
+  } else if (result && result.includes("부결")) {
+    desc += " 국회 표결에서 부결되었습니다.";
   } else {
     desc += " 현재 심사 진행 중입니다.";
   }
@@ -133,7 +141,7 @@ function BillDetailSheet({
 
   const d = dbQuery.data;
   const committee = d?.committee || bill.summary || "";
-  const result = d?.result || bill.status || "";
+  const result = d?.result || (bill.status === "통과" ? "가결" : bill.status === "폐기" ? "부결" : "계류");
 
   const resultStyle = (r: string) => {
     if (r.includes("가결") || r === "통과") return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -147,7 +155,6 @@ function BillDetailSheet({
   const totalVotes = yesCount + noCount + abstainCount;
 
   const hasScores = d && (d.econScore !== null || d.socialScore !== null || d.envScore !== null);
-
   const description = !dbQuery.isLoading ? generateDescription(bill, d) : "";
 
   return (
@@ -246,45 +253,37 @@ function BillDetailSheet({
 
               <div>
                 <p className="text-xs font-bold mb-3 text-foreground">이념 성향 분석</p>
-                {hasScores ? (
-                  <div className="bg-muted/40 rounded-xl p-4 space-y-1">
-                    <SpectrumBar
-                      label="경제"
-                      leftLabel="친기업 / 규제완화"
-                      rightLabel="친노동 / 복지 / 증세"
-                      score={d!.econScore}
-                      leftColor="#3b82f6"
-                      rightColor="#ef4444"
-                    />
-                    <SpectrumBar
-                      label="사회"
-                      leftLabel="보존 / 질서 / 안보"
-                      rightLabel="변화 / 인권 / 소수자"
-                      score={d!.socialScore}
-                      leftColor="#8b5cf6"
-                      rightColor="#ec4899"
-                    />
-                    <SpectrumBar
-                      label="환경"
-                      leftLabel="개발 / 성장 / 원전"
-                      rightLabel="환경보존 / 친환경"
-                      score={d!.envScore}
-                      leftColor="#f59e0b"
-                      rightColor="#22c55e"
-                    />
-                  </div>
-                ) : (
-                  <div className="bg-muted/40 rounded-xl p-4">
-                    <div className="space-y-1">
-                      <SpectrumBar label="경제" leftLabel="친기업 / 규제완화" rightLabel="친노동 / 복지 / 증세" score={null} leftColor="#3b82f6" rightColor="#ef4444" />
-                      <SpectrumBar label="사회" leftLabel="보존 / 질서 / 안보" rightLabel="변화 / 인권 / 소수자" score={null} leftColor="#8b5cf6" rightColor="#ec4899" />
-                      <SpectrumBar label="환경" leftLabel="개발 / 성장 / 원전" rightLabel="환경보존 / 친환경" score={null} leftColor="#f59e0b" rightColor="#22c55e" />
-                    </div>
+                <div className="bg-muted/40 rounded-xl p-4">
+                  <SpectrumBar
+                    label="경제"
+                    leftLabel="친기업 / 규제완화"
+                    rightLabel="친노동 / 복지 / 증세"
+                    score={hasScores ? d!.econScore : null}
+                    leftColor="#3b82f6"
+                    rightColor="#ef4444"
+                  />
+                  <SpectrumBar
+                    label="사회"
+                    leftLabel="보존 / 질서 / 안보"
+                    rightLabel="변화 / 인권 / 소수자"
+                    score={hasScores ? d!.socialScore : null}
+                    leftColor="#8b5cf6"
+                    rightColor="#ec4899"
+                  />
+                  <SpectrumBar
+                    label="환경"
+                    leftLabel="개발 / 성장 / 원전"
+                    rightLabel="환경보존 / 친환경"
+                    score={hasScores ? d!.envScore : null}
+                    leftColor="#f59e0b"
+                    rightColor="#22c55e"
+                  />
+                  {!hasScores && (
                     <p className="text-[10px] text-muted-foreground text-center mt-2">
                       아직 분석된 성향 데이터가 없습니다
                     </p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {isRealBill && (
@@ -310,9 +309,11 @@ function BillDetailSheet({
 function BillCard({
   bill,
   onSelect,
+  showEnactedBadge = false,
 }: {
   bill: Bill;
   onSelect: (bill: Bill) => void;
+  showEnactedBadge?: boolean;
 }) {
   const statusColor = {
     통과: "bg-emerald-50 text-emerald-700",
@@ -378,19 +379,25 @@ function BillsSkeleton() {
   );
 }
 
-export default function BillSearch() {
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const initialQuery = params.get("q") || "";
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
-  const { bills, isLoading } = useAssemblyBills();
-
-  useEffect(() => {
-    const q = new URLSearchParams(search).get("q");
-    if (q) setSearchQuery(q);
-  }, [search]);
-
+function BillList({
+  bills,
+  isLoading,
+  isError,
+  searchQuery,
+  onSelect,
+  emptyMessage,
+  loadingNote,
+  showEnactedBadge = false,
+}: {
+  bills: Bill[];
+  isLoading: boolean;
+  isError?: boolean;
+  searchQuery: string;
+  onSelect: (b: Bill) => void;
+  emptyMessage: string;
+  loadingNote?: string;
+  showEnactedBadge?: boolean;
+}) {
   const filtered = searchQuery
     ? bills.filter(
         (b) =>
@@ -400,15 +407,73 @@ export default function BillSearch() {
       )
     : bills;
 
+  if (isLoading) return (
+    <div>
+      {loadingNote && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 p-3 bg-muted/50 rounded-xl">
+          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+          {loadingNote}
+        </div>
+      )}
+      <BillsSkeleton />
+    </div>
+  );
+
+  if (isError) return (
+    <div className="text-center py-16">
+      <p className="text-muted-foreground text-sm">데이터를 불러오는 중 오류가 발생했습니다</p>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <Badge variant="secondary" className="text-xs">전체 {filtered.length}건</Badge>
+        {searchQuery && (
+          <Badge variant="outline" className="text-xs">&ldquo;{searchQuery}&rdquo; 검색결과</Badge>
+        )}
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="space-y-4">
+          {filtered.map((bill) => (
+            <BillCard key={bill.id} bill={bill} onSelect={onSelect} showEnactedBadge={showEnactedBadge} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16">
+          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground" data-testid="text-no-bill-results">{emptyMessage}</p>
+          <p className="text-xs text-muted-foreground mt-1">다른 키워드로 검색해 보세요</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function BillSearch() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const initialQuery = params.get("q") || "";
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [activeTab, setActiveTab] = useState<"proposed" | "enacted">("proposed");
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+
+  const { bills: proposedBills, isLoading: proposedLoading } = useAssemblyBills();
+  const { bills: enactedBills, isLoading: enactedLoading, isError: enactedError } = useEnactedBills();
+
+  useEffect(() => {
+    const q = new URLSearchParams(search).get("q");
+    if (q) setSearchQuery(q);
+  }, [search]);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <FileText className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold" data-testid="text-page-title-bills">
-              법안 검색
-            </h1>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title-bills">법안 검색</h1>
           </div>
           <LastUpdated />
         </div>
@@ -417,7 +482,7 @@ export default function BillSearch() {
         </p>
       </div>
 
-      <div className="relative mb-6">
+      <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="search"
@@ -429,36 +494,41 @@ export default function BillSearch() {
         />
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
-        <Badge variant="secondary" className="text-xs">
-          전체 {filtered.length}건
-        </Badge>
-        {searchQuery && (
-          <Badge variant="outline" className="text-xs">
-            &ldquo;{searchQuery}&rdquo; 검색결과
-          </Badge>
-        )}
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "proposed" | "enacted")} className="w-full">
+        <TabsList className="w-full mb-5 grid grid-cols-2">
+          <TabsTrigger value="proposed" className="flex items-center gap-1.5" data-testid="tab-proposed-bills">
+            <Clock className="w-3.5 h-3.5" />
+            심사 중인 법안
+          </TabsTrigger>
+          <TabsTrigger value="enacted" className="flex items-center gap-1.5" data-testid="tab-enacted-bills">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            통과된 법안
+          </TabsTrigger>
+        </TabsList>
 
-      {isLoading ? (
-        <BillsSkeleton />
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((bill) => (
-            <BillCard key={bill.id} bill={bill} onSelect={setSelectedBill} />
-          ))}
-        </div>
-      )}
+        <TabsContent value="proposed">
+          <BillList
+            bills={proposedBills}
+            isLoading={proposedLoading}
+            searchQuery={searchQuery}
+            onSelect={setSelectedBill}
+            emptyMessage="검색 결과가 없습니다"
+          />
+        </TabsContent>
 
-      {!isLoading && filtered.length === 0 && (
-        <div className="text-center py-16">
-          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground" data-testid="text-no-bill-results">
-            검색 결과가 없습니다
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">다른 키워드로 검색해 보세요</p>
-        </div>
-      )}
+        <TabsContent value="enacted">
+          <BillList
+            bills={enactedBills}
+            isLoading={enactedLoading}
+            isError={enactedError}
+            searchQuery={searchQuery}
+            onSelect={setSelectedBill}
+            emptyMessage="통과된 법안이 없습니다"
+            loadingNote="국회 API에서 통과된 법안을 불러오는 중입니다. 잠시만 기다려주세요..."
+            showEnactedBadge
+          />
+        </TabsContent>
+      </Tabs>
 
       <BillDetailSheet
         bill={selectedBill}

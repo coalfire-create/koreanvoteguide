@@ -9,7 +9,7 @@ const AGE = "22";
 const PAGE_SIZE = 100;
 const DELAY_MS = 500;
 
-function delay(ms: number) {
+export function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
@@ -254,6 +254,35 @@ export async function syncVotes(): Promise<{ synced: number; errors: string[] }>
 
   console.log(`[api-sync] 표결 동기화 완료: ${synced}건, 오류: ${errors.length}건`);
   return { synced, errors };
+}
+
+export async function fetchEnactedBillsFromApi(fetchPageCount = 30): Promise<any[]> {
+  console.log(`[api-sync] 가결 법안 조회 시작 (뒤 ${fetchPageCount}페이지)...`);
+  const enacted: any[] = [];
+
+  const { rows: firstRows, totalCount } = await fetchOnePage("nzmimeepazxkubdpn", 1);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  console.log(`[api-sync] 전체 ${totalCount}건 / ${totalPages}페이지, 마지막 ${fetchPageCount}페이지 조회 예정`);
+
+  const startPage = Math.max(1, totalPages - fetchPageCount + 1);
+
+  for (let page = startPage; page <= totalPages; page++) {
+    try {
+      const { rows } = await fetchOnePage("nzmimeepazxkubdpn", page);
+      const procResult = (r: any) => r.PROC_RESULT_CD || r.PROC_RESULT || "";
+      const passed = rows.filter((r: any) => procResult(r).trim() !== "" && !procResult(r).includes("철회"));
+      enacted.push(...passed);
+      console.log(`[api-sync] 페이지 ${page}/${totalPages}: ${rows.length}건 조회, 처리됨 ${passed.length}건 (누계 ${enacted.length}건)`);
+      if (rows.length < PAGE_SIZE) break;
+      if (page < totalPages) await delay(DELAY_MS);
+    } catch (err: any) {
+      console.error(`[api-sync] 페이지 ${page} 조회 실패: ${err.message}`);
+      break;
+    }
+  }
+
+  console.log(`[api-sync] 가결 법안 조회 완료: 총 ${enacted.length}건`);
+  return enacted;
 }
 
 export async function syncAll(): Promise<{

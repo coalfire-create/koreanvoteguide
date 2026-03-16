@@ -8,7 +8,7 @@ import { promisify } from "util";
 import pgSession from "connect-pg-simple";
 import { pool, db } from "./db";
 import { fetchAssemblyData } from "./scheduler";
-import { syncAll, syncLegislators, syncBills, syncVotes } from "./api-sync";
+import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
 import { eq, desc, inArray } from "drizzle-orm";
@@ -371,6 +371,35 @@ export async function registerRoutes(
       return res.json({ source: "mock", data: null });
     } catch (error) {
       res.status(500).json({ error: "법안 데이터 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  let enactedBillsCache: { data: any[]; fetchedAt: number } | null = null;
+  const ENACTED_CACHE_TTL = 6 * 60 * 60 * 1000; // 6시간
+
+  app.get("/api/bills/enacted", async (_req, res) => {
+    try {
+      if (enactedBillsCache && Date.now() - enactedBillsCache.fetchedAt < ENACTED_CACHE_TTL) {
+        return res.json({ source: "cache", data: enactedBillsCache.data });
+      }
+
+      const dbRows = await db
+        .select()
+        .from(assemblyBills)
+        .where(eq(assemblyBills.result, "가결"))
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(500);
+
+      if (dbRows.length >= 10) {
+        enactedBillsCache = { data: dbRows, fetchedAt: Date.now() };
+        return res.json({ source: "db", data: dbRows });
+      }
+
+      const apiRows = await fetchEnactedBillsFromApi(20);
+      enactedBillsCache = { data: apiRows, fetchedAt: Date.now() };
+      res.json({ source: "api", data: apiRows });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "통과된 법안 조회 오류" });
     }
   });
 
