@@ -11,7 +11,7 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 
@@ -463,6 +463,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/db/bills/:billId", async (req, res) => {
+    try {
+      const rows = await db.select().from(assemblyBills).where(eq(assemblyBills.billId, req.params.billId as string));
+      if (rows.length === 0) return res.status(404).json({ error: "법안을 찾을 수 없습니다" });
+      res.json(rows[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/db/bills/:billId/votes", async (req, res) => {
     try {
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, req.params.billId));
@@ -475,6 +485,26 @@ export async function registerRoutes(
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
     try {
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/db/legislators/:id/voting-records", async (req, res) => {
+    try {
+      const rows = await db
+        .select({
+          billId: assemblyVotes.billId,
+          billName: assemblyBills.billName,
+          voteResult: assemblyVotes.voteResult,
+          proposeDate: assemblyBills.proposeDate,
+        })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(eq(assemblyVotes.legislatorId, req.params.id as string))
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(200);
       res.json(rows);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
