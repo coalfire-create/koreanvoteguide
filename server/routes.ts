@@ -24,6 +24,14 @@ const billVotesCache = new Map<string, { votes: MemberVote[]; cachedAt: number }
 const BILL_VOTES_CACHE_TTL = 12 * 60 * 60 * 1000;
 const billVotesFetching = new Map<string, Promise<MemberVote[]>>();
 
+// ===== 의원별 전체 표결 이력 캐시 (6시간) =====
+interface LegislatorHistoryCache {
+  votes: { billId: string; billName: string; voteResult: string }[];
+  cachedAt: number;
+}
+const legislatorHistoryCache = new Map<string, LegislatorHistoryCache>();
+const LEGISLATOR_HISTORY_CACHE_TTL = 6 * 60 * 60 * 1000;
+
 // ===== 의원별 표결 역인덱스 (billId/billName 메타 포함) =====
 interface LegislatorVoteEntry {
   billId: string;
@@ -598,6 +606,104 @@ export async function registerRoutes(
     res.json({ monaCode, bills: enriched, total: enriched.length });
   });
 
+  // ===== 의원별 전체 표결 이력 (캐시 + API 배치 조회) =====
+  app.get("/api/legislators/:monaCode/vote-history", async (req, res) => {
+    const { monaCode } = req.params;
+
+    // 1. 의원별 캐시 확인 (결과가 있을 때만 신뢰)
+    const cached = legislatorHistoryCache.get(monaCode);
+    if (cached && cached.votes.length > 0 && Date.now() - cached.cachedAt < LEGISLATOR_HISTORY_CACHE_TTL) {
+      return res.json({ monaCode, votes: cached.votes, total: cached.votes.length, source: "cache" });
+    }
+
+    const seenBills = new Set<string>();
+    const votes: { billId: string; billName: string; voteResult: string }[] = [];
+
+    // 2. 역인덱스에서 즉시 수집
+    for (const entry of (legislatorVotesIndex.get(monaCode) ?? [])) {
+      if (!seenBills.has(entry.billId)) {
+        votes.push(entry);
+        seenBills.add(entry.billId);
+      }
+    }
+
+    // 3. billVotesCache 전체 스캔 (in-memory, 즉시)
+    for (const [billId, cacheEntry] of billVotesCache.entries()) {
+      if (!seenBills.has(billId)) {
+        const myVote = cacheEntry.votes.find((v) => v.legislatorId === monaCode);
+        if (myVote) {
+          const billName = getBillNameFromCache(billId);
+          votes.push({ billId, billName, voteResult: myVote.voteResult });
+          seenBills.add(billId);
+        }
+      }
+    }
+
+    // 4. DB에서 보완
+    try {
+      const dbRows = await db
+        .select({
+          billId: assemblyVotes.billId,
+          voteResult: assemblyVotes.voteResult,
+          billName: assemblyBills.billName,
+        })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(eq(assemblyVotes.legislatorId, monaCode));
+      for (const row of dbRows) {
+        if (!seenBills.has(row.billId)) {
+          votes.push({ billId: row.billId, billName: row.billName || row.billId, voteResult: row.voteResult || "" });
+          seenBills.add(row.billId);
+        }
+      }
+    } catch {}
+
+    // 5. 가결된 법안 목록 기준으로 API 배치 조회 (캐시된 경우에만, 최근 15건)
+    if (enactedBillsCache) {
+      const billsToFetch = enactedBillsCache.data
+        .filter((b: any) => {
+          const bid = b.BILL_ID || b.billId;
+          return bid && !seenBills.has(bid);
+        })
+        .slice(0, 15);
+
+      const CONCURRENCY = 8;
+      for (let i = 0; i < billsToFetch.length; i += CONCURRENCY) {
+        const batch = billsToFetch.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map(async (bill: any) => {
+            const billId = bill.BILL_ID || bill.billId;
+            const billNameFromList = bill.BILL_NM || bill.BILL_NAME || bill.billName || billId;
+            try {
+              let bVotes: MemberVote[];
+              const inCache = billVotesCache.get(billId);
+              if (inCache) {
+                bVotes = inCache.votes;
+              } else {
+                const result = await fetchBillMemberVotes(billId);
+                bVotes = result.votes;
+                const resolvedName = result.billName || billNameFromList;
+                billVotesCache.set(billId, { votes: bVotes, cachedAt: Date.now() });
+                updateLegislatorVotesIndex(billId, resolvedName, bVotes);
+              }
+              if (!seenBills.has(billId)) {
+                const myVote = bVotes.find((v) => v.legislatorId === monaCode);
+                if (myVote) {
+                  const resolvedName = getBillNameFromCache(billId) || billNameFromList;
+                  votes.push({ billId, billName: resolvedName, voteResult: myVote.voteResult });
+                  seenBills.add(billId);
+                }
+              }
+            } catch {}
+          })
+        );
+      }
+    }
+
+    legislatorHistoryCache.set(monaCode, { votes, cachedAt: Date.now() });
+    res.json({ monaCode, votes, total: votes.length, source: "fresh" });
+  });
+
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
     try {
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));
@@ -752,6 +858,36 @@ export async function registerRoutes(
       res.status(500).json({ error: "신고 처리 중 오류가 발생했습니다" });
     }
   });
+
+  // ===== 서버 시작 후 백그라운드 사전 로드 (최근 가결 법안 표결 캐시 구축) =====
+  setTimeout(async () => {
+    console.log("[startup] 백그라운드 표결 사전 로드 시작...");
+    try {
+      if (!enactedBillsCache) {
+        const apiRows = await fetchEnactedBillsFromApi(20);
+        enactedBillsCache = { data: apiRows, fetchedAt: Date.now() };
+        console.log(`[startup] 가결 법안 ${apiRows.length}건 로드 완료`);
+      }
+      const topBills = enactedBillsCache.data.slice(0, 20);
+      const BATCH = 6;
+      for (let i = 0; i < topBills.length; i += BATCH) {
+        await Promise.all(
+          topBills.slice(i, i + BATCH).map(async (b: any) => {
+            const billId = b.BILL_ID || b.billId;
+            if (!billId || billVotesCache.has(billId)) return;
+            try {
+              const result = await fetchBillMemberVotes(billId);
+              billVotesCache.set(billId, { votes: result.votes, cachedAt: Date.now() });
+              updateLegislatorVotesIndex(billId, result.billName, result.votes);
+            } catch {}
+          })
+        );
+      }
+      console.log(`[startup] 표결 사전 로드 완료 (${billVotesCache.size}개 법안 캐시)`);
+    } catch (err: any) {
+      console.error("[startup] 표결 사전 로드 오류:", err.message);
+    }
+  }, 8000);
 
   return httpServer;
 }

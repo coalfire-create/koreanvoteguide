@@ -277,22 +277,33 @@ export default function MemberDetail() {
   });
 
   const [selectedBill, setSelectedBill] = useState<{ billId: string; billName: string; vote: string } | null>(null);
+  const [voteFilter, setVoteFilter] = useState<"전체" | "찬성" | "반대" | "기권" | "불참">("전체");
 
-  const dbVotesQuery = useQuery<{ billId: string; billName: string; voteResult: string; proposeDate: string | null }[]>({
-    queryKey: ["/api/db/legislators", id, "voting-records"],
-    queryFn: () => fetch(`/api/db/legislators/${id}/voting-records`).then((r) => r.json()),
+  const voteHistoryQuery = useQuery<{
+    monaCode: string;
+    votes: { billId: string; billName: string; voteResult: string }[];
+    total: number;
+    source: string;
+  }>({
+    queryKey: ["/api/legislators", id, "vote-history"],
+    queryFn: () => fetch(`/api/legislators/${id}/vote-history`).then((r) => r.json()),
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
   });
 
-  const dbVotingRecords = (dbVotesQuery.data ?? []).map((r) => ({
-    billId: r.billId,
-    billName: r.billName ?? r.billId,
-    vote: r.voteResult as "찬성" | "반대" | "불출석" | "미참석",
-    date: r.proposeDate ?? "",
-  }));
-
-  const displayVotingRecords = dbVotingRecords.length > 0 ? dbVotingRecords : member.votingRecords;
+  const allVotes = voteHistoryQuery.data?.votes ?? [];
+  const voteStats = {
+    찬성: allVotes.filter(v => v.voteResult === "찬성").length,
+    반대: allVotes.filter(v => v.voteResult === "반대").length,
+    기권: allVotes.filter(v => v.voteResult === "기권").length,
+    불참: allVotes.filter(v => v.voteResult === "불참" || v.voteResult === "불출석" || v.voteResult === "미참석").length,
+  };
+  const filteredVotes = voteFilter === "전체"
+    ? allVotes
+    : allVotes.filter(v => {
+        if (voteFilter === "불참") return v.voteResult === "불참" || v.voteResult === "불출석" || v.voteResult === "미참석";
+        return v.voteResult === voteFilter;
+      });
 
   if (isLoading) {
     return (
@@ -345,16 +356,6 @@ export default function MemberDetail() {
 법안 발의 점수: 최솟값(100, ${member.score.billProposalCount} × 5) = ${billProposalScore}% × 0.3 = ${(billProposalScore * 0.3).toFixed(1)}점
 종합: ${member.score.totalScore}점 (${getScoreGrade(member.score.totalScore)})`;
 
-  const voteStats = displayVotingRecords.reduce(
-    (acc, r) => {
-      if (r.vote === "찬성") acc.agree++;
-      else if (r.vote === "반대") acc.disagree++;
-      else acc.other++;
-      return acc;
-    },
-    { agree: 0, disagree: 0, other: 0 }
-  );
-  const totalVotes = displayVotingRecords.length;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -530,55 +531,94 @@ export default function MemberDetail() {
         </TabsList>
 
         <TabsContent value="votes">
-          {totalVotes > 0 && (
-            <div className="flex items-center gap-3 mb-4 flex-wrap" data-testid="vote-stats-summary">
-              <Badge className="bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100">
-                찬성 {voteStats.agree}건
-              </Badge>
-              <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">
-                반대 {voteStats.disagree}건
-              </Badge>
-              <Badge className="bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-100">
-                기권/불출석 {voteStats.other}건
-              </Badge>
-              <span className="text-xs text-muted-foreground">총 {totalVotes}건</span>
+          {voteHistoryQuery.isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="w-7 h-7 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">법안 표결 기록을 불러오는 중...</p>
+              <p className="text-xs text-muted-foreground">최근 가결 법안의 표결 이력을 수집합니다 (최대 30초)</p>
             </div>
-          )}
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                {displayVotingRecords.length > 0 ? (
-                  <div className="divide-y">
-                    {displayVotingRecords.map((record) => (
-                      <div key={record.billId} className="flex items-center gap-3 px-4 py-3" data-testid={`row-vote-${record.billId}`}>
-                        <div className="flex-1 min-w-0">
-                          <button
-                            onClick={() => setSelectedBill({ billId: record.billId, billName: record.billName, vote: record.vote })}
-                            className="text-sm font-medium text-left hover:text-primary hover:underline underline-offset-2 transition-colors w-full"
-                            data-testid={`button-bill-detail-${record.billId}`}
+          ) : (
+            <>
+              {allVotes.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap" data-testid="vote-stats-summary">
+                  <button
+                    onClick={() => setVoteFilter("전체")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${voteFilter === "전체" ? "bg-foreground text-background border-foreground" : "bg-background border-border text-muted-foreground hover:border-foreground"}`}
+                    data-testid="filter-all"
+                  >
+                    전체 {allVotes.length}건
+                  </button>
+                  <button
+                    onClick={() => setVoteFilter("찬성")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${voteFilter === "찬성" ? "bg-blue-600 text-white border-blue-600" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
+                    data-testid="filter-agree"
+                  >
+                    찬성 {voteStats.찬성}건
+                  </button>
+                  <button
+                    onClick={() => setVoteFilter("반대")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${voteFilter === "반대" ? "bg-red-600 text-white border-red-600" : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}
+                    data-testid="filter-disagree"
+                  >
+                    반대 {voteStats.반대}건
+                  </button>
+                  <button
+                    onClick={() => setVoteFilter("기권")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${voteFilter === "기권" ? "bg-amber-600 text-white border-amber-600" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}
+                    data-testid="filter-abstain"
+                  >
+                    기권 {voteStats.기권}건
+                  </button>
+                  <button
+                    onClick={() => setVoteFilter("불참")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${voteFilter === "불참" ? "bg-gray-600 text-white border-gray-600" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"}`}
+                    data-testid="filter-absent"
+                  >
+                    불참 {voteStats.불참}건
+                  </button>
+                </div>
+              )}
+              <Card>
+                <CardContent className="p-0">
+                  {filteredVotes.length > 0 ? (
+                    <div className="divide-y max-h-[60vh] overflow-y-auto">
+                      {filteredVotes.map((record) => (
+                        <div key={record.billId} className="flex items-center gap-3 px-4 py-3" data-testid={`row-vote-${record.billId}`}>
+                          <div className="flex-1 min-w-0">
+                            <button
+                              onClick={() => setSelectedBill({ billId: record.billId, billName: record.billName, vote: record.voteResult })}
+                              className="text-sm font-medium text-left hover:text-primary hover:underline underline-offset-2 transition-colors w-full truncate block"
+                              data-testid={`button-bill-detail-${record.billId}`}
+                            >
+                              {record.billName}
+                            </button>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`shrink-0 ${getVoteBadgeVariant(record.voteResult).className}`}
+                            data-testid={`badge-vote-${record.billId}`}
                           >
-                            {record.billName}
-                          </button>
-                          <p className="text-xs text-muted-foreground mt-0.5">{record.date}</p>
+                            {record.voteResult}
+                          </Badge>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={`shrink-0 ${getVoteBadgeVariant(record.vote).className}`}
-                          data-testid={`badge-vote-${record.billId}`}
-                        >
-                          {record.vote}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center text-muted-foreground text-sm">
-                    투표 기록이 없습니다
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-muted-foreground text-sm">
+                      {allVotes.length === 0 ? (
+                        <div>
+                          <p className="mb-1">표결 기록이 없습니다</p>
+                          <p className="text-xs">법안 검색 탭에서 가결된 법안을 열람하면 표결 기록이 자동 수집됩니다</p>
+                        </div>
+                      ) : (
+                        `${voteFilter} 결과의 법안이 없습니다`
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="activities">
