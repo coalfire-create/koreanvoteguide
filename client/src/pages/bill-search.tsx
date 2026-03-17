@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info, CheckCircle2, Clock, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, MinusCircle } from "lucide-react";
+import { Search, FileText, Loader2, ExternalLink, Users, Building2, Info, CheckCircle2, Clock, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, MinusCircle, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAssemblyBills, useEnactedBills } from "@/lib/api-data";
 import { useQuery } from "@tanstack/react-query";
@@ -137,7 +137,131 @@ function partyColor(party: string) {
   return PARTY_COLORS[party] || "bg-slate-100 text-slate-600";
 }
 
-function MemberVotesSection({ billId }: { billId: string }) {
+interface LegislatorVoteEntry {
+  billId: string;
+  billName: string;
+  voteResult: string;
+}
+
+function LegislatorBillsSheet({
+  legislatorId,
+  legislatorName,
+  party,
+  open,
+  onClose,
+  onSelectBill,
+}: {
+  legislatorId: string;
+  legislatorName: string;
+  party: string;
+  open: boolean;
+  onClose: () => void;
+  onSelectBill: (billId: string, billName: string) => void;
+}) {
+  const query = useQuery<{ monaCode: string; bills: LegislatorVoteEntry[]; total: number }>({
+    queryKey: ["/api/legislators", legislatorId, "voted-bills"],
+    queryFn: () => fetch(`/api/legislators/${legislatorId}/voted-bills`).then((r) => r.json()),
+    enabled: open && !!legislatorId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const bills = query.data?.bills ?? [];
+  const ORDER = ["찬성", "반대", "기권", "불참", "알 수 없음"];
+  const RESULT_COLORS: Record<string, string> = {
+    찬성: "bg-blue-100 text-blue-700 border-blue-200",
+    반대: "bg-red-100 text-red-700 border-red-200",
+    기권: "bg-amber-100 text-amber-700 border-amber-200",
+    불참: "bg-gray-100 text-gray-500 border-gray-200",
+    "알 수 없음": "bg-gray-50 text-gray-400 border-gray-100",
+  };
+
+  const grouped = bills.reduce<Record<string, LegislatorVoteEntry[]>>((acc, b) => {
+    const key = b.voteResult.includes("찬성") ? "찬성"
+      : b.voteResult.includes("반대") ? "반대"
+      : b.voteResult.includes("기권") ? "기권"
+      : b.voteResult.includes("불참") ? "불참"
+      : "알 수 없음";
+    (acc[key] ??= []).push(b);
+    return acc;
+  }, {});
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
+        <SheetHeader className="px-5 pt-5 pb-3 border-b sticky top-0 bg-background z-10">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="p-1 rounded-md hover:bg-muted transition-colors" data-testid="button-close-legislator-bills">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <SheetTitle className="text-base leading-tight">
+                {legislatorName} 의원 표결 기록
+              </SheetTitle>
+              <SheetDescription className="text-xs mt-0.5">
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${partyColor(party)}`}>{party}</span>
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="px-5 py-4">
+          {query.isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              데이터를 불러오는 중...
+            </div>
+          )}
+
+          {!query.isLoading && bills.length === 0 && (
+            <div className="py-10 text-center">
+              <FileText className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">표결 기록이 없습니다</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
+                법안 상세 화면에서 '의원별 표결 현황'을 열면 해당 의원의 기록이 쌓입니다
+              </p>
+            </div>
+          )}
+
+          {bills.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">총 {bills.length}건의 표결 기록</p>
+              {ORDER.map((result) => {
+                const group = grouped[result] ?? [];
+                if (group.length === 0) return null;
+                return (
+                  <div key={result}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${RESULT_COLORS[result]}`}>
+                        {result} {group.length}건
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.map((b) => (
+                        <button
+                          key={b.billId}
+                          onClick={() => {
+                            onClose();
+                            onSelectBill(b.billId, b.billName);
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          data-testid={`button-legislator-bill-${b.billId}`}
+                        >
+                          <p className="text-xs font-medium leading-snug line-clamp-2">{b.billName}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function MemberVotesSection({ billId, onSelectLegislator }: { billId: string; onSelectLegislator: (id: string, name: string, party: string) => void }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ 찬성: true, 반대: true, 기권: false, "불참/알 수 없음": false });
 
@@ -233,15 +357,16 @@ function MemberVotesSection({ billId }: { billId: string }) {
                   <div className="px-3 pb-3 bg-white/60">
                     <div className="flex flex-wrap gap-1.5 pt-2">
                       {group.map((v) => (
-                        <span
+                        <button
                           key={v.legislatorId || v.legislatorName}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${partyColor(v.party)}`}
-                          title={v.party}
+                          onClick={() => onSelectLegislator(v.legislatorId, v.legislatorName, v.party)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border hover:opacity-75 transition-opacity cursor-pointer ${partyColor(v.party)}`}
+                          title={`${v.legislatorName} (${v.party}) - 클릭하면 표결 기록 보기`}
                           data-testid={`badge-vote-${v.legislatorId}`}
                         >
                           {v.legislatorName}
                           <span className="text-[9px] opacity-60">{v.party.replace("더불어민주당", "민주").replace("국민의힘", "국힘").replace("조국혁신당", "조혁").replace("개혁신당", "개혁").replace("진보당", "진보").replace("무소속", "무소")}</span>
-                        </span>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -259,11 +384,14 @@ function BillDetailSheet({
   bill,
   open,
   onClose,
+  onSelectBill,
 }: {
   bill: Bill | null;
   open: boolean;
   onClose: () => void;
+  onSelectBill?: (billId: string, billName: string) => void;
 }) {
+  const [selectedLegislator, setSelectedLegislator] = useState<{ id: string; name: string; party: string } | null>(null);
   const isRealBill = !!bill && !bill.id.startsWith("api-bill-") && !bill.id.startsWith("b");
 
   const dbQuery = useQuery<BillDbDetail>({
@@ -299,6 +427,7 @@ function BillDetailSheet({
   const description = !dbQuery.isLoading ? generateDescription(bill, d) : "";
 
   return (
+    <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="bottom"
@@ -427,7 +556,12 @@ function BillDetailSheet({
                 </div>
               </div>
 
-              {isRealBill && <MemberVotesSection billId={bill.id} />}
+              {isRealBill && (
+                <MemberVotesSection
+                  billId={bill.id}
+                  onSelectLegislator={(id, name, party) => setSelectedLegislator({ id, name, party })}
+                />
+              )}
 
               {isRealBill && (
                 <a
@@ -446,6 +580,21 @@ function BillDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
+
+    {selectedLegislator && (
+      <LegislatorBillsSheet
+        legislatorId={selectedLegislator.id}
+        legislatorName={selectedLegislator.name}
+        party={selectedLegislator.party}
+        open={!!selectedLegislator}
+        onClose={() => setSelectedLegislator(null)}
+        onSelectBill={(billId, billName) => {
+          setSelectedLegislator(null);
+          onSelectBill?.(billId, billName);
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -677,6 +826,17 @@ export default function BillSearch() {
         bill={selectedBill}
         open={!!selectedBill}
         onClose={() => setSelectedBill(null)}
+        onSelectBill={(billId, billName) => {
+          setSelectedBill({
+            id: billId,
+            name: billName,
+            summary: "",
+            proposedDate: "",
+            proposer: "",
+            status: "통과",
+            votes: [],
+          });
+        }}
       />
     </div>
   );

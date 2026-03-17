@@ -24,6 +24,26 @@ const billVotesCache = new Map<string, { votes: MemberVote[]; cachedAt: number }
 const BILL_VOTES_CACHE_TTL = 12 * 60 * 60 * 1000;
 const billVotesFetching = new Map<string, Promise<MemberVote[]>>();
 
+// ===== 의원별 표결 역인덱스 (billId/billName 메타 포함) =====
+interface LegislatorVoteEntry {
+  billId: string;
+  billName: string;
+  voteResult: string;
+}
+const legislatorVotesIndex = new Map<string, LegislatorVoteEntry[]>();
+
+function updateLegislatorVotesIndex(billId: string, billName: string, votes: MemberVote[]) {
+  for (const v of votes) {
+    const key = v.legislatorId || v.legislatorName;
+    if (!key) continue;
+    const existing = legislatorVotesIndex.get(key) ?? [];
+    if (!existing.find((e) => e.billId === billId)) {
+      existing.push({ billId, billName, voteResult: v.voteResult });
+      legislatorVotesIndex.set(key, existing);
+    }
+  }
+}
+
 interface NewsItem {
   title: string;
   link: string;
@@ -516,6 +536,14 @@ export async function registerRoutes(
     }
   });
 
+  function getBillNameFromCache(billId: string): string {
+    if (enactedBillsCache) {
+      const found = enactedBillsCache.data.find((b: any) => b.BILL_ID === billId || b.billId === billId);
+      if (found) return found.BILL_NM || found.BILL_NAME || found.billName || billId;
+    }
+    return billId;
+  }
+
   app.get("/api/bills/:billId/member-votes", async (req, res) => {
     const { billId } = req.params;
     try {
@@ -533,6 +561,7 @@ export async function registerRoutes(
           voteResult: r.voteResult || "",
         }));
         billVotesCache.set(billId, { votes, cachedAt: Date.now() });
+        updateLegislatorVotesIndex(billId, getBillNameFromCache(billId), votes);
         return res.json({ source: "db", votes });
       }
 
@@ -541,17 +570,32 @@ export async function registerRoutes(
         return res.json({ source: "api", votes });
       }
 
-      const fetchPromise = fetchBillMemberVotes(billId);
-      billVotesFetching.set(billId, fetchPromise);
-      const votes = await fetchPromise;
+      const fetchResultPromise = fetchBillMemberVotes(billId);
+      billVotesFetching.set(billId, fetchResultPromise.then((r) => r.votes));
+      const { votes, billName } = await fetchResultPromise;
       billVotesFetching.delete(billId);
       billVotesCache.set(billId, { votes, cachedAt: Date.now() });
+      updateLegislatorVotesIndex(billId, billName, votes);
 
       return res.json({ source: "api", votes });
     } catch (error: any) {
       billVotesFetching.delete(billId);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  app.get("/api/legislators/:monaCode/voted-bills", (req, res) => {
+    const { monaCode } = req.params;
+    const entries = legislatorVotesIndex.get(monaCode) ?? [];
+    // 법안명이 billId인 경우 enacted bills cache에서 이름 보완
+    const enriched = entries.map((e) => {
+      if (e.billName === e.billId || e.billName.startsWith("PRC_")) {
+        const fromCache = getBillNameFromCache(e.billId);
+        return fromCache !== e.billId ? { ...e, billName: fromCache } : e;
+      }
+      return e;
+    });
+    res.json({ monaCode, bills: enriched, total: enriched.length });
   });
 
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
