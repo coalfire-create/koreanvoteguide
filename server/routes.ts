@@ -681,6 +681,67 @@ export async function registerRoutes(
     });
   });
 
+  // ===== 의원별 발의 법안 목록 =====
+  const proposedBillsCache = new Map<string, { bills: any[]; cachedAt: number }>();
+  const PROPOSED_BILLS_CACHE_TTL = 12 * 60 * 60 * 1000; // 12시간
+
+  app.get("/api/legislators/:monaCode/proposed-bills", async (req, res) => {
+    const { monaCode } = req.params;
+    const API_BASE = "https://open.assembly.go.kr/portal/openapi";
+    const API_KEY = process.env.ASSEMBLY_API_KEY;
+
+    const cached = proposedBillsCache.get(monaCode);
+    if (cached && Date.now() - cached.cachedAt < PROPOSED_BILLS_CACHE_TTL) {
+      return res.json({ monaCode, bills: cached.bills, total: cached.bills.length, source: "cache" });
+    }
+
+    if (!API_KEY) {
+      return res.json({ monaCode, bills: [], total: 0, source: "no-api-key" });
+    }
+
+    try {
+      const allBills: any[] = [];
+      let pIndex = 1;
+      const PAGE_SIZE = 100;
+
+      while (true) {
+        const response = await axios.get(`${API_BASE}/naitfmbillpropase`, {
+          params: {
+            Key: API_KEY,
+            Type: "json",
+            pIndex: String(pIndex),
+            pSize: String(PAGE_SIZE),
+            MONA_CD: monaCode,
+          },
+          timeout: 30000,
+        });
+
+        const serviceData = response.data?.naitfmbillpropase;
+        if (!serviceData || !Array.isArray(serviceData)) break;
+
+        const head = serviceData[0]?.head;
+        const result = head?.[1]?.RESULT;
+        if (result?.CODE && result.CODE !== "INFO-000") break;
+
+        const totalCount = parseInt(head?.[0]?.list_total_count) || 0;
+        const rows = serviceData[1]?.row;
+        const pageRows = Array.isArray(rows) ? rows : [];
+        allBills.push(...pageRows);
+
+        const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+        if (pIndex >= totalPages || pageRows.length === 0) break;
+        pIndex++;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      proposedBillsCache.set(monaCode, { bills: allBills, cachedAt: Date.now() });
+      return res.json({ monaCode, bills: allBills, total: allBills.length, source: "api" });
+    } catch (error: any) {
+      console.error("[proposed-bills] API 오류:", error.message);
+      return res.status(500).json({ error: "발의 법안 조회 중 오류가 발생했습니다" });
+    }
+  });
+
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
     try {
       const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));

@@ -294,6 +294,18 @@ export default function MemberDetail() {
     refetchInterval: (query) => query.state.data?.prefetchRunning ? 30000 : false,
   });
 
+  const proposedBillsQuery = useQuery<{
+    monaCode: string;
+    bills: any[];
+    total: number;
+    source: string;
+  }>({
+    queryKey: ["/api/legislators", id, "proposed-bills"],
+    queryFn: () => fetch(`/api/legislators/${id}/proposed-bills`).then((r) => r.json()),
+    enabled: !!id,
+    staleTime: 60 * 60 * 1000,
+  });
+
   const allVotes = voteHistoryQuery.data?.votes ?? [];
   const voteStats = {
     찬성: allVotes.filter(v => v.voteResult === "찬성").length,
@@ -577,6 +589,7 @@ export default function MemberDetail() {
       <Tabs defaultValue="votes" className="mb-8">
         <TabsList className="mb-4">
           <TabsTrigger value="votes" data-testid="tab-votes">투표 기록</TabsTrigger>
+          <TabsTrigger value="proposed" data-testid="tab-proposed">발의 법안</TabsTrigger>
           <TabsTrigger value="activities" data-testid="tab-activities">공개 활동</TabsTrigger>
         </TabsList>
 
@@ -683,6 +696,81 @@ export default function MemberDetail() {
                   )}
                 </CardContent>
               </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="proposed">
+          {proposedBillsQuery.isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="w-7 h-7 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">발의 법안을 불러오는 중...</p>
+            </div>
+          ) : !proposedBillsQuery.data || proposedBillsQuery.data.bills.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              발의 법안 정보가 없습니다
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">총 <span className="font-semibold text-foreground">{proposedBillsQuery.data.total}건</span>의 법안 발의</span>
+              </div>
+              <div className="space-y-2" data-testid="proposed-bills-list">
+                {proposedBillsQuery.data.bills.map((bill: any, idx: number) => {
+                  const billId = bill.BILL_ID || bill.BILL_NO || String(idx);
+                  const billName = bill.BILL_NM || bill.BILL_NAME || "제목 없음";
+                  const proposeDate = bill.PROPOSE_DT || bill.PROPOSE_DATE || "";
+                  const committee = bill.COMMITTEE_NM || bill.COMMITTEE || "";
+                  const procResult = bill.PROC_RESULT_CD || bill.PROC_RESULT || "";
+                  const linkUrl = bill.LINK_URL || "";
+
+                  const resultColor =
+                    procResult.includes("원안가결") || procResult.includes("수정가결")
+                      ? "bg-blue-100 text-blue-700"
+                      : procResult.includes("부결")
+                      ? "bg-red-100 text-red-700"
+                      : procResult.includes("폐기") || procResult.includes("철회")
+                      ? "bg-gray-100 text-gray-500"
+                      : procResult.includes("계류") || procResult === ""
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-gray-100 text-gray-600";
+                  const resultLabel = procResult || "계류 중";
+
+                  return (
+                    <Card key={billId} className="hover:shadow-sm transition-shadow" data-testid={`card-proposed-${idx}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground leading-snug mb-1.5">{billName}</p>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              {proposeDate && (
+                                <span className="text-[11px] text-muted-foreground">발의일 {proposeDate}</span>
+                              )}
+                              {committee && (
+                                <span className="text-[11px] text-muted-foreground">{committee}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${resultColor}`}>{resultLabel}</span>
+                            {linkUrl && (
+                              <a
+                                href={linkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                data-testid={`link-proposed-${idx}`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </>
           )}
         </TabsContent>
