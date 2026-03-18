@@ -456,94 +456,96 @@ export default function MemberDetail() {
         </Card>
       </div>
 
-      <Card className="mb-6" data-testid="card-stance">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm">이념 성향 분석</h3>
-            {stanceQuery.data?.scoredBillCount != null && stanceQuery.data.scoredBillCount > 0 && (
-              <span className="text-[10px] text-muted-foreground ml-auto">
-                {stanceQuery.data.scoredBillCount}개 법안 기준
-              </span>
-            )}
-          </div>
-          {stanceQuery.isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : !stanceQuery.data?.hasData ? (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              아직 분석된 법안 점수 데이터가 없습니다.<br />
-              관리자가 법안 성향 점수를 입력하면 자동으로 계산됩니다.
-            </p>
-          ) : (
-            <div className="space-y-5" data-testid="stance-bars">
-              <SpectrumBar
-                score={stanceQuery.data.econScore}
-                title="경제"
-                leftLabel="친기업/성장"
-                rightLabel="친노동/분배"
-                color="blue"
-                testId="spectrum-bar-econ"
-              />
-              <SpectrumBar
-                score={stanceQuery.data.socialScore}
-                title="사회"
-                leftLabel="보존/질서"
-                rightLabel="변화/인권"
-                color="purple"
-                testId="spectrum-bar-social"
-              />
-              <SpectrumBar
-                score={stanceQuery.data.envScore}
-                title="환경"
-                leftLabel="개발/성장"
-                rightLabel="환경 보존"
-                color="green"
-                testId="spectrum-bar-env"
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <Card className="mb-6" data-testid="card-score-criteria">
         <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-5">
             <Info className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm">평가 기준</h3>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <span className="text-xs font-medium text-muted-foreground">출석률</span>
-                <span className="ml-1 text-[10px] text-muted-foreground/70">(30%)</span>
+
+          {/* 활동 지표 */}
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">활동 지표</p>
+          <div className="space-y-4 mb-6">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-foreground">출석률 <span className="text-muted-foreground font-normal">(30%)</span></span>
+                <span className={`text-base font-bold ${getAttendanceTextColor(member.score.attendanceRate)}`} data-testid="text-attendance-rate">
+                  {member.score.attendanceRate}%
+                  {member.score.attendanceRate >= 90 && <span className="ml-1.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">우수</span>}
+                  {member.score.attendanceRate <= 70 && <span className="ml-1.5 text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">미흡</span>}
+                </span>
               </div>
-              <div className="flex-1 relative h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`absolute inset-y-0 left-0 rounded-full ${getAttendanceColor(member.score.attendanceRate)}`} style={{ width: `${member.score.attendanceRate}%` }} />
+              <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.attendanceRate)}`} style={{ width: `${member.score.attendanceRate}%` }} />
               </div>
-              <span className={`text-xs font-bold w-10 text-right ${getAttendanceTextColor(member.score.attendanceRate)}`}>{member.score.attendanceRate}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <span className="text-xs font-medium text-muted-foreground">표결 참여율</span>
-                <span className="ml-1 text-[10px] text-muted-foreground/70">(40%)</span>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-foreground">표결 참여율 <span className="text-muted-foreground font-normal">(40%)</span></span>
+                <span className={`text-base font-bold ${getAttendanceTextColor(member.score.votingParticipationRate)}`} data-testid="text-voting-rate">
+                  {member.score.votingParticipationRate}%
+                </span>
               </div>
-              <div className="flex-1 relative h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`absolute inset-y-0 left-0 rounded-full ${getAttendanceColor(member.score.votingParticipationRate)}`} style={{ width: `${member.score.votingParticipationRate}%` }} />
+              <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.votingParticipationRate)}`} style={{ width: `${member.score.votingParticipationRate}%` }} />
               </div>
-              <span className={`text-xs font-bold w-10 text-right ${getAttendanceTextColor(member.score.votingParticipationRate)}`}>{member.score.votingParticipationRate}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <span className="text-xs font-medium text-muted-foreground">법안 발의</span>
-                <span className="ml-1 text-[10px] text-muted-foreground/70">(30%)</span>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-foreground">법안 발의 <span className="text-muted-foreground font-normal">(30%)</span></span>
+                <span className="text-base font-bold" data-testid="text-bill-count">{member.score.billProposalCount}건</span>
               </div>
-              <div className="flex-1 relative h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${billProposalScore}%` }} />
+              <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                <div className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all" style={{ width: `${billProposalScore}%` }} />
               </div>
-              <span className="text-xs font-bold w-10 text-right">{member.score.billProposalCount}건</span>
             </div>
+          </div>
+
+          {/* 이념 성향 */}
+          <div className="border-t pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">이념 성향</p>
+              {stanceQuery.data?.scoredBillCount != null && stanceQuery.data.scoredBillCount > 0 && (
+                <span className="text-[10px] text-muted-foreground ml-auto">{stanceQuery.data.scoredBillCount}개 법안 기준</span>
+              )}
+            </div>
+            {stanceQuery.isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : !stanceQuery.data?.hasData ? (
+              <p className="text-xs text-muted-foreground py-2">
+                아직 분석된 법안 점수 데이터가 없습니다.
+              </p>
+            ) : (
+              <div className="space-y-4" data-testid="stance-bars">
+                <SpectrumBar
+                  score={stanceQuery.data.econScore}
+                  title="경제"
+                  leftLabel="친기업/성장"
+                  rightLabel="친노동/분배"
+                  color="blue"
+                  testId="spectrum-bar-econ"
+                />
+                <SpectrumBar
+                  score={stanceQuery.data.socialScore}
+                  title="사회"
+                  leftLabel="보존/질서"
+                  rightLabel="변화/인권"
+                  color="purple"
+                  testId="spectrum-bar-social"
+                />
+                <SpectrumBar
+                  score={stanceQuery.data.envScore}
+                  title="환경"
+                  leftLabel="개발/성장"
+                  rightLabel="환경 보존"
+                  color="green"
+                  testId="spectrum-bar-env"
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
