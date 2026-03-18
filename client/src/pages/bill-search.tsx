@@ -261,14 +261,16 @@ function LegislatorBillsSheet({
   );
 }
 
-function MemberVotesSection({ billId, onSelectLegislator }: { billId: string; onSelectLegislator: (id: string, name: string, party: string) => void }) {
+function MemberVotesSection({ billId, billResult = "", onSelectLegislator }: { billId: string; billResult?: string; onSelectLegislator: (id: string, name: string, party: string) => void }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ 찬성: true, 반대: true, 기권: false, "불참/알 수 없음": false });
+
+  const isDiscarded = billResult === "폐기" || billResult.includes("폐기");
 
   const query = useQuery<{ source: string; votes: MemberVote[] }>({
     queryKey: ["/api/bills", billId, "member-votes"],
     queryFn: () => fetch(`/api/bills/${billId}/member-votes`).then((r) => r.json()),
-    enabled: open,
+    enabled: open && !isDiscarded,
     staleTime: 12 * 60 * 60 * 1000,
     retry: 1,
   });
@@ -331,7 +333,21 @@ function MemberVotesSection({ billId, onSelectLegislator }: { billId: string; on
           )}
 
           {!query.isLoading && !query.isError && votes.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">이 법안에 대한 의원 표결 기록이 없습니다</p>
+            <div className="text-center py-5 space-y-1">
+              {billResult === "폐기" || billResult.includes("폐기") ? (
+                <>
+                  <p className="text-xs font-medium text-muted-foreground">폐기된 법안입니다</p>
+                  <p className="text-xs text-muted-foreground">본회의 표결 없이 폐기되어 의원별 표결 기록이 없습니다</p>
+                </>
+              ) : billResult === "계류" || billResult === "" ? (
+                <>
+                  <p className="text-xs font-medium text-muted-foreground">아직 표결이 진행되지 않은 법안입니다</p>
+                  <p className="text-xs text-muted-foreground">본회의 표결이 완료되면 기록이 표시됩니다</p>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">이 법안에 대한 의원 표결 기록이 없습니다</p>
+              )}
+            </div>
           )}
 
           {votes.length > 0 && ORDER.map((result) => {
@@ -410,7 +426,7 @@ function BillDetailSheet({
 
   const d = dbQuery.data;
   const committee = d?.committee || bill.summary || "";
-  const result = d?.result || (bill.status === "통과" ? "가결" : bill.status === "폐기" ? "부결" : "계류");
+  const result = d?.result || (bill.status === "통과" ? "가결" : bill.status === "폐기" ? "폐기" : "계류");
 
   const resultStyle = (r: string) => {
     if (r.includes("가결") || r === "통과") return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -559,6 +575,7 @@ function BillDetailSheet({
               {isRealBill && (
                 <MemberVotesSection
                   billId={bill.id}
+                  billResult={result}
                   onSelectLegislator={(id, name, party) => setSelectedLegislator({ id, name, party })}
                 />
               )}
