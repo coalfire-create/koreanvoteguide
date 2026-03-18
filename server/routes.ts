@@ -19,6 +19,9 @@ import { XMLParser } from "fast-xml-parser";
 let newsCache: { items: NewsItem[]; cachedAt: number } | null = null;
 const NEWS_CACHE_TTL = 15 * 60 * 1000;
 
+// ===== 표결 사전 로드 진행 상태 =====
+let prefetchProgress = { total: 0, done: 0, running: false, completedAt: 0 };
+
 // ===== 법안별 의원 표결 캐시 (12시간) =====
 const billVotesCache = new Map<string, { votes: MemberVote[]; cachedAt: number }>();
 const BILL_VOTES_CACHE_TTL = 12 * 60 * 60 * 1000;
@@ -612,8 +615,13 @@ export async function registerRoutes(
 
     // 1. 의원별 캐시 확인 (결과가 있을 때만 신뢰)
     const cached = legislatorHistoryCache.get(monaCode);
-    if (cached && cached.votes.length > 0 && Date.now() - cached.cachedAt < LEGISLATOR_HISTORY_CACHE_TTL) {
-      return res.json({ monaCode, votes: cached.votes, total: cached.votes.length, source: "cache" });
+    if (cached && cached.votes.length > 0 && Date.now() - cached.cachedAt < LEGISLATOR_HISTORY_CACHE_TTL && !prefetchProgress.running) {
+      return res.json({
+        monaCode, votes: cached.votes, total: cached.votes.length, source: "cache",
+        prefetchTotal: prefetchProgress.total,
+        prefetchDone: prefetchProgress.done,
+        prefetchRunning: prefetchProgress.running,
+      });
     }
 
     const seenBills = new Set<string>();
@@ -658,50 +666,19 @@ export async function registerRoutes(
       }
     } catch {}
 
-    // 5. 가결된 법안 목록 기준으로 API 배치 조회 (캐시된 경우에만, 최근 15건)
-    if (enactedBillsCache) {
-      const billsToFetch = enactedBillsCache.data
-        .filter((b: any) => {
-          const bid = b.BILL_ID || b.billId;
-          return bid && !seenBills.has(bid);
-        })
-        .slice(0, 15);
-
-      const CONCURRENCY = 8;
-      for (let i = 0; i < billsToFetch.length; i += CONCURRENCY) {
-        const batch = billsToFetch.slice(i, i + CONCURRENCY);
-        await Promise.all(
-          batch.map(async (bill: any) => {
-            const billId = bill.BILL_ID || bill.billId;
-            const billNameFromList = bill.BILL_NM || bill.BILL_NAME || bill.billName || billId;
-            try {
-              let bVotes: MemberVote[];
-              const inCache = billVotesCache.get(billId);
-              if (inCache) {
-                bVotes = inCache.votes;
-              } else {
-                const result = await fetchBillMemberVotes(billId);
-                bVotes = result.votes;
-                const resolvedName = result.billName || billNameFromList;
-                billVotesCache.set(billId, { votes: bVotes, cachedAt: Date.now() });
-                updateLegislatorVotesIndex(billId, resolvedName, bVotes);
-              }
-              if (!seenBills.has(billId)) {
-                const myVote = bVotes.find((v) => v.legislatorId === monaCode);
-                if (myVote) {
-                  const resolvedName = getBillNameFromCache(billId) || billNameFromList;
-                  votes.push({ billId, billName: resolvedName, voteResult: myVote.voteResult });
-                  seenBills.add(billId);
-                }
-              }
-            } catch {}
-          })
-        );
-      }
+    // 5. 캐시 데이터가 있으면 저장 (백그라운드 프리페치가 점진적으로 채움)
+    if (votes.length > 0) {
+      legislatorHistoryCache.set(monaCode, { votes, cachedAt: Date.now() });
     }
-
-    legislatorHistoryCache.set(monaCode, { votes, cachedAt: Date.now() });
-    res.json({ monaCode, votes, total: votes.length, source: "fresh" });
+    res.json({
+      monaCode,
+      votes,
+      total: votes.length,
+      source: "fresh",
+      prefetchTotal: prefetchProgress.total,
+      prefetchDone: prefetchProgress.done,
+      prefetchRunning: prefetchProgress.running,
+    });
   });
 
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
@@ -859,32 +836,58 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 서버 시작 후 백그라운드 사전 로드 (최근 가결 법안 표결 캐시 구축) =====
+  // ===== 표결 사전 로드 진행 상태 API =====
+  app.get("/api/prefetch-status", (_req, res) => {
+    res.json({
+      total: prefetchProgress.total,
+      done: prefetchProgress.done,
+      running: prefetchProgress.running,
+      completedAt: prefetchProgress.completedAt,
+    });
+  });
+
+  // ===== 서버 시작 후 백그라운드 사전 로드 (통과된 모든 법안 표결 캐시 구축) =====
   setTimeout(async () => {
-    console.log("[startup] 백그라운드 표결 사전 로드 시작...");
+    if (prefetchProgress.running) return;
+    prefetchProgress.running = true;
+    console.log("[startup] 백그라운드 전체 표결 사전 로드 시작...");
     try {
       if (!enactedBillsCache) {
-        const apiRows = await fetchEnactedBillsFromApi(20);
+        const apiRows = await fetchEnactedBillsFromApi(30);
         enactedBillsCache = { data: apiRows, fetchedAt: Date.now() };
         console.log(`[startup] 가결 법안 ${apiRows.length}건 로드 완료`);
       }
-      const topBills = enactedBillsCache.data.slice(0, 20);
+      const allBills = enactedBillsCache.data;
+      const billsToFetch = allBills.filter((b: any) => {
+        const bid = b.BILL_ID || b.billId;
+        return bid && !billVotesCache.has(bid);
+      });
+      prefetchProgress.total = allBills.length;
+      prefetchProgress.done = allBills.length - billsToFetch.length;
+      console.log(`[startup] 전체 ${allBills.length}건 중 ${billsToFetch.length}건 미캐시 → 순차 로드 시작`);
       const BATCH = 6;
-      for (let i = 0; i < topBills.length; i += BATCH) {
+      for (let i = 0; i < billsToFetch.length; i += BATCH) {
         await Promise.all(
-          topBills.slice(i, i + BATCH).map(async (b: any) => {
+          billsToFetch.slice(i, i + BATCH).map(async (b: any) => {
             const billId = b.BILL_ID || b.billId;
-            if (!billId || billVotesCache.has(billId)) return;
+            if (!billId || billVotesCache.has(billId)) { prefetchProgress.done++; return; }
             try {
               const result = await fetchBillMemberVotes(billId);
               billVotesCache.set(billId, { votes: result.votes, cachedAt: Date.now() });
               updateLegislatorVotesIndex(billId, result.billName, result.votes);
             } catch {}
+            prefetchProgress.done++;
           })
         );
+        if (i % 60 === 0) {
+          console.log(`[startup] 표결 로드 진행: ${prefetchProgress.done}/${prefetchProgress.total}`);
+        }
       }
-      console.log(`[startup] 표결 사전 로드 완료 (${billVotesCache.size}개 법안 캐시)`);
+      prefetchProgress.running = false;
+      prefetchProgress.completedAt = Date.now();
+      console.log(`[startup] 전체 표결 사전 로드 완료 (${billVotesCache.size}개 법안 캐시)`);
     } catch (err: any) {
+      prefetchProgress.running = false;
       console.error("[startup] 표결 사전 로드 오류:", err.message);
     }
   }, 8000);
