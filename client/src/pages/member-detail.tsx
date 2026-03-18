@@ -308,6 +308,27 @@ export default function MemberDetail() {
         return v.voteResult === voteFilter;
       });
 
+  // 표결 기록에서 출석률/참여율 계산
+  const totalVoteCount = allVotes.length;
+  const presentCount = voteStats.찬성 + voteStats.반대 + voteStats.기권;
+  const activeVoteCount = voteStats.찬성 + voteStats.반대;
+  const computedAttendanceRate = totalVoteCount > 0
+    ? Math.round((presentCount / totalVoteCount) * 100)
+    : member.score.attendanceRate;
+  const computedVotingRate = totalVoteCount > 0
+    ? Math.round((activeVoteCount / totalVoteCount) * 100)
+    : member.score.votingParticipationRate;
+  const displayAttendanceRate = voteHistoryQuery.data && totalVoteCount > 0
+    ? computedAttendanceRate
+    : member.score.attendanceRate;
+  const displayVotingRate = voteHistoryQuery.data && totalVoteCount > 0
+    ? computedVotingRate
+    : member.score.votingParticipationRate;
+  const computedBillScore = Math.min(100, member.score.billProposalCount * 5);
+  const computedTotalScore = voteHistoryQuery.data && totalVoteCount > 0
+    ? Math.round(displayAttendanceRate * 0.3 + displayVotingRate * 0.4 + computedBillScore * 0.3)
+    : member.score.totalScore;
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
@@ -349,9 +370,6 @@ export default function MemberDetail() {
     }
   };
 
-  const billProposalScore = Math.min(100, member.score.billProposalCount * 5);
-
-
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <Link href="/members">
@@ -389,11 +407,11 @@ export default function MemberDetail() {
         <Card className="shrink-0 md:w-56">
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground mb-1">종합 평가</p>
-            <div className={`text-4xl font-bold ${getScoreColor(member.score.totalScore)}`} data-testid="text-total-score">
-              {getScoreGrade(member.score.totalScore)}
+            <div className={`text-4xl font-bold ${getScoreColor(computedTotalScore)}`} data-testid="text-total-score">
+              {getScoreGrade(computedTotalScore)}
             </div>
-            <p className={`text-lg font-semibold ${getScoreColor(member.score.totalScore)}`}>
-              {member.score.totalScore}점
+            <p className={`text-lg font-semibold ${getScoreColor(computedTotalScore)}`}>
+              {computedTotalScore}점
             </p>
           </CardContent>
         </Card>
@@ -404,38 +422,44 @@ export default function MemberDetail() {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">출석률</p>
             <div className="flex items-end gap-2 mb-3">
-              <span className={`text-2xl font-bold ${getAttendanceTextColor(member.score.attendanceRate)}`}>
-                {member.score.attendanceRate}%
+              <span className={`text-2xl font-bold ${getAttendanceTextColor(displayAttendanceRate)}`}>
+                {voteHistoryQuery.isLoading ? "—" : `${displayAttendanceRate}%`}
               </span>
-              {member.score.attendanceRate >= 90 && (
+              {displayAttendanceRate >= 90 && (
                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] mb-1">우수</Badge>
               )}
-              {member.score.attendanceRate <= 70 && (
+              {displayAttendanceRate > 0 && displayAttendanceRate <= 70 && (
                 <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100 text-[10px] mb-1">미흡</Badge>
               )}
             </div>
             <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
               <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.attendanceRate)}`}
-                style={{ width: `${member.score.attendanceRate}%` }}
+                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayAttendanceRate)}`}
+                style={{ width: `${displayAttendanceRate}%` }}
               />
             </div>
+            {totalVoteCount > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">{presentCount}/{totalVoteCount}건 참석</p>
+            )}
           </CardContent>
         </Card>
         <Card data-testid="card-voting-participation">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">표결 참여율</p>
             <div className="flex items-end gap-2 mb-3">
-              <span className={`text-2xl font-bold ${getAttendanceTextColor(member.score.votingParticipationRate)}`}>
-                {member.score.votingParticipationRate}%
+              <span className={`text-2xl font-bold ${getAttendanceTextColor(displayVotingRate)}`}>
+                {voteHistoryQuery.isLoading ? "—" : `${displayVotingRate}%`}
               </span>
             </div>
             <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
               <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.votingParticipationRate)}`}
-                style={{ width: `${member.score.votingParticipationRate}%` }}
+                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayVotingRate)}`}
+                style={{ width: `${displayVotingRate}%` }}
               />
             </div>
+            {totalVoteCount > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">{activeVoteCount}/{totalVoteCount}건 찬/반 투표</p>
+            )}
           </CardContent>
         </Card>
         <Card data-testid="card-bill-proposals">
@@ -448,10 +472,10 @@ export default function MemberDetail() {
             <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
               <div
                 className="absolute inset-y-0 left-0 rounded-full transition-all bg-primary"
-                style={{ width: `${billProposalScore}%` }}
+                style={{ width: `${computedBillScore}%` }}
               />
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">발의 점수: {billProposalScore}/100</p>
+            <p className="text-[10px] text-muted-foreground mt-1">발의 점수: {computedBillScore}/100</p>
           </CardContent>
         </Card>
       </div>
@@ -469,25 +493,25 @@ export default function MemberDetail() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-foreground">출석률 <span className="text-muted-foreground font-normal">(30%)</span></span>
-                <span className={`text-base font-bold ${getAttendanceTextColor(member.score.attendanceRate)}`} data-testid="text-attendance-rate">
-                  {member.score.attendanceRate}%
-                  {member.score.attendanceRate >= 90 && <span className="ml-1.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">우수</span>}
-                  {member.score.attendanceRate <= 70 && <span className="ml-1.5 text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">미흡</span>}
+                <span className={`text-base font-bold ${getAttendanceTextColor(displayAttendanceRate)}`} data-testid="text-attendance-rate">
+                  {voteHistoryQuery.isLoading ? "—" : `${displayAttendanceRate}%`}
+                  {displayAttendanceRate >= 90 && <span className="ml-1.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">우수</span>}
+                  {displayAttendanceRate > 0 && displayAttendanceRate <= 70 && <span className="ml-1.5 text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">미흡</span>}
                 </span>
               </div>
               <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.attendanceRate)}`} style={{ width: `${member.score.attendanceRate}%` }} />
+                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayAttendanceRate)}`} style={{ width: `${displayAttendanceRate}%` }} />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-foreground">표결 참여율 <span className="text-muted-foreground font-normal">(40%)</span></span>
-                <span className={`text-base font-bold ${getAttendanceTextColor(member.score.votingParticipationRate)}`} data-testid="text-voting-rate">
-                  {member.score.votingParticipationRate}%
+                <span className={`text-base font-bold ${getAttendanceTextColor(displayVotingRate)}`} data-testid="text-voting-rate">
+                  {voteHistoryQuery.isLoading ? "—" : `${displayVotingRate}%`}
                 </span>
               </div>
               <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(member.score.votingParticipationRate)}`} style={{ width: `${member.score.votingParticipationRate}%` }} />
+                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayVotingRate)}`} style={{ width: `${displayVotingRate}%` }} />
               </div>
             </div>
             <div>
@@ -496,7 +520,7 @@ export default function MemberDetail() {
                 <span className="text-base font-bold" data-testid="text-bill-count">{member.score.billProposalCount}건</span>
               </div>
               <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all" style={{ width: `${billProposalScore}%` }} />
+                <div className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all" style={{ width: `${computedBillScore}%` }} />
               </div>
             </div>
           </div>
