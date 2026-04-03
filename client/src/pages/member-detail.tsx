@@ -4,17 +4,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, FileText, ExternalLink, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, FileText, ExternalLink, Users, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
 import { useAssemblyMembers } from "@/lib/api-data";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+} from "recharts";
 
 interface StanceData {
   econScore: number;
   socialScore: number;
   envScore: number;
+  welfareScore: number;
+  justiceScore: number;
   scoredBillCount: number;
   hasData: boolean;
 }
@@ -189,52 +199,6 @@ function BillDetailSheet({
   );
 }
 
-interface SpectrumBarProps {
-  score: number;
-  leftLabel: string;
-  rightLabel: string;
-  color: "blue" | "purple" | "green";
-  title: string;
-  testId: string;
-}
-
-function SpectrumBar({ score, leftLabel, rightLabel, color, title, testId }: SpectrumBarProps) {
-  const pct = ((score + 10) / 20) * 100;
-  const centerPct = 50;
-
-  const trackColor = color === "blue" ? "bg-blue-500" : color === "purple" ? "bg-purple-500" : "bg-green-500";
-  const markerBorder = color === "blue" ? "border-blue-600" : color === "purple" ? "border-purple-600" : "border-green-600";
-  const titleColor = color === "blue" ? "text-blue-700" : color === "purple" ? "text-purple-700" : "text-green-700";
-
-  const fillLeft = Math.min(pct, centerPct);
-  const fillWidth = Math.abs(pct - centerPct);
-
-  return (
-    <div data-testid={testId}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className={`text-xs font-semibold ${titleColor}`}>{title}</span>
-        <span className="text-xs text-muted-foreground font-mono">
-          {score > 0 ? "+" : ""}{score.toFixed(1)}
-        </span>
-      </div>
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-        <span>{leftLabel}</span>
-        <span>{rightLabel}</span>
-      </div>
-      <div className="relative h-3 rounded-full bg-gray-100 overflow-visible">
-        <div
-          className={`absolute inset-y-0 rounded-full transition-all duration-700 ease-out ${trackColor} opacity-70`}
-          style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
-        />
-        <div className="absolute inset-y-0 left-1/2 w-px bg-gray-400 -translate-x-px z-10" />
-        <div
-          className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-2 shadow-md z-20 transition-all duration-700 ease-out ${markerBorder}`}
-          style={{ left: `calc(${pct}% - 8px)` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function getAttendanceColor(rate: number) {
   if (rate >= 90) return "bg-emerald-500";
@@ -323,23 +287,16 @@ export default function MemberDetail() {
   // 표결 기록에서 출석률/참여율 계산
   const totalVoteCount = allVotes.length;
   const presentCount = voteStats.찬성 + voteStats.반대 + voteStats.기권;
-  const activeVoteCount = voteStats.찬성 + voteStats.반대;
   const computedAttendanceRate = totalVoteCount > 0
     ? Math.round((presentCount / totalVoteCount) * 100)
-    : member.score.attendanceRate;
-  const computedVotingRate = totalVoteCount > 0
-    ? Math.round((activeVoteCount / totalVoteCount) * 100)
-    : member.score.votingParticipationRate;
+    : member?.score.attendanceRate ?? 0;
   const displayAttendanceRate = voteHistoryQuery.data && totalVoteCount > 0
     ? computedAttendanceRate
-    : member.score.attendanceRate;
-  const displayVotingRate = voteHistoryQuery.data && totalVoteCount > 0
-    ? computedVotingRate
-    : member.score.votingParticipationRate;
-  const computedBillScore = Math.min(100, member.score.billProposalCount * 5);
+    : member?.score.attendanceRate ?? 0;
+  const computedBillScore = Math.min(100, (member?.score.billProposalCount ?? 0) * 5);
   const computedTotalScore = voteHistoryQuery.data && totalVoteCount > 0
-    ? Math.round(displayAttendanceRate * 0.3 + displayVotingRate * 0.4 + computedBillScore * 0.3)
-    : member.score.totalScore;
+    ? Math.round(displayAttendanceRate * 0.7 + computedBillScore * 0.3)
+    : member?.score.totalScore ?? 0;
 
   if (isLoading) {
     return (
@@ -382,14 +339,44 @@ export default function MemberDetail() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `${member.name} 의원 프로필 - 정치 성향 오각형 분석`,
+      text: `${member.name} 의원(${member.party})의 분석 내용과 투표 기록을 확인하세요!`,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("링크가 복사되었습니다.");
+      }
+    } catch (e) {
+      console.log("공유 취소됨 또는 오류", e);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <Link href="/members">
-        <Button variant="ghost" size="sm" className="mb-6" data-testid="button-back-to-members">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          국회의원 목록
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/members">
+          <Button variant="ghost" size="sm" data-testid="button-back-to-members">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            국회의원 목록
+          </Button>
+        </Link>
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleShare}
+          className="rounded-full shadow-sm hover:shadow hover:text-primary border-primary/20 bg-primary/5 transition-all text-primary font-semibold"
+        >
+          <Share2 className="w-4 h-4 mr-2" />
+          의원 분석 공유
         </Button>
-      </Link>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-6 mb-8">
         <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -415,21 +402,9 @@ export default function MemberDetail() {
             <p className="text-sm text-muted-foreground mt-1">소속 위원회: {member.committee}</p>
           </div>
         </div>
-
-        <Card className="shrink-0 md:w-56">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">종합 평가</p>
-            <div className={`text-4xl font-bold ${getScoreColor(computedTotalScore)}`} data-testid="text-total-score">
-              {getScoreGrade(computedTotalScore)}
-            </div>
-            <p className={`text-lg font-semibold ${getScoreColor(computedTotalScore)}`}>
-              {computedTotalScore}점
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <Card data-testid="card-attendance">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">출석률</p>
@@ -455,25 +430,7 @@ export default function MemberDetail() {
             )}
           </CardContent>
         </Card>
-        <Card data-testid="card-voting-participation">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground mb-2">표결 참여율</p>
-            <div className="flex items-end gap-2 mb-3">
-              <span className={`text-2xl font-bold ${getAttendanceTextColor(displayVotingRate)}`}>
-                {voteHistoryQuery.isLoading ? "—" : `${displayVotingRate}%`}
-              </span>
-            </div>
-            <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayVotingRate)}`}
-                style={{ width: `${displayVotingRate}%` }}
-              />
-            </div>
-            {totalVoteCount > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-1">{activeVoteCount}/{totalVoteCount}건 찬/반 투표</p>
-            )}
-          </CardContent>
-        </Card>
+
         <Card data-testid="card-bill-proposals">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">발의 법안</p>
@@ -504,7 +461,7 @@ export default function MemberDetail() {
           <div className="space-y-4 mb-6">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-foreground">출석률 <span className="text-muted-foreground font-normal">(30%)</span></span>
+                <span className="text-xs font-medium text-foreground">출석률 <span className="text-muted-foreground font-normal">(70%)</span></span>
                 <span className={`text-base font-bold ${getAttendanceTextColor(displayAttendanceRate)}`} data-testid="text-attendance-rate">
                   {voteHistoryQuery.isLoading ? "—" : `${displayAttendanceRate}%`}
                   {displayAttendanceRate >= 90 && <span className="ml-1.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">우수</span>}
@@ -515,17 +472,7 @@ export default function MemberDetail() {
                 <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayAttendanceRate)}`} style={{ width: `${displayAttendanceRate}%` }} />
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-foreground">표결 참여율 <span className="text-muted-foreground font-normal">(40%)</span></span>
-                <span className={`text-base font-bold ${getAttendanceTextColor(displayVotingRate)}`} data-testid="text-voting-rate">
-                  {voteHistoryQuery.isLoading ? "—" : `${displayVotingRate}%`}
-                </span>
-              </div>
-              <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`absolute inset-y-0 left-0 rounded-full transition-all ${getAttendanceColor(displayVotingRate)}`} style={{ width: `${displayVotingRate}%` }} />
-              </div>
-            </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-medium text-foreground">법안 발의 <span className="text-muted-foreground font-normal">(30%)</span></span>
@@ -537,49 +484,87 @@ export default function MemberDetail() {
             </div>
           </div>
 
-          {/* 이념 성향 */}
+          {/* 정치 성향 오각형 분석 */}
           <div className="border-t pt-5">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-3.5 h-3.5 text-primary" />
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">이념 성향</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">정치 성향 오각형 분석</p>
               {stanceQuery.data?.scoredBillCount != null && stanceQuery.data.scoredBillCount > 0 && (
                 <span className="text-[10px] text-muted-foreground ml-auto">{stanceQuery.data.scoredBillCount}개 법안 기준</span>
               )}
             </div>
             {stanceQuery.isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : !stanceQuery.data?.hasData ? (
-              <p className="text-xs text-muted-foreground py-2">
+              <p className="text-xs text-muted-foreground py-6 text-center">
                 아직 분석된 법안 점수 데이터가 없습니다.
               </p>
             ) : (
-              <div className="space-y-4" data-testid="stance-bars">
-                <SpectrumBar
-                  score={stanceQuery.data.econScore}
-                  title="경제"
-                  leftLabel="친기업/성장"
-                  rightLabel="친노동/분배"
-                  color="blue"
-                  testId="spectrum-bar-econ"
-                />
-                <SpectrumBar
-                  score={stanceQuery.data.socialScore}
-                  title="사회"
-                  leftLabel="보존/질서"
-                  rightLabel="변화/인권"
-                  color="purple"
-                  testId="spectrum-bar-social"
-                />
-                <SpectrumBar
-                  score={stanceQuery.data.envScore}
-                  title="환경"
-                  leftLabel="개발/성장"
-                  rightLabel="환경 보존"
-                  color="green"
-                  testId="spectrum-bar-env"
-                />
+              <div className="flex flex-col md:flex-row items-center gap-8 py-4">
+                <div className="w-full h-[300px] md:w-1/2" data-testid="stance-radar-chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      cx="50%"
+                      cy="50%"
+                      outerRadius="80%"
+                      data={[
+                        { subject: "경제 (성장-분배)", A: (stanceQuery.data?.econScore ?? 0) + 10, fullMark: 20 },
+                        { subject: "사회 (기존-변화)", A: (stanceQuery.data?.socialScore ?? 0) + 10, fullMark: 20 },
+                        { subject: "환경 (개발-보존)", A: (stanceQuery.data?.envScore ?? 0) + 10, fullMark: 20 },
+                        { subject: "복지 (선택-보편)", A: (stanceQuery.data?.welfareScore ?? 0) + 10, fullMark: 20 },
+                        { subject: "정의 (법질서-인권)", A: (stanceQuery.data?.justiceScore ?? 0) + 10, fullMark: 20 },
+                      ]}
+                    >
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: "#64748b", fontSize: 10, fontWeight: 500 }}
+                      />
+                      <PolarRadiusAxis
+                        angle={30}
+                        domain={[0, 20]}
+                        tick={false}
+                        axisLine={false}
+                      />
+                      <Radar
+                        name={member.name}
+                        dataKey="A"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.6}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 w-full space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/30 rounded-xl">
+                      <p className="text-[10px] text-muted-foreground mb-1">경제 지표</p>
+                      <p className="text-sm font-semibold">{stanceQuery.data?.econScore != null && stanceQuery.data.econScore > 0 ? "분배 지향" : "성장 지향"} ({Math.abs(stanceQuery.data?.econScore ?? 0).toFixed(1)})</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-xl">
+                      <p className="text-[10px] text-muted-foreground mb-1">사회 지표</p>
+                      <p className="text-sm font-semibold">{stanceQuery.data?.socialScore != null && stanceQuery.data.socialScore > 0 ? "변화 수용" : "전통 유지"} ({Math.abs(stanceQuery.data?.socialScore ?? 0).toFixed(1)})</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-xl">
+                      <p className="text-[10px] text-muted-foreground mb-1">환경 지표</p>
+                      <p className="text-sm font-semibold">{stanceQuery.data?.envScore != null && stanceQuery.data.envScore > 0 ? "보존 중심" : "개발 중심"} ({Math.abs(stanceQuery.data?.envScore ?? 0).toFixed(1)})</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-xl">
+                      <p className="text-[10px] text-muted-foreground mb-1">복지 지표</p>
+                      <p className="text-sm font-semibold">{stanceQuery.data?.welfareScore != null && stanceQuery.data.welfareScore > 0 ? "보편 복지" : "선별 복지"} ({Math.abs(stanceQuery.data?.welfareScore ?? 0).toFixed(1)})</p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                    <p className="text-[10px] text-blue-600 font-semibold mb-1 uppercase tracking-wider">분석 요약</p>
+                    <p className="text-xs text-blue-900 leading-relaxed">
+                      {member.name} 의원은 {Math.abs(stanceQuery.data?.econScore ?? 0) > 5 ? (stanceQuery.data?.econScore != null && stanceQuery.data.econScore > 0 ? "강한 분배 중심의 경제관" : "강한 성장 중심의 경제관") : "중도적 경제관"}을 가지고 있으며, 
+                      {stanceQuery.data?.socialScore != null && stanceQuery.data.socialScore > 0 ? " 사회적 인권과 변화" : " 질서와 전통 가치"}에 더 무게를 두는 경향을 보입니다.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

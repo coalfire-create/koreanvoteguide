@@ -97,13 +97,9 @@ export function useAssemblyMembers() {
         const attend = parseInt(att.ATTEND_CNT || att.ATTEND || "0");
         const total = parseInt(att.TOTAL_CNT || att.ALLDAY || "1");
         member.score.attendanceRate = total > 0 ? Math.round((attend / total) * 100) : 0;
-        member.score.votingParticipationRate = Math.max(50, member.score.attendanceRate - 5);
-        member.score.billProposalCount = parseInt(att.BILL_CNT || "0") || Math.floor(Math.random() * 15) + 3;
-
-        const attendance = member.score.attendanceRate * 0.3;
-        const voting = member.score.votingParticipationRate * 0.4;
+        const attendance = member.score.attendanceRate * 0.7;
         const billScore = Math.min(100, member.score.billProposalCount * 5) * 0.3;
-        member.score.totalScore = Math.round(attendance + voting + billScore);
+        member.score.totalScore = Math.round(attendance + billScore);
       }
     }
   }

@@ -52,16 +52,11 @@ export default function Evaluation() {
             <Info className="w-5 h-5 text-primary" />
             <h2 className="font-bold">평가 산출 방법</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="bg-muted/50 dark:bg-muted/30 rounded-md p-4">
-              <p className="text-xs text-muted-foreground mb-1">출석률 (30%)</p>
+              <p className="text-xs text-muted-foreground mb-1">출석률 (70%)</p>
               <p className="font-semibold text-sm">본회의 및 위원회 출석 비율</p>
-              <p className="text-xs text-muted-foreground mt-2">출석률 × 0.3 = 출석 점수</p>
-            </div>
-            <div className="bg-muted/50 dark:bg-muted/30 rounded-md p-4">
-              <p className="text-xs text-muted-foreground mb-1">표결 참여율 (40%)</p>
-              <p className="font-semibold text-sm">전체 표결 중 참여한 비율</p>
-              <p className="text-xs text-muted-foreground mt-2">참여율 × 0.4 = 표결 점수</p>
+              <p className="text-xs text-muted-foreground mt-2">출석률 × 0.7 = 출석 점수</p>
             </div>
             <div className="bg-muted/50 dark:bg-muted/30 rounded-md p-4">
               <p className="text-xs text-muted-foreground mb-1">법안 발의 (30%)</p>
@@ -72,7 +67,7 @@ export default function Evaluation() {
           <div className="bg-primary/5 dark:bg-primary/10 rounded-md p-4">
             <p className="text-sm font-medium mb-1">종합 점수 계산</p>
             <code className="text-xs text-muted-foreground font-mono" data-testid="text-formula-total">
-              종합 점수 = (출석률 × 0.3) + (표결 참여율 × 0.4) + (최솟값(100, 발의 법안 수 × 5) × 0.3)
+              종합 점수 = (출석률 × 0.7) + (최솟값(100, 발의 법안 수 × 5) × 0.3)
             </code>
             <p className="text-xs text-muted-foreground mt-2">
               주관적 의견이나 감정적 평가는 포함되지 않습니다. 오직 공개 데이터 기반의 정량적 지표만 사용됩니다.
@@ -148,7 +143,6 @@ export default function Evaluation() {
                       <TableHead>의원</TableHead>
                       <TableHead className="hidden md:table-cell">정당</TableHead>
                       <TableHead className="text-center">출석률</TableHead>
-                      <TableHead className="text-center">참여율</TableHead>
                       <TableHead className="text-center hidden sm:table-cell">발의</TableHead>
                       <TableHead className="text-center">등급</TableHead>
                       <TableHead className="text-center">점수</TableHead>
@@ -177,12 +171,6 @@ export default function Evaluation() {
                           <div className="flex flex-col items-center gap-1">
                             <span className="text-sm font-medium">{member.score.attendanceRate}%</span>
                             <Progress value={member.score.attendanceRate} className="h-1 w-16" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-sm font-medium">{member.score.votingParticipationRate}%</span>
-                            <Progress value={member.score.votingParticipationRate} className="h-1 w-16" />
                           </div>
                         </TableCell>
                         <TableCell className="text-center hidden sm:table-cell">

@@ -36,10 +36,10 @@ export function AppSidebar({ userName, onLogout }: AppSidebarProps) {
         <Link href="/" data-testid="link-home-logo">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">투</span>
+              <span className="text-primary-foreground font-bold text-sm">I</span>
             </div>
             <div>
-              <h1 className="font-bold text-sm leading-tight">이유있는 투표</h1>
+              <h1 className="font-bold text-sm leading-tight">Iyu</h1>
               <p className="text-[10px] text-muted-foreground leading-tight">데이터 기반 투표 플랫폼</p>
             </div>
           </div>

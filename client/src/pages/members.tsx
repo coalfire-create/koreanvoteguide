@@ -110,7 +110,7 @@ export default function Members() {
                     </div>
                     <div className="flex items-center justify-between gap-2 pt-1 border-t">
                       <div className="text-xs text-muted-foreground">
-                        발의 {member.score.billProposalCount}건 · 참여율 {member.score.votingParticipationRate}%
+                        발의 {member.score.billProposalCount}건
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className={`text-lg font-bold ${getScoreColor(member.score.totalScore)}`} data-testid={`text-score-${member.id}`}>

@@ -10,6 +10,10 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
+  voteVerified: boolean("vote_verified").default(false).notNull(),
+  badges: jsonb("badges").default([]).notNull(), // e.g. ["vote_verified","active","veteran"]
+  postCount: integer("post_count").default(0).notNull(),
+  favorites: jsonb("favorites").default([]).notNull(), // favorite member IDs or gallery keys
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -73,6 +77,16 @@ export interface ObjectiveScore {
   totalScore: number;
 }
 
+export interface PoliticianStance {
+  econScore: number;
+  socialScore: number;
+  envScore: number;
+  welfareScore: number;
+  justiceScore: number;
+  scoredBillCount: number;
+  hasData: boolean;
+}
+
 export interface AssemblyMember {
   id: string;
   name: string;
@@ -84,6 +98,7 @@ export interface AssemblyMember {
   votingRecords: VotingRecord[];
   activities: Activity[];
   score: ObjectiveScore;
+  stance?: PoliticianStance;
 }
 
 export interface CandidatePromise {
@@ -133,12 +148,26 @@ export const communityPosts = pgTable("community_posts", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   anonNickname: text("anon_nickname").notNull(),
+  boardType: text("board_type").default("open").notNull(), // 'open' | 'members'
+  category: text("category").default("자유").notNull(),   // '자유' | '토론' | '정보공유' | '질문'
+  showRealName: boolean("show_real_name").default(false).notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  reportCount: integer("report_count").default(0).notNull(),
   likes: integer("likes").default(0).notNull(),
   dislikes: integer("dislikes").default(0).notNull(),
   agreeCount: integer("agree_count").default(0).notNull(),
   disagreeCount: integer("disagree_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const communityBookmarks = pgTable("community_bookmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userPostUniq: uniqueIndex("bookmark_user_post_uniq").on(table.userId, table.postId),
+}));
 
 export const communityComments = pgTable("community_comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -170,9 +199,28 @@ export const communityReports = pgTable("community_reports", {
 export const insertPostSchema = createInsertSchema(communityPosts).pick({
   title: true,
   content: true,
+}).extend({
+  boardType: z.enum(["open", "members"]).default("open"),
+  category: z.enum(["자유", "토론", "정보공유", "질문"]).default("자유"),
+  showRealName: z.boolean().default(false),
 });
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
+export type CommunityBookmark = typeof communityBookmarks.$inferSelect;
+
+export const BADGE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
+  vote_verified:      { label: "투표인증",   emoji: "🗳️", color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
+  real_name_verified: { label: "실명인증",   emoji: "✅",  color: "text-teal-600 bg-teal-50 border-teal-200" },
+  active:             { label: "활동왕",     emoji: "⭐",  color: "text-amber-600 bg-amber-50 border-amber-200" },
+  veteran:            { label: "베테랑",     emoji: "🏅",  color: "text-orange-600 bg-orange-50 border-orange-200" },
+  first_post:         { label: "첫글",       emoji: "✏️",  color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+};
+
+// 뱃지별 전용 테마(갤러리) 접근 제어 매핑
+export const BADGE_THEMES: Record<string, { badge: string; name: string; description: string; icon: string }> = {
+  vote_verified_theme:      { badge: "vote_verified",      name: "투표 인증자 라운지",  description: "투표를 인증한 시민만 참여할 수 있는 프리미엄 토론 공간", icon: "🗳️" },
+  real_name_verified_theme: { badge: "real_name_verified", name: "실명 인증자 라운지",  description: "실명 인증된 회원만 참여할 수 있는 클린 토론 공간",       icon: "✅" },
+};
 
 export const insertCommentSchema = createInsertSchema(communityComments).pick({
   content: true,
@@ -249,6 +297,8 @@ export const assemblyBills = pgTable("assembly_bills", {
   econScore: real("econ_score"),
   socialScore: real("social_score"),
   envScore: real("env_score"),
+  welfareScore: real("welfare_score"),
+  justiceScore: real("justice_score"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 });
 

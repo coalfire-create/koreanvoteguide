@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { type Server } from "http";
 import session from "express-session";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema } from "@shared/schema";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -11,12 +12,40 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
+import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { eq, desc, inArray } from "drizzle-orm";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 
+const isProduction = process.env.NODE_ENV === "production";
+
+// ===== Rate Limiters =====
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 20,
+  message: { error: "요청이 너무 많습니다. 15분 후 다시 시도해주세요." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const sendCodeLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1분
+  max: 3,
+  message: { error: "인증번호 발송 횟수를 초과했습니다. 1분 후 다시 시도해주세요." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1분
+  max: 120,
+  message: { error: "API 요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ===== 뉴스 캐시 (15분) =====
-let newsCache: { items: NewsItem[]; cachedAt: number } | null = null;
+let newsCache: { items: NewsItem[]; grouped: NewsGroup[]; cachedAt: number } | null = null;
 const NEWS_CACHE_TTL = 15 * 60 * 1000;
 
 // ===== 표결 사전 로드 진행 상태 =====
@@ -60,7 +89,45 @@ interface NewsItem {
   link: string;
   pubDate: string;
   source: string;
+  sourceCode: string;
+  thumbnail?: string;
 }
+
+interface NewsGroup {
+  headline: string;
+  articles: NewsItem[];
+}
+
+// 방송사별 색상 및 코드
+const SOURCE_META: Record<string, { label: string; code: string; color: string }> = {
+  "연합뉴스":  { label: "연합",  code: "yna",    color: "bg-red-100 text-red-700 border-red-200" },
+  "KBS":      { label: "KBS",   code: "kbs",    color: "bg-blue-100 text-blue-700 border-blue-200" },
+  "MBC":      { label: "MBC",   code: "mbc",    color: "bg-purple-100 text-purple-700 border-purple-200" },
+  "SBS":      { label: "SBS",   code: "sbs",    color: "bg-pink-100 text-pink-700 border-pink-200" },
+  "JTBC":     { label: "JTBC",  code: "jtbc",   color: "bg-orange-100 text-orange-700 border-orange-200" },
+  "YTN":      { label: "YTN",   code: "ytn",    color: "bg-sky-100 text-sky-700 border-sky-200" },
+  "한겨레":   { label: "한겨레", code: "hani",   color: "bg-green-100 text-green-700 border-green-200" },
+  "경향신문": { label: "경향",   code: "khan",   color: "bg-teal-100 text-teal-700 border-teal-200" },
+  "조선일보": { label: "조선",   code: "chosun", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  "중앙일보": { label: "중앙",   code: "joongang", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  "동아일보": { label: "동아",   code: "donga",  color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  "뉴스1":    { label: "뉴스1",  code: "news1",  color: "bg-rose-100 text-rose-700 border-rose-200" },
+};
+
+const RSS_FEEDS = [
+  { url: "https://www.yna.co.kr/rss/politics.xml",                                                       source: "연합뉴스",  limit: 10 },
+  { url: "https://news.kbs.co.kr/rss/rss.do?cId=02",                                                     source: "KBS",      limit: 10 },
+  { url: "https://imnews.imbc.com/rss/politics.xml",                                                     source: "MBC",      limit: 10 },
+  { url: "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER",                   source: "SBS",      limit: 10 },
+  { url: "https://news.jtbc.co.kr/rss/politics.xml",                                                     source: "JTBC",     limit: 10 },
+  { url: "https://www.ytn.co.kr/_pn/0101_rss.xml",                                                       source: "YTN",      limit: 10 },
+  { url: "https://www.hani.co.kr/rss/politics/",                                                          source: "한겨레",   limit: 8  },
+  { url: "https://www.khan.co.kr/rss/rssdata/politic_news.xml",                                           source: "경향신문", limit: 8  },
+  { url: "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml",               source: "조선일보", limit: 8  },
+  { url: "https://rss.joins.com/joins_news_list.xml",                                                    source: "중앙일보", limit: 8  },
+  { url: "https://rss.donga.com/politics.xml",                                                           source: "동아일보", limit: 8  },
+  { url: "https://feeds.feedburner.com/news1Korea-politics",                                              source: "뉴스1",    limit: 8  },
+];
 
 function extractText(val: any): string {
   if (!val) return "";
@@ -71,12 +138,61 @@ function extractText(val: any): string {
   return String(val);
 }
 
-async function fetchKoreanPoliticsNews(): Promise<NewsItem[]> {
-  const RSS_FEEDS = [
-    { url: "https://www.yna.co.kr/rss/politics.xml", source: "연합뉴스" },
-    { url: "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml", source: "조선일보" },
-  ];
+// 한국어 불용어
+const KO_STOPWORDS = new Set([
+  "은", "는", "이", "가", "을", "를", "의", "에", "에서", "로", "으로", "와", "과", "도", "만",
+  "등", "및", "또", "위해", "대해", "있어", "통해", "하는", "되는", "위한", "대한", "이후",
+  "이전", "지난", "오늘", "어제", "이날", "밝혀", "강조", "주장", "지적", "설명", "위원회",
+  "국회", "에서", "한다", "했다", "있다", "있는", "하고", "하며", "이다", "라고", "이라고",
+  "했다", "했으며", "했다고", "자신", "앞서", "관련", "해당", "내용", "사실", "나서", "발표",
+]);
 
+function extractKeywords(title: string): string[] {
+  return title
+    .replace(/[·…"'"'<>「」\[\]()【】《》\-_~!?,.:;]/g, " ")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2 && !KO_STOPWORDS.has(w) && !/^\d+$/.test(w));
+}
+
+function groupNewsByTopic(items: NewsItem[]): NewsGroup[] {
+  const itemKw = items.map((item) => ({
+    item,
+    kws: new Set(extractKeywords(item.title)),
+  }));
+
+  const assigned = new Set<number>();
+  const groups: NewsGroup[] = [];
+
+  for (let i = 0; i < itemKw.length; i++) {
+    if (assigned.has(i)) continue;
+    const group: NewsItem[] = [itemKw[i].item];
+    const mergedKws = new Set(itemKw[i].kws);
+    assigned.add(i);
+
+    for (let j = i + 1; j < itemKw.length; j++) {
+      if (assigned.has(j)) continue;
+      const overlap = Array.from(itemKw[j].kws).filter((k) => mergedKws.has(k)).length;
+      if (overlap >= 2) {
+        group.push(itemKw[j].item);
+        itemKw[j].kws.forEach((k) => mergedKws.add(k));
+        assigned.add(j);
+      }
+    }
+
+    // 2개 이상 방송사가 보도한 경우만 그룹으로 포함
+    const uniqueSources = new Set(group.map((a) => a.source));
+    if (uniqueSources.size >= 2) {
+      // 가장 최신 기사를 헤드라인으로
+      group.sort((a, b) => new Date(b.pubDate || 0).getTime() - new Date(a.pubDate || 0).getTime());
+      groups.push({ headline: group[0].title, articles: group });
+    }
+  }
+
+  return groups.slice(0, 20);
+}
+
+async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: NewsGroup[] }> {
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_",
@@ -84,29 +200,55 @@ async function fetchKoreanPoliticsNews(): Promise<NewsItem[]> {
   });
   const allItems: NewsItem[] = [];
 
-  for (const feed of RSS_FEEDS) {
-    try {
-      const res = await axios.get(feed.url, { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } });
-      const parsed = parser.parse(res.data);
-      const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
-      const items = Array.isArray(rawItems) ? rawItems : [rawItems];
-      for (const item of items.slice(0, 15)) {
-        const title = extractText(item.title);
-        const link = typeof item.link === "string"
-          ? item.link
-          : extractText(item.link?.["@_href"]) || extractText(item.guid) || "";
-        const pubDate = extractText(item.pubDate || item.updated || item.published || "");
-        if (title && link) {
-          allItems.push({ title: title.trim(), link, pubDate, source: feed.source });
-        }
-      }
-    } catch (err: any) {
-      console.error(`[news] ${feed.source} RSS 오류:`, err.message);
-    }
-  }
+  await Promise.allSettled(
+    RSS_FEEDS.map(async (feed) => {
+      try {
+        const res = await axios.get(feed.url, {
+          timeout: 8000,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)" },
+        });
+        const parsed = parser.parse(res.data);
+        const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
+        const feedItems = Array.isArray(rawItems) ? rawItems : [rawItems];
+        const meta = SOURCE_META[feed.source] ?? { code: feed.source, color: "" };
 
-  console.log(`[news] 수집된 뉴스: ${allItems.length}건`);
-  return allItems.slice(0, 20);
+        for (const item of feedItems.slice(0, feed.limit)) {
+          const title = extractText(item.title);
+          const link =
+            typeof item.link === "string"
+              ? item.link
+              : extractText(item.link?.["@_href"]) || extractText(item.guid) || "";
+          const pubDate = extractText(item.pubDate || item.updated || item.published || "");
+          const thumbnail =
+            item["media:content"]?.["@_url"] ||
+            item["media:thumbnail"]?.["@_url"] ||
+            item.enclosure?.["@_url"] ||
+            "";
+          if (title && link) {
+            allItems.push({
+              title: title.trim(),
+              link,
+              pubDate,
+              source: feed.source,
+              sourceCode: meta.code,
+              thumbnail: typeof thumbnail === "string" ? thumbnail : "",
+            });
+          }
+        }
+        console.log(`[news] ${feed.source}: ${feedItems.length}건 수신`);
+      } catch (err: any) {
+        console.error(`[news] ${feed.source} RSS 오류:`, err.message);
+      }
+    })
+  );
+
+  // 최신순 정렬
+  allItems.sort((a, b) => new Date(b.pubDate || 0).getTime() - new Date(a.pubDate || 0).getTime());
+
+  const grouped = groupNewsByTopic(allItems);
+  console.log(`[news] 총 ${allItems.length}건, 그룹 ${grouped.length}건`);
+
+  return { items: allItems.slice(0, 100), grouped };
 }
 
 const ANON_ADJECTIVES = [
@@ -190,31 +332,53 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "로그인이 필요합니다" });
+  }
+  const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").filter(Boolean);
+  if (adminIds.length > 0 && !adminIds.includes(req.session.userId)) {
+    return res.status(403).json({ error: "관리자 권한이 필요합니다" });
+  }
+  next();
+}
+
+const OPEN_API_KEY = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   const PgStore = pgSession(session);
 
+  if (isProduction && !process.env.SESSION_SECRET) {
+    throw new Error("프로덕션 환경에서는 SESSION_SECRET 환경변수가 반드시 필요합니다.");
+  }
+
   app.use(
     session({
       store: new PgStore({
         pool,
         createTableIfMissing: true,
+        ttl: 7 * 24 * 60 * 60, // 7일 (초 단위)
       }),
-      secret: process.env.SESSION_SECRET || "vote-with-reason-secret-key",
+      secret: process.env.SESSION_SECRET || "vote-with-reason-dev-secret-key",
       resave: false,
       saveUninitialized: false,
+      name: "kvg.sid", // 기본 'connect.sid' 대신 고유한 이름
       cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: false,
-        sameSite: "lax",
+        secure: isProduction,
+        sameSite: isProduction ? "strict" : "lax",
       },
     })
   );
 
-  app.post("/api/auth/send-code", async (req, res) => {
+  // 일반 API에 rate limit 적용
+  app.use("/api/", apiLimiter);
+
+  app.post("/api/auth/send-code", sendCodeLimiter, async (req, res) => {
     try {
       const result = phoneVerificationSchema.safeParse(req.body);
       if (!result.success) {
@@ -229,18 +393,28 @@ export async function registerRoutes(
 
       await storage.createVerificationCode(normalizedPhone, code, expiresAt);
 
-      res.json({
+      // 프로덕션에서는 실제 SMS 발송 필요 (현재는 개발용 콘솔 출력)
+      if (!isProduction) {
+        console.log(`[dev] 인증번호 (${normalizedPhone}): ${code}`);
+      }
+
+      const response: Record<string, any> = {
         success: true,
         message: "인증번호가 발송되었습니다",
-        demoCode: code,
-      });
+      };
+      // 개발 환경에서만 코드 응답에 포함 (프로덕션 보안)
+      if (!isProduction) {
+        response.demoCode = code;
+      }
+
+      res.json(response);
     } catch (error) {
       console.error("Send code error:", error);
       res.status(500).json({ error: "인증번호 발송 중 오류가 발생했습니다" });
     }
   });
 
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const result = registerSchema.safeParse(req.body);
       if (!result.success) {
@@ -288,7 +462,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const result = loginSchema.safeParse(req.body);
       if (!result.success) {
@@ -329,9 +503,63 @@ export async function registerRoutes(
       return res.status(401).json({ error: "사용자를 찾을 수 없습니다" });
     }
 
+    const badges = await storage.getUserBadges(user.id);
     res.json({
-      user: { id: user.id, username: user.username, name: user.name },
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        voteVerified: user.voteVerified,
+        badges,
+        postCount: user.postCount,
+        favorites: user.favorites,
+      },
     });
+  });
+
+  app.post("/api/auth/verify-vote", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
+      if (user.voteVerified) {
+        return res.json({ success: true, alreadyVerified: true, message: "이미 투표 인증이 완료되었습니다" });
+      }
+      const updated = await storage.verifyVote(req.session.userId!);
+      const badges = await storage.getUserBadges(updated.id);
+      res.json({
+        success: true,
+        message: "투표 인증이 완료되었습니다! 🗳️ '투표인증' 배지가 부여되었습니다.",
+        badges,
+        voteVerified: true,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "투표 인증 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.patch("/api/auth/favorites", requireAuth, async (req, res) => {
+    try {
+      const { favorites } = req.body;
+      if (!Array.isArray(favorites)) {
+        return res.status(400).json({ error: "즐겨찾기 목록은 배열이어야 합니다" });
+      }
+      const user = await storage.updateUserFavorites(req.session.userId!, favorites);
+      const badges = await storage.getUserBadges(user.id);
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          voteVerified: user.voteVerified,
+          badges,
+          postCount: user.postCount,
+          favorites: user.favorites,
+        },
+      });
+    } catch (error: any) {
+      console.error("Update favorites error:", error);
+      res.status(500).json({ error: "즐겨찾기 업데이트 중 오류가 발생했습니다" });
+    }
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -375,13 +603,19 @@ export async function registerRoutes(
 
   app.get("/api/members", async (_req, res) => {
     try {
-      const cached = await storage.getCachedData("members");
-      if (cached && cached.length > 0) {
-        return res.json({ source: "api", data: cached });
+      // DB에 데이터가 있으면 우선 사용 (빠름)
+      const dbRows = await db.select().from(legislators).orderBy(legislators.name);
+      if (dbRows.length > 0) {
+        return res.json({ source: "db", data: dbRows });
       }
-      return res.json({ source: "mock", data: null });
+      // DB 없으면 전체 페이지 API 조회
+      const { syncLegislators: sync } = await import("./api-sync");
+      await sync();
+      const freshRows = await db.select().from(legislators).orderBy(legislators.name);
+      return res.json({ source: "api", data: freshRows });
     } catch (error) {
-      res.status(500).json({ error: "의원 데이터 조회 중 오류가 발생했습니다" });
+      console.error("Members API fetch error:", error);
+      res.json({ source: "mock", data: null });
     }
   });
 
@@ -400,13 +634,19 @@ export async function registerRoutes(
 
   app.get("/api/bills", async (_req, res) => {
     try {
-      const cached = await storage.getCachedData("bills");
-      if (cached && cached.length > 0) {
-        return res.json({ source: "api", data: cached });
+      // DB에 데이터가 있으면 우선 사용
+      const dbRows = await db.select().from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
+      if (dbRows.length > 0) {
+        return res.json({ source: "db", data: dbRows });
       }
-      return res.json({ source: "mock", data: null });
+      // DB 없으면 전체 페이지 API 조회
+      const { syncBills: sync } = await import("./api-sync");
+      await sync();
+      const freshRows = await db.select().from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
+      return res.json({ source: "api", data: freshRows });
     } catch (error) {
-      res.status(500).json({ error: "법안 데이터 조회 중 오류가 발생했습니다" });
+      console.error("Bills API fetch error:", error);
+      res.json({ source: "mock", data: null });
     }
   });
 
@@ -455,17 +695,43 @@ export async function registerRoutes(
 
   app.get("/api/attendance", async (_req, res) => {
     try {
+      // 캐시된 데이터 우선 사용
       const cached = await storage.getCachedData("attendance");
       if (cached && cached.length > 0) {
-        return res.json({ source: "api", data: cached });
+        return res.json({ source: "cache", data: cached });
+      }
+      // 캐시 없으면 전체 페이지 조회 (scheduler 로직 재사용)
+      if (!OPEN_API_KEY) {
+        return res.json({ source: "mock", data: null });
+      }
+      const allRows: any[] = [];
+      let pIndex = 1;
+      const PAGE_SIZE = 300;
+      while (true) {
+        const response = await axios.get("https://open.assembly.go.kr/portal/openapi/nekcaihpamofqktdn", {
+          params: { Key: OPEN_API_KEY, Type: "json", pIndex, pSize: PAGE_SIZE, AGE: "22" },
+          timeout: 15000,
+        });
+        const serviceData = response.data?.nekcaihpamofqktdn;
+        const rows = serviceData?.[1]?.row;
+        const pageRows = Array.isArray(rows) ? rows : [];
+        allRows.push(...pageRows);
+        const totalCount = parseInt(serviceData?.[0]?.head?.[0]?.list_total_count) || 0;
+        if (allRows.length >= totalCount || pageRows.length < PAGE_SIZE) break;
+        pIndex++;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      if (allRows.length > 0) {
+        return res.json({ source: "api", data: allRows });
       }
       return res.json({ source: "mock", data: null });
     } catch (error) {
-      res.status(500).json({ error: "출석 데이터 조회 중 오류가 발생했습니다" });
+      console.error("Attendance API fetch error:", error);
+      res.json({ source: "mock", data: null });
     }
   });
 
-  app.post("/api/refresh", requireAuth, async (_req, res) => {
+  app.post("/api/refresh", requireAdmin, async (_req, res) => {
     try {
       const result = await fetchAssemblyData();
       res.json(result);
@@ -474,7 +740,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sync", requireAuth, async (_req, res) => {
+  app.post("/api/sync", requireAdmin, async (_req, res) => {
     try {
       const result = await syncAll();
       res.json({ ok: true, result });
@@ -483,7 +749,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sync/legislators", requireAuth, async (_req, res) => {
+  app.post("/api/sync/legislators", requireAdmin, async (_req, res) => {
     try {
       const result = await syncLegislators();
       res.json({ ok: true, ...result });
@@ -492,7 +758,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sync/bills", requireAuth, async (_req, res) => {
+  app.post("/api/sync/bills", requireAdmin, async (_req, res) => {
     try {
       const result = await syncBills();
       res.json({ ok: true, ...result });
@@ -501,7 +767,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sync/votes", requireAuth, async (_req, res) => {
+  app.post("/api/sync/votes", requireAdmin, async (_req, res) => {
     try {
       const result = await syncVotes();
       res.json({ ok: true, ...result });
@@ -636,9 +902,9 @@ export async function registerRoutes(
     }
 
     // 3. billVotesCache 전체 스캔 (in-memory, 즉시)
-    for (const [billId, cacheEntry] of billVotesCache.entries()) {
+    for (const [billId, cacheEntry] of Array.from(billVotesCache.entries())) {
       if (!seenBills.has(billId)) {
-        const myVote = cacheEntry.votes.find((v) => v.legislatorId === monaCode);
+        const myVote = cacheEntry.votes.find((v: any) => v.legislatorId === monaCode);
         if (myVote) {
           const billName = getBillNameFromCache(billId);
           votes.push({ billId, billName, voteResult: myVote.voteResult });
@@ -688,7 +954,7 @@ export async function registerRoutes(
   app.get("/api/legislators/:monaCode/proposed-bills", async (req, res) => {
     const { monaCode } = req.params;
     const API_BASE = "https://open.assembly.go.kr/portal/openapi";
-    const API_KEY = process.env.ASSEMBLY_API_KEY;
+    const API_KEY = OPEN_API_KEY;
 
     const cached = proposedBillsCache.get(monaCode);
     if (cached && Date.now() - cached.cachedAt < PROPOSED_BILLS_CACHE_TTL) {
@@ -782,17 +1048,50 @@ export async function registerRoutes(
 
   function sanitizePost(post: any) {
     const { userId, ...safe } = post;
-    return { ...safe, displayName: "익명의 유권자", nickname: post.anonNickname };
+    return {
+      ...safe,
+      displayName: post.showRealName && post.authorName ? post.authorName : "익명의 유권자",
+      nickname: post.anonNickname,
+      authorBadges: post.authorBadges ?? [],
+    };
   }
 
   function sanitizeComment(comment: any, postUserId: string) {
     const { userId, ...safe } = comment;
-    return { ...safe, displayName: "익명의 유권자", isAuthor: comment.userId === postUserId };
+    return {
+      ...safe,
+      displayName: "익명의 유권자",
+      isAuthor: comment.userId === postUserId,
+      authorBadges: comment.authorBadges ?? [],
+    };
   }
 
-  app.get("/api/community/posts", async (_req, res) => {
+  app.get("/api/community/posts", async (req, res) => {
     try {
-      const posts = await storage.getPosts();
+      const { board, category, sort, theme } = req.query as Record<string, string>;
+      // 회원 게시판은 로그인 필요
+      if (board === "members" && !req.session.userId) {
+        return res.status(401).json({ error: "회원 게시판은 로그인이 필요합니다" });
+      }
+      // 뱃지 전용 테마 접근 제어
+      if (theme) {
+        const { BADGE_THEMES } = await import("@shared/schema");
+        const themeConfig = BADGE_THEMES[theme];
+        if (themeConfig) {
+          if (!req.session.userId) {
+            return res.status(401).json({ error: `${themeConfig.name}은 로그인이 필요합니다` });
+          }
+          const userBadges = await storage.getUserBadges(req.session.userId);
+          if (!userBadges.includes(themeConfig.badge)) {
+            return res.status(403).json({ error: `${themeConfig.name}에 입장하려면 '${themeConfig.badge}' 뱃지가 필요합니다`, requiredBadge: themeConfig.badge });
+          }
+        }
+      }
+      const posts = await storage.getPosts({
+        boardType: theme || board || undefined,
+        category: category || undefined,
+        sort: sort || "latest",
+      });
       res.json(posts.map(sanitizePost));
     } catch (error) {
       console.error("Get posts error:", error);
@@ -804,15 +1103,25 @@ export async function registerRoutes(
     try {
       const post = await storage.getPost(req.params.id);
       if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      // 회원 게시판 글은 로그인 필요
+      if (post.boardType === "members" && !req.session.userId) {
+        return res.status(401).json({ error: "회원 게시판은 로그인이 필요합니다" });
+      }
+      // 조회수 증가 (비동기, 실패해도 무관)
+      storage.incrementViewCount(post.id).catch(() => {});
       const comments = await storage.getComments(post.id);
       let userReactions: { sentiment: string | null; stance: string | null } = { sentiment: null, stance: null };
+      let isBookmarked = false;
       if (req.session.userId) {
         userReactions = await storage.getUserReactions(post.id, req.session.userId);
+        const bookmarks = await storage.getUserBookmarks(req.session.userId);
+        isBookmarked = bookmarks.includes(post.id);
       }
       res.json({
         post: sanitizePost(post),
         comments: comments.map((c) => sanitizeComment(c, post.userId)),
         userReactions,
+        isBookmarked,
       });
     } catch (error) {
       console.error("Get post error:", error);
@@ -827,11 +1136,41 @@ export async function registerRoutes(
         return res.status(400).json({ error: "제목과 내용을 입력하세요" });
       }
       const nickname = getOrCreateNickname(req.session.userId!);
-      const post = await storage.createPost(req.session.userId!, result.data.title, result.data.content, nickname);
-      res.json(sanitizePost(post));
+      const post = await storage.createPost(
+        req.session.userId!,
+        result.data.title,
+        result.data.content,
+        nickname,
+        result.data.boardType ?? "open",
+        result.data.category ?? "자유",
+        result.data.showRealName ?? false,
+      );
+      res.json(sanitizePost({ ...post, authorBadges: await storage.getUserBadges(req.session.userId!), authorName: "" }));
     } catch (error) {
       console.error("Create post error:", error);
       res.status(500).json({ error: "게시글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/posts/:id/bookmark", requireAuth, async (req, res) => {
+    try {
+      const result = await storage.toggleBookmark(req.params.id as string, req.session.userId!);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "북마크 처리 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/community/bookmarks", requireAuth, async (req, res) => {
+    try {
+      const postIds = await storage.getUserBookmarks(req.session.userId!);
+      if (postIds.length === 0) return res.json([]);
+      // 북마크된 글 상세 조회
+      const posts = await storage.getPosts();
+      const bookmarked = posts.filter((p) => postIds.includes(p.id));
+      res.json(bookmarked.map(sanitizePost));
+    } catch (error) {
+      res.status(500).json({ error: "북마크 조회 중 오류가 발생했습니다" });
     }
   });
 
@@ -841,7 +1180,7 @@ export async function registerRoutes(
       if (!result.success) {
         return res.status(400).json({ error: "댓글 내용을 입력하세요" });
       }
-      const post = await storage.getPost(req.params.id);
+      const post = await storage.getPost(req.params.id as string);
       if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
       const nickname = getOrCreateNickname(req.session.userId!);
       const comment = await storage.createComment(post.id, req.session.userId!, result.data.content, nickname);
@@ -858,9 +1197,9 @@ export async function registerRoutes(
       if (!["like", "dislike", "agree", "disagree"].includes(type)) {
         return res.status(400).json({ error: "잘못된 반응 유형입니다" });
       }
-      await storage.addReaction(req.params.id, req.session.userId!, type);
-      const post = await storage.getPost(req.params.id);
-      const userReactions = await storage.getUserReactions(req.params.id, req.session.userId!);
+      await storage.addReaction(req.params.id as string, req.session.userId!, type);
+      const post = await storage.getPost(req.params.id as string);
+      const userReactions = await storage.getUserReactions(req.params.id as string, req.session.userId!);
       res.json({ post: post ? sanitizePost(post) : null, userReactions });
     } catch (error) {
       console.error("React error:", error);
@@ -868,18 +1207,75 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/news", async (_req, res) => {
+  app.get("/api/news", async (req, res) => {
     try {
       const now = Date.now();
-      if (newsCache && now - newsCache.cachedAt < NEWS_CACHE_TTL) {
-        return res.json(newsCache.items);
+      if (!newsCache || now - newsCache.cachedAt >= NEWS_CACHE_TTL) {
+        const result = await fetchKoreanPoliticsNews();
+        newsCache = { ...result, cachedAt: now };
       }
-      const items = await fetchKoreanPoliticsNews();
-      newsCache = { items, cachedAt: now };
-      res.json(items);
+
+      const { source, view } = req.query as Record<string, string>;
+
+      // 그룹(주제별) 보기
+      if (view === "grouped") {
+        return res.json({ grouped: newsCache.grouped, sources: Object.keys(SOURCE_META) });
+      }
+
+      // 특정 방송사 필터
+      let items = newsCache.items;
+      if (source && source !== "all") {
+        items = items.filter((item) => item.sourceCode === source || item.source === source);
+      }
+
+      res.json({ items, sources: Object.keys(SOURCE_META) });
     } catch (error) {
       console.error("News fetch error:", error);
-      res.json(newsCache?.items || []);
+      res.json({ items: newsCache?.items || [], sources: [], grouped: [] });
+    }
+  });
+
+  // 방송사 메타 정보 (색상 등)
+  app.get("/api/news/sources", (_req, res) => {
+    res.json(SOURCE_META);
+  });
+
+  app.post("/api/news/analyze", async (req, res) => {
+    try {
+      const { url, title: clientTitle, source: clientSource } = req.body;
+      if (!url && !clientTitle) {
+        return res.status(400).json({ error: "URL 또는 제목이 필요합니다." });
+      }
+
+      let analysisTitle = clientTitle || "";
+      let analysisContent = "";
+
+      // 1. 스크래핑 시도 (실패해도 제목으로 폴백)
+      if (url) {
+        try {
+          const article = await scrapeNewsArticle(url);
+          if (article?.content && article.content.length >= 200) {
+            analysisContent = article.content;
+          }
+          if (article?.title && !analysisTitle) {
+            analysisTitle = article.title;
+          }
+        } catch (scrapeErr) {
+          console.warn("[news/analyze] 스크래핑 실패, 제목만으로 분석:", scrapeErr);
+        }
+      }
+
+      if (!analysisTitle) {
+        return res.status(400).json({ error: "기사 제목을 확인할 수 없습니다." });
+      }
+
+      // 2. AI 분석 (본문 없어도 제목+출처만으로 수행)
+      const analysis = await analyzeNewsWithAI(analysisTitle, analysisContent, clientSource);
+
+      res.json({ success: true, data: analysis });
+    } catch (error: any) {
+      console.error("News analyze error:", error);
+      res.status(500).json({ error: error.message || "뉴스 분석 중 오류가 발생했습니다." });
     }
   });
 

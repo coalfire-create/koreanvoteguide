@@ -6,13 +6,15 @@ export interface PoliticianStance {
   econScore: number;
   socialScore: number;
   envScore: number;
+  welfareScore: number;
+  justiceScore: number;
   scoredBillCount: number;
   hasData: boolean;
 }
 
 /**
  * 의원의 찬반 투표 기록과 법안별 성향 점수를 기반으로
- * 이념 성향(경제/사회/환경) 점수를 계산한다.
+ * 이념 성향(경제/사회/환경/복지/정의) 점수를 계산한다.
  *
  * - 찬성한 법안: 법안의 점수를 그대로 더함
  * - 반대한 법안: 법안의 점수를 역산(부호 반전)하여 더함
@@ -33,7 +35,15 @@ export async function calculatePoliticianStance(
     .where(eq(assemblyVotes.legislatorId, legislatorId));
 
   if (votes.length === 0) {
-    return { econScore: 0, socialScore: 0, envScore: 0, scoredBillCount: 0, hasData: false };
+    return {
+      econScore: 0,
+      socialScore: 0,
+      envScore: 0,
+      welfareScore: 0,
+      justiceScore: 0,
+      scoredBillCount: 0,
+      hasData: false,
+    };
   }
 
   const billIds = votes.map((v) => v.billId);
@@ -44,6 +54,8 @@ export async function calculatePoliticianStance(
       econScore: assemblyBills.econScore,
       socialScore: assemblyBills.socialScore,
       envScore: assemblyBills.envScore,
+      welfareScore: assemblyBills.welfareScore,
+      justiceScore: assemblyBills.justiceScore,
     })
     .from(assemblyBills)
     .where(inArray(assemblyBills.billId, billIds));
@@ -53,11 +65,22 @@ export async function calculatePoliticianStance(
   let totalEcon = 0;
   let totalSocial = 0;
   let totalEnv = 0;
+  let totalWelfare = 0;
+  let totalJustice = 0;
   let count = 0;
 
   for (const vote of votes) {
     const bill = billMap.get(vote.billId);
-    if (!bill || bill.econScore == null || bill.socialScore == null || bill.envScore == null) {
+    if (!bill) continue;
+
+    // 최소 하나라도 점수가 있는 법안만 카운트
+    if (
+      bill.econScore == null &&
+      bill.socialScore == null &&
+      bill.envScore == null &&
+      bill.welfareScore == null &&
+      bill.justiceScore == null
+    ) {
       continue;
     }
 
@@ -66,14 +89,24 @@ export async function calculatePoliticianStance(
     else if (vote.voteResult === "반대") multiplier = -1;
     else continue;
 
-    totalEcon += bill.econScore * multiplier;
-    totalSocial += bill.socialScore * multiplier;
-    totalEnv += bill.envScore * multiplier;
+    totalEcon += (bill.econScore ?? 0) * multiplier;
+    totalSocial += (bill.socialScore ?? 0) * multiplier;
+    totalEnv += (bill.envScore ?? 0) * multiplier;
+    totalWelfare += (bill.welfareScore ?? 0) * multiplier;
+    totalJustice += (bill.justiceScore ?? 0) * multiplier;
     count++;
   }
 
   if (count === 0) {
-    return { econScore: 0, socialScore: 0, envScore: 0, scoredBillCount: 0, hasData: false };
+    return {
+      econScore: 0,
+      socialScore: 0,
+      envScore: 0,
+      welfareScore: 0,
+      justiceScore: 0,
+      scoredBillCount: 0,
+      hasData: false,
+    };
   }
 
   const clamp = (v: number) => Math.max(-10, Math.min(10, v));
@@ -83,6 +116,8 @@ export async function calculatePoliticianStance(
     econScore: round1(clamp(totalEcon / count)),
     socialScore: round1(clamp(totalSocial / count)),
     envScore: round1(clamp(totalEnv / count)),
+    welfareScore: round1(clamp(totalWelfare / count)),
+    justiceScore: round1(clamp(totalJustice / count)),
     scoredBillCount: count,
     hasData: true,
   };

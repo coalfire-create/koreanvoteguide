@@ -1,29 +1,35 @@
 import {
   type User, type InsertUser, users, verificationCodes, assemblyDataCache, schedulerStatus,
-  communityPosts, communityComments, communityReactions, communityReports,
+  communityPosts, communityComments, communityReactions, communityReports, communityBookmarks,
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  verifyVote(userId: string): Promise<User>;
+  getUserBadges(userId: string): Promise<string[]>;
   createVerificationCode(phone: string, code: string, expiresAt: Date): Promise<void>;
   getVerificationCode(phone: string, code: string): Promise<{ id: string; phone: string; code: string; expiresAt: Date; used: boolean } | undefined>;
   markVerificationCodeUsed(id: string): Promise<void>;
   getCachedData(key: string): Promise<any[] | null>;
   getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
-  getPosts(): Promise<(CommunityPost & { commentCount: number })[]>;
-  getPost(id: string): Promise<CommunityPost | undefined>;
-  createPost(userId: string, title: string, content: string, anonNickname: string): Promise<CommunityPost>;
-  getComments(postId: string): Promise<CommunityComment[]>;
-  createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment>;
+  getPosts(opts?: { boardType?: string; category?: string; sort?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
+  getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined>;
+  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean): Promise<CommunityPost>;
+  incrementViewCount(postId: string): Promise<void>;
+  getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]>;
+  createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment & { authorBadges: string[] }>;
   addReaction(postId: string, userId: string, type: string): Promise<void>;
   getUserReactions(postId: string, userId: string): Promise<{ sentiment: string | null; stance: string | null }>;
   createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void>;
+  toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }>;
+  getUserBookmarks(userId: string): Promise<string[]>;
+  updateUserFavorites(userId: string, favorites: string[]): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -46,8 +52,36 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.insert(users).values({
       ...insertUser,
       phoneVerified: true,
+      badges: ["first_post"] as any,
     }).returning();
     return user;
+  }
+
+  async verifyVote(userId: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("사용자를 찾을 수 없습니다");
+    const currentBadges = (user.badges as string[]) ?? [];
+    const newBadges = currentBadges.includes("vote_verified")
+      ? currentBadges
+      : [...currentBadges, "vote_verified"];
+    const [updated] = await db
+      .update(users)
+      .set({ voteVerified: true, badges: newBadges as any })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async getUserBadges(userId: string): Promise<string[]> {
+    const [user] = await db.select({ badges: users.badges, postCount: users.postCount, phoneVerified: users.phoneVerified }).from(users).where(eq(users.id, userId));
+    if (!user) return [];
+    const badges = (user.badges as string[]) ?? [];
+    // 실명 인증 뱃지 자동 부여 (휴대폰 인증 완료자)
+    if (user.phoneVerified && !badges.includes("real_name_verified")) badges.push("real_name_verified");
+    // 활동 배지 자동 부여
+    if (user.postCount >= 50 && !badges.includes("veteran")) badges.push("veteran");
+    else if (user.postCount >= 10 && !badges.includes("active")) badges.push("active");
+    return badges;
   }
 
   async createVerificationCode(phone: string, code: string, expiresAt: Date): Promise<void> {
@@ -91,33 +125,145 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPosts(): Promise<(CommunityPost & { commentCount: number })[]> {
-    const posts = await db.select().from(communityPosts).orderBy(desc(communityPosts.createdAt));
+  async getPosts(opts: { boardType?: string; category?: string; sort?: string } = {}): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]> {
+    let query = db.select().from(communityPosts).$dynamic();
+    if (opts.boardType) query = query.where(eq(communityPosts.boardType, opts.boardType));
+    if (opts.category) query = query.where(and(
+      opts.boardType ? eq(communityPosts.boardType, opts.boardType) : undefined,
+      eq(communityPosts.category, opts.category),
+    ));
+    const orderCol = opts.sort === "popular"
+      ? desc(sql`${communityPosts.likes} + ${communityPosts.agreeCount}`)
+      : opts.sort === "views"
+      ? desc(communityPosts.viewCount)
+      : desc(communityPosts.createdAt);
+    const posts = await db
+      .select()
+      .from(communityPosts)
+      .where(and(
+        opts.boardType ? eq(communityPosts.boardType, opts.boardType) : undefined,
+        opts.category ? eq(communityPosts.category, opts.category) : undefined,
+      ))
+      .orderBy(orderCol);
+
     const counts = await db
       .select({ postId: communityComments.postId, count: sql<number>`count(*)::int` })
       .from(communityComments)
       .groupBy(communityComments.postId);
     const countMap = new Map(counts.map((c) => [c.postId, c.count]));
-    return posts.map((p) => ({ ...p, commentCount: countMap.get(p.id) || 0 }));
+
+    // 작성자 배지 일괄 조회
+    const userIds = Array.from(new Set(posts.map((p) => p.userId)));
+    const authorBadgeMap = new Map<string, string[]>();
+    const authorNameMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      const authorRows = await db
+        .select({ id: users.id, badges: users.badges, postCount: users.postCount, phoneVerified: users.phoneVerified, name: users.name })
+        .from(users)
+        .where(sql`${users.id} = ANY(${userIds})`);
+      for (const u of authorRows) {
+        const b = (u.badges as string[]) ?? [];
+        if (u.phoneVerified && !b.includes("real_name_verified")) b.push("real_name_verified");
+        if (u.postCount >= 50 && !b.includes("veteran")) b.push("veteran");
+        else if (u.postCount >= 10 && !b.includes("active")) b.push("active");
+        authorBadgeMap.set(u.id, b);
+        const name = u.name;
+        authorNameMap.set(u.id, name.length <= 1 ? name : name[0] + "*".repeat(name.length - 2) + name[name.length - 1]);
+      }
+    }
+
+    return posts.map((p) => ({
+      ...p,
+      commentCount: countMap.get(p.id) || 0,
+      authorBadges: authorBadgeMap.get(p.userId) ?? [],
+      authorName: authorNameMap.get(p.userId) ?? "",
+    }));
   }
 
-  async getPost(id: string): Promise<CommunityPost | undefined> {
+  async getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined> {
     const [post] = await db.select().from(communityPosts).where(eq(communityPosts.id, id));
+    if (!post) return undefined;
+    const badges = await this.getUserBadges(post.userId);
+    const [authorRow] = await db.select({ name: users.name }).from(users).where(eq(users.id, post.userId));
+    const authorName = authorRow ? (authorRow.name.length <= 1 ? authorRow.name : authorRow.name[0] + "*".repeat(authorRow.name.length - 2) + authorRow.name[authorRow.name.length - 1]) : "";
+    return { ...post, authorBadges: badges, authorName };
+  }
+
+  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false): Promise<CommunityPost> {
+    const [post] = await db
+      .insert(communityPosts)
+      .values({ userId, title, content, anonNickname, boardType, category, showRealName })
+      .returning();
+    // postCount 증가 & 배지 자동 부여
+    await db.execute(sql`UPDATE users SET post_count = post_count + 1 WHERE id = ${userId}`);
+    const postCount = ((await db.select({ postCount: users.postCount }).from(users).where(eq(users.id, userId)))[0]?.postCount) ?? 0;
+    if (postCount >= 50) {
+      await db.execute(sql`
+        UPDATE users SET badges = badges || '["veteran"]'::jsonb
+        WHERE id = ${userId} AND NOT (badges @> '["veteran"]'::jsonb)
+      `);
+    } else if (postCount >= 10) {
+      await db.execute(sql`
+        UPDATE users SET badges = badges || '["active"]'::jsonb
+        WHERE id = ${userId} AND NOT (badges @> '["active"]'::jsonb)
+      `);
+    }
     return post;
   }
 
-  async createPost(userId: string, title: string, content: string, anonNickname: string): Promise<CommunityPost> {
-    const [post] = await db.insert(communityPosts).values({ userId, title, content, anonNickname }).returning();
-    return post;
+  async incrementViewCount(postId: string): Promise<void> {
+    await db.execute(sql`UPDATE community_posts SET view_count = view_count + 1 WHERE id = ${postId}`);
   }
 
-  async getComments(postId: string): Promise<CommunityComment[]> {
-    return db.select().from(communityComments).where(eq(communityComments.postId, postId)).orderBy(communityComments.createdAt);
+  async getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]> {
+    const comments = await db
+      .select()
+      .from(communityComments)
+      .where(eq(communityComments.postId, postId))
+      .orderBy(communityComments.createdAt);
+    const userIds = Array.from(new Set(comments.map((c) => c.userId)));
+    const authorBadgeMap = new Map<string, string[]>();
+    if (userIds.length > 0) {
+      const authorRows = await db
+        .select({ id: users.id, badges: users.badges, postCount: users.postCount })
+        .from(users)
+        .where(sql`${users.id} = ANY(${userIds})`);
+      for (const u of authorRows) {
+        const b = (u.badges as string[]) ?? [];
+        if (u.postCount >= 50 && !b.includes("veteran")) b.push("veteran");
+        else if (u.postCount >= 10 && !b.includes("active")) b.push("active");
+        authorBadgeMap.set(u.id, b);
+      }
+    }
+    return comments.map((c) => ({ ...c, authorBadges: authorBadgeMap.get(c.userId) ?? [] }));
   }
 
-  async createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment> {
+  async createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment & { authorBadges: string[] }> {
     const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname }).returning();
-    return comment;
+    const badges = await this.getUserBadges(userId);
+    return { ...comment, authorBadges: badges };
+  }
+
+  async toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
+    const [existing] = await db
+      .select()
+      .from(communityBookmarks)
+      .where(and(eq(communityBookmarks.postId, postId), eq(communityBookmarks.userId, userId)));
+    if (existing) {
+      await db.delete(communityBookmarks).where(eq(communityBookmarks.id, existing.id));
+      return { bookmarked: false };
+    }
+    await db.insert(communityBookmarks).values({ postId, userId });
+    return { bookmarked: true };
+  }
+
+  async getUserBookmarks(userId: string): Promise<string[]> {
+    const rows = await db
+      .select({ postId: communityBookmarks.postId })
+      .from(communityBookmarks)
+      .where(eq(communityBookmarks.userId, userId))
+      .orderBy(desc(communityBookmarks.createdAt));
+    return rows.map((r) => r.postId);
   }
 
   private getDimension(type: string): string {
@@ -174,6 +320,19 @@ export class DatabaseStorage implements IStorage {
 
   async createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void> {
     await db.insert(communityReports).values({ userId, reason, postId: postId ?? null, commentId: commentId ?? null });
+    if (postId) {
+      await db.execute(sql`UPDATE community_posts SET report_count = report_count + 1 WHERE id = ${postId}`);
+    }
+  }
+
+  async updateUserFavorites(userId: string, favorites: string[]): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ favorites: favorites as any })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updated) throw new Error("사용자를 찾을 수 없습니다");
+    return updated;
   }
 }
 

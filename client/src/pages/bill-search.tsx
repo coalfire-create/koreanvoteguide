@@ -777,63 +777,93 @@ export default function BillSearch() {
   }, [search]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <FileText className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold" data-testid="text-page-title-bills">법안 검색</h1>
+    <div className="max-w-5xl mx-auto px-4 py-10 pb-24 min-h-screen bg-slate-50/30">
+      <div className="mb-10 relative">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm border border-primary/5">
+              <FileText className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900" data-testid="text-page-title-bills">법안 검색</h1>
+              <p className="text-sm text-slate-500 font-medium mt-1">
+                사회를 바꾸는 법안들을 확인하고 이념 성향 분석을 만나보세요
+              </p>
+            </div>
           </div>
           <LastUpdated />
         </div>
-        <p className="text-muted-foreground text-sm">
-          법안을 클릭해서 설명과 이념 성향 분석을 확인하세요
-        </p>
       </div>
 
-      <div className="relative mb-5">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="relative mb-8 group">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <Search className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+        </div>
         <Input
           type="search"
-          placeholder="법안명, 위원회, 발의자로 검색..."
+          placeholder="관심 있는 법안명, 위원회, 발의자를 검색해보세요"
+          className="h-14 pl-12 pr-4 text-md rounded-2xl border-slate-200 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all group-hover:shadow-md"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
           data-testid="input-bill-search"
         />
+        {searchQuery && (
+          <button 
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            onClick={() => setSearchQuery("")}
+          >
+            취소
+          </button>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "proposed" | "enacted")} className="w-full">
-        <TabsList className="w-full mb-5 grid grid-cols-2">
-          <TabsTrigger value="proposed" className="flex items-center gap-1.5" data-testid="tab-proposed-bills">
-            <Clock className="w-3.5 h-3.5" />
-            심사 중인 법안
-          </TabsTrigger>
-          <TabsTrigger value="enacted" className="flex items-center gap-1.5" data-testid="tab-enacted-bills">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            통과된 법안
-          </TabsTrigger>
-        </TabsList>
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(v) => setActiveTab(v as "proposed" | "enacted")} 
+        className="space-y-8"
+      >
+        <div className="flex justify-center p-1 bg-slate-200/50 backdrop-blur-sm rounded-2xl w-fit mx-auto min-w-[320px]">
+          <TabsList className="bg-transparent h-12 w-full gap-1">
+            <TabsTrigger 
+              value="proposed" 
+              className="flex-1 h-full rounded-xl font-bold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all gap-2"
+              data-testid="tab-proposed-bills"
+            >
+              <Clock className="w-4 h-4" />
+              심사 중인 법안
+              <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1.5 opacity-60">22대</Badge>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="enacted" 
+              className="flex-1 h-full rounded-xl font-bold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all gap-2 text-slate-600"
+              data-testid="tab-enacted-bills"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              통과된 법안
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="proposed">
+        <TabsContent value="proposed" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
           <BillList
             bills={proposedBills}
             isLoading={proposedLoading}
             searchQuery={searchQuery}
             onSelect={setSelectedBill}
-            emptyMessage="검색 결과가 없습니다"
+            emptyMessage={searchQuery ? "검색 결과가 없습니다" : "로딩 중..."}
+            loadingNote="국회 웹사이트의 최신 제안 법안들을 실시간으로 분석합니다"
           />
         </TabsContent>
 
-        <TabsContent value="enacted">
+        <TabsContent value="enacted" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
           <BillList
             bills={enactedBills}
             isLoading={enactedLoading}
             isError={enactedError}
             searchQuery={searchQuery}
             onSelect={setSelectedBill}
-            emptyMessage="통과된 법안이 없습니다"
-            loadingNote="국회 API에서 통과된 법안을 불러오는 중입니다. 잠시만 기다려주세요..."
+            emptyMessage={searchQuery ? "검색된 통과 법안이 없습니다" : "통과된 법안 정보를 불러오고 있습니다"}
+            loadingNote="실제로 통과되어 법률이 된 국가 중요 법안 목록입니다"
             showEnactedBadge
           />
         </TabsContent>

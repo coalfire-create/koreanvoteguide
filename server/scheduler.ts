@@ -6,13 +6,13 @@ import { eq } from "drizzle-orm";
 import { log } from "./index";
 
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
-const API_KEY = process.env.ASSEMBLY_API_KEY;
+const API_KEY = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
 
 const API_ENDPOINTS = {
   members: "nwvrqwxyaytdsfvhu",
-  votes: "ncocpgfiemocjntve",
+  votes: "nojepdqqaweusdfbi",
   bills: "nzmimeepazxkubdpn",
-  attendance: "nwbpacrgavhjryiph",
+  attendance: "nekcaihpamofqktdn",
 };
 
 const DELAY_MS = 500;
@@ -97,7 +97,7 @@ async function updateSchedulerStatus(success: boolean, errorMessage?: string): P
 
 export async function fetchAssemblyData(): Promise<{ success: boolean; message: string }> {
   if (!API_KEY) {
-    const msg = "ASSEMBLY_API_KEY 환경변수가 설정되지 않았습니다. Mock 데이터를 사용합니다.";
+    const msg = "OPEN_ASSEMBLY_API_KEY 환경변수가 설정되지 않았습니다. Mock 데이터를 사용합니다.";
     log(msg, "scheduler");
     await updateSchedulerStatus(false, msg);
     return { success: false, message: msg };

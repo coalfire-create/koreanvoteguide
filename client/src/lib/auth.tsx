@@ -6,6 +6,9 @@ interface AuthUser {
   id: string;
   username: string;
   name: string;
+  voteVerified: boolean;
+  badges: string[];
+  postCount: number;
 }
 
 interface AuthContextType {
