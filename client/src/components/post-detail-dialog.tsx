@@ -112,9 +112,14 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
         
         {/* 헤더 바 */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-slate-100 z-10 shrink-0">
-          <Badge variant="secondary" className="bg-slate-100 text-slate-500 hover:bg-slate-200">
-            {data?.post?.category || "게시물"}
-          </Badge>
+          <div className="flex flex-col">
+            <DialogTitle className="text-sm font-bold text-slate-800">
+              {data?.post?.title || "게시물 상세보기"}
+            </DialogTitle>
+            <Badge variant="secondary" className="w-fit mt-1 bg-slate-100 text-slate-500 hover:bg-slate-200">
+              {data?.post?.category || "게시물"}
+            </Badge>
+          </div>
           <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200" onClick={() => onOpenChange(false)}>
             <X className="w-4 h-4 text-slate-500" />
           </Button>

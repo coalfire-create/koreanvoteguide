@@ -4,7 +4,7 @@ import {
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc } from "drizzle-orm";
+import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
       const authorRows = await db
         .select({ id: users.id, badges: users.badges, postCount: users.postCount, phoneVerified: users.phoneVerified, name: users.name })
         .from(users)
-        .where(sql`${users.id} = ANY(${userIds})`);
+        .where(inArray(users.id, userIds));
       for (const u of authorRows) {
         const b = (u.badges as string[]) ?? [];
         if (u.phoneVerified && !b.includes("real_name_verified")) b.push("real_name_verified");
@@ -232,7 +232,7 @@ export class DatabaseStorage implements IStorage {
       const authorRows = await db
         .select({ id: users.id, badges: users.badges, postCount: users.postCount })
         .from(users)
-        .where(sql`${users.id} = ANY(${userIds})`);
+        .where(inArray(users.id, userIds));
       for (const u of authorRows) {
         const b = (u.badges as string[]) ?? [];
         if (u.postCount >= 50 && !b.includes("veteran")) b.push("veteran");

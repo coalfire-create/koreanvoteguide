@@ -177,6 +177,34 @@ export default function Community() {
     }
   });
 
+  const [commentingPostId, setCommentingPostId] = useState<string | null>(null);
+  const [quickComment, setQuickComment] = useState("");
+
+  const quickReactMutation = useMutation({
+    mutationFn: async ({ postId, type }: { postId: string; type: string }) => {
+      const res = await apiRequest("POST", `/api/community/posts/${postId}/react`, { type });
+      if (!res.ok) throw new Error("반응을 기록하지 못했습니다.");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] });
+    },
+  });
+
+  const quickCommentMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const res = await apiRequest("POST", `/api/community/posts/${postId}/comments`, { content });
+      if (!res.ok) throw new Error("댓글을 등록하지 못했습니다.");
+      return res.json();
+    },
+    onSuccess: () => {
+      setCommentingPostId(null);
+      setQuickComment("");
+      queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] });
+      toast({ title: "댓글 작성 완료", description: "성공적으로 등록되었습니다." });
+    },
+  });
+
   const handleMemberClick = (memberId: string, memberName: string) => {
     apiRequest("POST", `/api/members/${memberId}/click`, { name: memberName }).catch(() => {});
     navigate(`/members/${memberId}`);
@@ -448,61 +476,126 @@ export default function Community() {
               <p className="text-slate-400 text-[12px]">가장 먼저 글을 남겨보세요!</p>
             </div>
           ) : (
-            filteredPosts.map((post, idx) => {
+          {filteredPosts.map((post, idx) => {
               const isHot = sort === "popular" && idx < 3;
+              const isCommenting = commentingPostId === post.id;
               return (
-                <button
+                <div
                   key={post.id}
-                  onClick={() => setSelectedPostId(post.id)}
-                  className="w-full text-left py-3 px-4 hover:bg-slate-50 transition-colors group flex gap-3 cursor-pointer"
+                  className="w-full bg-white border-b border-slate-100 last:border-0"
                 >
-                  {/* 썸네일 이미지 */}
-                  {post.thumbnailUrl && (
-                    <div className="shrink-0 w-[56px] h-[56px] rounded-lg overflow-hidden border border-slate-100 mt-0.5">
-                      <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0 flex flex-col gap-1">
-                    {/* 태그 배지 (국회의원/법안 게시판) */}
-                    {post.tagName && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold w-fit">
-                        {post.tagType === "legislator" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
-                            <User className="w-2.5 h-2.5" />{post.tagName}
-                          </span>
-                        ) : post.tagType === "bill" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            <FileText className="w-2.5 h-2.5" />{post.tagName}
-                          </span>
-                        ) : null}
-                      </span>
+                  <div
+                    onClick={() => setSelectedPostId(post.id)}
+                    className="w-full text-left py-4 px-4 hover:bg-slate-50 transition-colors group flex gap-3 cursor-pointer"
+                  >
+                    {/* 썸네일 이미지 */}
+                    {post.thumbnailUrl && (
+                      <div className="shrink-0 w-[64px] h-[64px] rounded-lg overflow-hidden border border-slate-100 mt-0.5">
+                        <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                      </div>
                     )}
 
-                    <div className="flex items-start gap-2 justify-between">
-                      <h3 className={`text-[14px] line-clamp-2 leading-snug flex-1 ${isHot ? "text-red-600 font-bold" : "text-slate-900 font-semibold"}`}>
-                        {isHot && <span className="text-[10px] bg-red-600 text-white px-1 py-0.5 rounded-sm mr-1.5 shadow-sm align-text-bottom">BEST</span>}
-                        {post.title}
-                      </h3>
-                      {post.commentCount > 0 && (
-                        <span className="text-[12px] font-bold text-indigo-600 shrink-0">[{post.commentCount}]</span>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      {/* 태그 배지 */}
+                      {post.tagName && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold w-fit">
+                          {post.tagType === "legislator" ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                              <User className="w-2.5 h-2.5" />{post.tagName}
+                            </span>
+                          ) : post.tagType === "bill" ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100">
+                              <FileText className="w-2.5 h-2.5" />{post.tagName}
+                            </span>
+                          ) : null}
+                        </span>
                       )}
-                    </div>
-                    <p className="text-[12px] text-slate-500 line-clamp-1">{post.content}</p>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
-                      <AuthorDisplay displayName={post.displayName} authorType={post.authorType} isVerified={post.isVerified} />
-                      <span>·</span>
-                      <span>{formatRelativeTime(post.createdAt)}</span>
-                      <span className="ml-auto flex items-center gap-2">
-                        <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{post.viewCount ?? 0}</span>
-                        <span className="flex items-center gap-0.5"><ThumbsUp className="w-3 h-3" />{post.likes ?? 0}</span>
-                        <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{post.commentCount ?? 0}</span>
-                      </span>
+
+                      <div className="flex items-start gap-2 justify-between">
+                        <h3 className={`text-[15px] line-clamp-2 leading-snug flex-1 ${isHot ? "text-red-600 font-bold" : "text-slate-900 font-bold"}`}>
+                          {isHot && <span className="text-[10px] bg-red-600 text-white px-1 py-0.5 rounded-sm mr-1.5 shadow-sm align-text-bottom">BEST</span>}
+                          {post.title}
+                        </h3>
+                      </div>
+                      <p className="text-[13px] text-slate-500 line-clamp-2 leading-relaxed">{post.content}</p>
+                      
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium mt-1">
+                        <AuthorDisplay displayName={post.displayName} authorType={post.authorType} isVerified={post.isVerified} />
+                        <span>·</span>
+                        <span>{formatRelativeTime(post.createdAt)}</span>
+                        <span className="ml-auto flex items-center gap-3">
+                          <span className="flex items-center gap-0.5"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </button>
+
+                  {/* 빠른 반응 버튼바 */}
+                  <div className="px-4 pb-3 flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        quickReactMutation.mutate({ postId: post.id, type: "like" });
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors border border-slate-100"
+                    >
+                      <ThumbsUp className={`w-3.5 h-3.5 ${post.likes > 0 ? "fill-primary text-primary" : ""}`} />
+                      <span className={`text-[12px] font-bold ${post.likes > 0 ? "text-primary" : ""}`}>{post.likes ?? 0}</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isCommenting) {
+                          setCommentingPostId(null);
+                        } else {
+                          setCommentingPostId(post.id);
+                          setQuickComment("");
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors border border-slate-100"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span className="text-[12px] font-bold">{post.commentCount ?? 0}</span>
+                    </button>
+                  </div>
+
+                  {/* 빠른 댓글 입력창 */}
+                  <AnimatePresence>
+                    {isCommenting && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="px-4 pb-4 overflow-hidden"
+                      >
+                        <div className="flex gap-2">
+                          <Input
+                            autoFocus
+                            placeholder="댓글을 입력하세요..."
+                            value={quickComment}
+                            onChange={(e) => setQuickComment(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && quickComment.trim()) {
+                                quickCommentMutation.mutate({ postId: post.id, content: quickComment.trim() });
+                              }
+                            }}
+                            className="h-9 text-[13px] rounded-full border-slate-200 bg-slate-50"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={!quickComment.trim() || quickCommentMutation.isPending}
+                            onClick={() => quickCommentMutation.mutate({ postId: post.id, content: quickComment.trim() })}
+                            className="shrink-0 h-9 rounded-full px-4 font-bold bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            등록
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
-            })
+            })}
           )}
         </div>
       </div>
