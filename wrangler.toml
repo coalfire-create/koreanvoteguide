@@ -1,0 +1,7 @@
+name = "korean-vote-guide"
+main = "server/index.ts" # 서버 실행 파일 위치 (보통 server 폴더 안에 있음)
+compatibility_date = "2024-04-01"
+
+[assets]
+directory = "./dist/public"
+binding = "ASSETS"
