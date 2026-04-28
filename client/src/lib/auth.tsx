@@ -7,6 +7,10 @@ interface AuthUser {
   username: string;
   name: string;
   voteVerified: boolean;
+  realNameVerified?: boolean;
+  realName?: string | null;
+  nickname?: string | null;
+  nicknameUpdatedAt?: string | null;
   badges: string[];
   postCount: number;
 }

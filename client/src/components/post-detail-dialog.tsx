@@ -15,6 +15,8 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BADGE_LABELS } from "@shared/schema";
+import DOMPurify from "dompurify";
+import { DailyPoll } from "@/components/DailyPoll";
 
 interface PostDetailDialogProps {
   postId: string | null;
@@ -39,6 +41,21 @@ function AuthorBadges({ badges }: { badges: string[] }) {
       })}
     </span>
   );
+}
+
+function AuthorDisplay({ displayName, authorType }: { displayName?: string; authorType?: string }) {
+  if (authorType === "realname" && displayName) {
+    return (
+      <span className="flex items-center gap-1">
+        <span className="text-[12px] font-bold text-slate-700">{displayName}</span>
+        <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">실명</span>
+      </span>
+    );
+  }
+  if (authorType === "nickname" && displayName) {
+    return <span className="text-[12px] font-bold text-slate-700">{displayName}</span>;
+  }
+  return <span className="text-[12px] font-bold text-slate-400">익명</span>;
 }
 
 export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps) {
@@ -77,18 +94,10 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
   });
 
   function handleComment() {
-    if (!user) {
-      toast({ title: "로그인 필요", description: "댓글 작성은 로그인 후 가능합니다." });
-      return;
-    }
     commentMutation.mutate(commentText.trim());
   }
 
   function handleLike() {
-    if (!user) {
-      toast({ title: "로그인 필요", description: "추천은 로그인 후 가능합니다." });
-      return;
-    }
     reactMutation.mutate("like");
   }
 
@@ -131,11 +140,11 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                 <div className="flex items-center justify-between mt-2 mb-5">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-indigo-100 flex items-center justify-center text-[10px] font-bold text-primary">
-                      {data.post.displayName?.charAt(0) || "익"}
+                      {(data.post.displayName || "익").charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 line-clamp-1">
-                        <span className="text-[12px] font-bold text-slate-700">{data.post.displayName || "익명"}</span>
+                        <AuthorDisplay displayName={data.post.displayName} authorType={(data.post as any).authorType} />
                         <AuthorBadges badges={data.post.authorBadges} />
                       </div>
                       <p className="text-[10px] text-slate-400 font-medium">{new Date(data.post.createdAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
@@ -150,9 +159,29 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                   </div>
                 </div>
 
-                <div className="text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap font-medium">
-                  {data.post.content}
-                </div>
+                {data.post.contentType === "rich" ? (
+                  <div
+                    className="prose prose-sm max-w-none text-[15px] leading-relaxed text-slate-800 font-medium pb-4"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.post.content) }}
+                  />
+                ) : (
+                  <div className="text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap font-medium pb-4">
+                    {data.post.content}
+                  </div>
+                )}
+                
+                {/* 첨부파일 영역 */}
+                {Array.isArray(data.post.attachments) && data.post.attachments.map((att: any, idx: number) => {
+                  if (att.type === 'poll') {
+                    const board = att.pollId?.split(':')[0] || "free";
+                    return (
+                      <div key={idx} className="mt-4 pt-4 border-t border-slate-100/60">
+                        <DailyPoll board={board} />
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
 
               {/* 댓글 리스트 */}
@@ -168,12 +197,14 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                     {data.comments?.map((c: any) => (
                       <div key={c.id} className="flex gap-3">
                         <div className="w-7 h-7 rounded-full bg-slate-200/50 flex flex-col items-center justify-center shrink-0 border border-slate-200 mt-0.5">
-                          <span className="text-[10px] font-bold text-slate-500">익</span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {c.authorType === "realname" ? "실" : c.authorType === "nickname" ? (c.displayName?.charAt(0) || "닉") : "익"}
+                          </span>
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[12px] font-bold text-slate-700">익명</span>
+                              <AuthorDisplay displayName={c.displayName} authorType={c.authorType} />
                               {c.isAuthor && <Badge variant="destructive" className="text-[9px] h-3.5 px-1 bg-red-50 text-red-600 hover:bg-red-100 border-none">글쓴이</Badge>}
                               <AuthorBadges badges={c.authorBadges} />
                             </div>
@@ -195,28 +226,23 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
         {/* 하단 고정 댓글 입력창 */}
         {!isLoading && data && (
           <div className="bg-white border-t border-slate-200 p-3 flex gap-2 shrink-0 z-10 sticky bottom-0">
-            {user ? (
-              <>
-                <Textarea
-                  placeholder="댓글 남기기..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="min-h-[44px] max-h-[120px] rounded-2xl border-slate-200 text-sm resize-none bg-slate-50 focus-visible:ring-primary/20 py-3"
-                  rows={1}
-                />
-                <Button 
-                  onClick={handleComment} 
-                  disabled={!commentText.trim() || commentMutation.isPending}
-                  className="rounded-xl h-[44px] px-4 font-bold shrink-0 self-end shadow-sm"
-                >
-                  등록
-                </Button>
-              </>
-            ) : (
-              <div className="w-full bg-slate-50 rounded-xl h-[44px] flex items-center justify-center text-[13px] text-slate-400 font-medium cursor-not-allowed">
-                로그인 후 댓글을 남길 수 있습니다
-              </div>
-            )}
+            <>
+              <Textarea
+                placeholder={user ? "댓글 남기기..." : "비로그인 상태에서는 익명으로 작성됩니다."}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                className="min-h-[44px] max-h-[120px] rounded-2xl border-slate-200 text-sm resize-none bg-slate-50 focus-visible:ring-primary/20 py-3"
+                rows={1}
+                disabled={commentMutation.isPending}
+              />
+              <Button 
+                onClick={handleComment} 
+                disabled={!commentText.trim() || commentMutation.isPending}
+                className="rounded-xl h-[44px] px-4 font-bold shrink-0 self-end shadow-sm"
+              >
+                등록
+              </Button>
+            </>
           </div>
         )}
       </DialogContent>

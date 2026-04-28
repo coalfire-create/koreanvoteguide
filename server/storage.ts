@@ -18,18 +18,21 @@ export interface IStorage {
   markVerificationCodeUsed(id: string): Promise<void>;
   getCachedData(key: string): Promise<any[] | null>;
   getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
-  getPosts(opts?: { boardType?: string; category?: string; sort?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
+  getPosts(opts?: { boardType?: string; category?: string; sort?: string; legislatorId?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
   getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined>;
-  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean): Promise<CommunityPost>;
+  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null): Promise<CommunityPost>;
   incrementViewCount(postId: string): Promise<void>;
   getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]>;
-  createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment & { authorBadges: string[] }>;
+  createComment(postId: string, userId: string, content: string, anonNickname: string, authorType?: string, displayName?: string | null, isVerified?: boolean): Promise<CommunityComment & { authorBadges: string[] }>;
   addReaction(postId: string, userId: string, type: string): Promise<void>;
   getUserReactions(postId: string, userId: string): Promise<{ sentiment: string | null; stance: string | null }>;
   createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void>;
   toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }>;
   getUserBookmarks(userId: string): Promise<string[]>;
   updateUserFavorites(userId: string, favorites: string[]): Promise<User>;
+  updateUserFavoriteRegions(userId: string, regions: any[]): Promise<User>;
+  updateNickname(userId: string, nickname: string): Promise<User>;
+  verifyRealName(userId: string, realName: string): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -125,25 +128,27 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPosts(opts: { boardType?: string; category?: string; sort?: string } = {}): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]> {
-    let query = db.select().from(communityPosts).$dynamic();
-    if (opts.boardType) query = query.where(eq(communityPosts.boardType, opts.boardType));
-    if (opts.category) query = query.where(and(
-      opts.boardType ? eq(communityPosts.boardType, opts.boardType) : undefined,
-      eq(communityPosts.category, opts.category),
-    ));
+  async getPosts(opts: { boardType?: string; category?: string; sort?: string; legislatorId?: string; tagType?: string; tagId?: string } = {}): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]> {
     const orderCol = opts.sort === "popular"
       ? desc(sql`${communityPosts.likes} + ${communityPosts.agreeCount}`)
       : opts.sort === "views"
       ? desc(communityPosts.viewCount)
       : desc(communityPosts.createdAt);
+      
+    // Build conditions
+    const conditions = [];
+    if (opts.boardType) conditions.push(eq(communityPosts.boardType, opts.boardType));
+    if (opts.category) conditions.push(eq(communityPosts.category, opts.category));
+    if (opts.legislatorId) conditions.push(eq(communityPosts.legislatorId, opts.legislatorId));
+    if (opts.tagType) conditions.push(eq(communityPosts.tagType, opts.tagType));
+    if (opts.tagId) conditions.push(eq(communityPosts.tagId, opts.tagId));
+    // If we only want global posts when no legislatorId is provided, we can add a check here, 
+    // but typically boardType='open' separates them. We'll explicitly filter by legislatorId if provided.
+    
     const posts = await db
       .select()
       .from(communityPosts)
-      .where(and(
-        opts.boardType ? eq(communityPosts.boardType, opts.boardType) : undefined,
-        opts.category ? eq(communityPosts.category, opts.category) : undefined,
-      ))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(orderCol);
 
     const counts = await db
@@ -189,10 +194,10 @@ export class DatabaseStorage implements IStorage {
     return { ...post, authorBadges: badges, authorName };
   }
 
-  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false): Promise<CommunityPost> {
+  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false, legislatorId?: string, authorType = "anonymous", displayName?: string | null, isVerified = false, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null): Promise<CommunityPost> {
     const [post] = await db
       .insert(communityPosts)
-      .values({ userId, title, content, anonNickname, boardType, category, showRealName })
+      .values({ userId, title, content, anonNickname, boardType, category, showRealName, legislatorId, authorType, displayName: displayName ?? null, isVerified, thumbnailUrl: thumbnailUrl ?? null, tagType: tagType ?? null, tagId: tagId ?? null, tagName: tagName ?? null })
       .returning();
     // postCount 증가 & 배지 자동 부여
     await db.execute(sql`UPDATE users SET post_count = post_count + 1 WHERE id = ${userId}`);
@@ -238,8 +243,8 @@ export class DatabaseStorage implements IStorage {
     return comments.map((c) => ({ ...c, authorBadges: authorBadgeMap.get(c.userId) ?? [] }));
   }
 
-  async createComment(postId: string, userId: string, content: string, anonNickname: string): Promise<CommunityComment & { authorBadges: string[] }> {
-    const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname }).returning();
+  async createComment(postId: string, userId: string, content: string, anonNickname: string, authorType = "anonymous", displayName?: string | null, isVerified = false): Promise<CommunityComment & { authorBadges: string[] }> {
+    const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname, authorType, displayName: displayName ?? null, isVerified }).returning();
     const badges = await this.getUserBadges(userId);
     return { ...comment, authorBadges: badges };
   }
@@ -329,6 +334,40 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(users)
       .set({ favorites: favorites as any })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updated) throw new Error("사용자를 찾을 수 없습니다");
+    return updated;
+  }
+
+  async updateUserFavoriteRegions(userId: string, regions: any[]): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ favoriteRegions: regions as any })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updated) throw new Error("사용자를 찾을 수 없습니다");
+    return updated;
+  }
+
+  async updateNickname(userId: string, nickname: string): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ nickname, nicknameUpdatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updated) throw new Error("사용자를 찾을 수 없습니다");
+    return updated;
+  }
+
+  async verifyRealName(userId: string, realName: string): Promise<User> {
+    const currentBadges = await this.getUserBadges(userId);
+    const newBadges = currentBadges.includes("real_name_verified")
+      ? currentBadges
+      : [...currentBadges, "real_name_verified"];
+    const [updated] = await db
+      .update(users)
+      .set({ realNameVerified: true, realName, badges: newBadges as any })
       .where(eq(users.id, userId))
       .returning();
     if (!updated) throw new Error("사용자를 찾을 수 없습니다");

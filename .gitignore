@@ -5,3 +5,11 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
+cookies.txt
+db_push.log
+tmp/
+scratch/
+fix_db.js
+antigravity-business-plan.*
+seed_mock_candidates.ts
+*.log

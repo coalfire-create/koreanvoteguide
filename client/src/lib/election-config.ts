@@ -1,11 +1,11 @@
 // ===== 선거 모드 설정 =====
 // 후보 등록 확정일(5/14)부터 자동으로 선거모드로 전환
-export const ELECTION_START_DATE = new Date("2026-05-14T00:00:00+09:00");
+export const ELECTION_START_DATE = new Date("2026-04-01T00:00:00+09:00"); // Temporarily set to April 1st for testing
 export const ELECTION_DAY = new Date("2026-06-03T00:00:00+09:00");
 export const PRE_VOTE_START = new Date("2026-05-29T06:00:00+09:00");
 
 export function isElectionMode(): boolean {
-  return new Date() >= ELECTION_START_DATE;
+  return true; // Force election mode for testing
 }
 
 export function getDaysUntilElection(): number {

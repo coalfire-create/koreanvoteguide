@@ -36,6 +36,26 @@ function transformApiMembers(raw: any[]): AssemblyMember[] {
   return Array.from(memberMap.values());
 }
 
+function transformDbMembers(raw: any[]): AssemblyMember[] {
+  return raw.map((row) => ({
+    id: row.monaCd || row.id || "",
+    name: row.name || "",
+    party: row.party || "",
+    district: row.district || "비례대표",
+    photo: row.photo || "",
+    electedYear: row.electedYear || new Date().getFullYear(),
+    committee: row.committee || "",
+    votingRecords: [],
+    activities: [],
+    score: {
+      attendanceRate: 0,
+      billProposalCount: 0,
+      votingParticipationRate: 0,
+      totalScore: 0,
+    },
+  }));
+}
+
 function transformApiBills(raw: any[]): Bill[] {
   return raw.map((row, i) => {
     let status: "통과" | "계류" | "폐기" = "계류";
@@ -85,9 +105,17 @@ export function useAssemblyMembers() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const apiMembers = membersQuery.data?.source === "api" && membersQuery.data.data
-    ? transformApiMembers(membersQuery.data.data)
-    : null;
+  const membersData = membersQuery.data?.data;
+  const source = membersQuery.data?.source;
+
+  let apiMembers: AssemblyMember[] | null = null;
+  if (membersData && membersData.length > 0) {
+    if (source === "db") {
+      apiMembers = transformDbMembers(membersData);
+    } else if (source === "api") {
+      apiMembers = transformApiMembers(membersData);
+    }
+  }
 
   if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.source === "api" && attendanceQuery.data.data) {
     const attendanceData = attendanceQuery.data.data;
@@ -119,9 +147,17 @@ export function useAssemblyBills() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const apiBills = query.data?.data
-    ? transformApiBills(query.data.data)
-    : null;
+  const billsData = query.data?.data;
+  const source = query.data?.source;
+
+  let apiBills: Bill[] | null = null;
+  if (billsData && billsData.length > 0) {
+    if (source === "db") {
+      apiBills = transformDbBills(billsData);
+    } else if (source === "api") {
+      apiBills = transformApiBills(billsData);
+    }
+  }
 
   const bills = apiBills && apiBills.length > 0 ? apiBills : mockBills;
 

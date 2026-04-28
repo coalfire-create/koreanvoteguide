@@ -9,8 +9,10 @@ import { ThemeProvider } from "next-themes";
 import { BottomNav } from "@/components/bottom-nav";
 import { SplashScreen } from "@/components/splash-screen";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { isElectionMode } from "@/lib/election-config";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import ElectionHome from "@/pages/election-home";
 import Members from "@/pages/members";
 import MemberDetail from "@/pages/member-detail";
 import Candidates from "@/pages/candidates";
@@ -23,19 +25,34 @@ import CommunityBookmarks from "@/pages/community-bookmarks";
 import AuthPage from "@/pages/auth";
 import More from "@/pages/more";
 import NewsPage from "@/pages/news";
+import Onboarding from "@/pages/onboarding";
+import CandidateDetail from "@/pages/candidate-detail";
 import { LogIn, Menu, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 
 
 
+function ElectionHomeWithRedirect() {
+  const [, setLocation] = useLocation();
+  const hasRegion = typeof window !== "undefined" && (localStorage.getItem("userRegions") || localStorage.getItem("userRegion"));
+
+  if (!hasRegion) {
+    // Cannot call setLocation during render, defer to effect
+    setTimeout(() => setLocation("/onboarding"), 0);
+    return null;
+  }
+  return <ElectionHome />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={isElectionMode() ? ElectionHomeWithRedirect : Home} />
       <Route path="/members" component={Members} />
       <Route path="/members/:id" component={MemberDetail} />
       <Route path="/candidates" component={Candidates} />
+      <Route path="/candidates/:id" component={CandidateDetail} />
       <Route path="/bills" component={BillSearch} />
       <Route path="/evaluation" component={Evaluation} />
       <Route path="/community" component={Community} />
@@ -43,6 +60,7 @@ function Router() {
       <Route path="/community/bookmarks" component={CommunityBookmarks} />
       <Route path="/community/:id" component={CommunityDetail} />
       <Route path="/login" component={AuthPage} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route path="/news" component={NewsPage} />
       <Route path="/more" component={More} />
       <Route component={NotFound} />
@@ -54,48 +72,16 @@ function MainApp() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
   const isLoginPage = location === "/login";
+  const isOnboardingPage = location === "/onboarding";
+  const hideHeaderNav = isLoginPage || isOnboardingPage;
 
   return (
     <div className="flex flex-col min-h-screen w-full">
-      {!isLoginPage && (
-        <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-[#425091] shadow-sm text-white">
-          <div className="flex items-center gap-3">
-            <button className="p-1 hover:bg-white/10 rounded-sm transition-colors">
-              <Menu className="w-6 h-6 stroke-[2]" />
-            </button>
-          </div>
-          
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
-            <Link href="/" data-testid="link-home-logo">
-              <span className="text-xl font-black italic tracking-tighter text-white hover:text-white/90 transition-colors">
-                iyu.com
-              </span>
-            </Link>
-          </div>
 
-          <div className="flex items-center">
-            {!isLoading && (
-              user ? (
-                <div className="flex items-center gap-1">
-                  <button className="p-1 hover:bg-white/10 rounded-sm transition-colors flex items-center gap-1.5">
-                    <UserCircle className="w-5 h-5 stroke-[2]" />
-                  </button>
-                </div>
-              ) : (
-                <Link href="/login">
-                  <button className="p-1 hover:bg-white/10 rounded-sm transition-colors flex items-center">
-                    <LogIn className="w-5 h-5 stroke-[2]" />
-                  </button>
-                </Link>
-              )
-            )}
-          </div>
-        </header>
-      )}
       <main className="flex-1 overflow-auto pb-[60px] bg-white">
         <Router />
       </main>
-      <BottomNav />
+      {!hideHeaderNav && <BottomNav />}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { UserCheck, Star, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { candidates, getPartyColor } from "@/lib/mock-data";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useFavorites, type FavoritePerson } from "@/lib/useFavorites";
 
 function StarRating({ rating, onRate, disabled }: { rating: number; onRate: (r: number) => void; disabled: boolean }) {
   const [hover, setHover] = useState(0);
@@ -36,7 +37,17 @@ function StarRating({ rating, onRate, disabled }: { rating: number; onRate: (r: 
   );
 }
 
-function CandidateCard({ candidate }: { candidate: typeof candidates[0] }) {
+function CandidateCard({
+  candidate,
+  isFavorite,
+  addFavorite,
+  removeFavorite,
+}: {
+  candidate: typeof candidates[0];
+  isFavorite: (id: string) => boolean;
+  addFavorite: (person: FavoritePerson) => void;
+  removeFavorite: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +77,35 @@ function CandidateCard({ candidate }: { candidate: typeof candidates[0] }) {
 
   return (
     <Card className="hover-elevate" data-testid={`card-candidate-${candidate.id}`}>
-      <CardContent className="p-5">
+      <CardContent className="p-5 relative">
+        {/* ⭐ 즐겨찾기 버튼 — 카드 우상단 */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isFavorite(candidate.id)) {
+              removeFavorite(candidate.id);
+            } else {
+              addFavorite({
+                id: candidate.id,
+                name: candidate.name,
+                type: "candidate",
+                imageUrl: candidate.imageUrl,
+              });
+            }
+          }}
+          className="absolute top-4 right-4 z-10 p-1 rounded-full hover:bg-yellow-50 transition-colors"
+          aria-label={isFavorite(candidate.id) ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+          data-testid={`btn-favorite-${candidate.id}`}
+        >
+          <Star
+            className={`w-5 h-5 transition-colors ${
+              isFavorite(candidate.id)
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-none text-gray-300 hover:text-gray-400"
+            }`}
+          />
+        </button>
         <div className="flex items-start gap-4 mb-4">
           <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold shrink-0">
             {candidate.name.charAt(0)}
@@ -170,6 +209,7 @@ function CandidateCard({ candidate }: { candidate: typeof candidates[0] }) {
 export default function Candidates() {
   const presidential = candidates.filter((c) => c.electionType === "presidential");
   const local = candidates.filter((c) => c.electionType === "local");
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites();
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -192,7 +232,7 @@ export default function Candidates() {
         <TabsContent value="presidential">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {presidential.map((c) => (
-              <CandidateCard key={c.id} candidate={c} />
+              <CandidateCard key={c.id} candidate={c} isFavorite={isFavorite} addFavorite={addFavorite} removeFavorite={removeFavorite} />
             ))}
           </div>
         </TabsContent>
@@ -200,7 +240,7 @@ export default function Candidates() {
         <TabsContent value="local">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {local.map((c) => (
-              <CandidateCard key={c.id} candidate={c} />
+              <CandidateCard key={c.id} candidate={c} isFavorite={isFavorite} addFavorite={addFavorite} removeFavorite={removeFavorite} />
             ))}
           </div>
         </TabsContent>

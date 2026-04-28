@@ -149,7 +149,7 @@ export default function CommunityDetail() {
   }
 
   function handleComment() {
-    if (!user) { requireLoginToast(); return; }
+    if (!commentText.trim()) return;
     commentMutation.mutate(commentText.trim());
   }
 
@@ -365,34 +365,25 @@ export default function CommunityDetail() {
       {/* 댓글 입력 */}
       <Card className="mb-20">
         <CardContent className="p-3">
-          {user ? (
-            <>
-              <Textarea
-                placeholder="댓글을 작성하세요..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="mb-2 min-h-[60px] text-sm resize-none"
-                maxLength={500}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{commentText.length}/500</span>
-                <Button
-                  size="sm"
-                  disabled={!commentText.trim() || commentMutation.isPending}
-                  onClick={handleComment}
-                >
-                  {commentMutation.isPending ? "작성 중..." : "댓글 작성"}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <button
-              className="w-full text-sm text-muted-foreground text-center py-2 hover:text-primary transition-colors"
-              onClick={requireLoginToast}
-            >
-              댓글을 작성하려면 <span className="text-primary font-medium underline">로그인</span>하세요
-            </button>
-          )}
+          <>
+            <Textarea
+              placeholder={user ? "댓글을 작성하세요..." : "비회원으로 댓글을 작성합니다..."}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              className="mb-2 min-h-[60px] text-sm resize-none"
+              maxLength={500}
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{commentText.length}/500</span>
+              <Button
+                size="sm"
+                disabled={!commentText.trim() || commentMutation.isPending}
+                onClick={handleComment}
+              >
+                {commentMutation.isPending ? "작성 중..." : "댓글 작성"}
+              </Button>
+            </div>
+          </>
         </CardContent>
       </Card>
     </div>

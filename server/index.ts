@@ -62,6 +62,10 @@ app.use(
 
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
+// 업로드된 이미지 파일 정적 변환
+import path from "path";
+app.use("/uploads", express.static(path.resolve(process.cwd(), "server/static/uploads")));
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",

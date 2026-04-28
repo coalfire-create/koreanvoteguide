@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "next-themes";
@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Users, UserCheck, Search, BarChart3, ChevronRight,
   Bell, CircleHelp, LogOut,
-  UserCircle2, Moon, Sun, Vote, Bookmark, Award,
+  UserCircle2, Moon, Sun, Vote, Bookmark, Award, ShieldCheck, Edit3, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,44 @@ export default function More() {
     },
     onError: () => {
       toast({ title: "오류", description: "투표 인증 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const [showRealNameModal, setShowRealNameModal] = useState(false);
+  const [realNameInput, setRealNameInput] = useState("");
+  const [nicknameInput, setNicknameInput] = useState(user?.nickname || "");
+
+  const verifyRealNameMutation = useMutation({
+    mutationFn: async (realName: string) => {
+      const res = await apiRequest("POST", "/api/auth/verify-realname", { realName });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "오류");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "실명 인증 완료! ✅", description: data.message });
+      setShowRealNameModal(false);
+      setRealNameInput("");
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "실명인증 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const updateNicknameMutation = useMutation({
+    mutationFn: async (nickname: string) => {
+      const res = await apiRequest("PATCH", "/api/users/nickname", { nickname });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "오류");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "닉네임 변경 완료", description: "닉네임이 업데이트되었습니다." });
+    },
+    onError: (err: any) => {
+      toast({ title: "변경 불가", description: err.message || "닉네임 변경 중 오류가 발생했습니다.", variant: "destructive" });
     },
   });
 
@@ -206,6 +244,73 @@ export default function More() {
                 </div>
               </div>
 
+              {/* 닉네임 설정 */}
+              <div className="p-4 border-b border-border/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Edit3 className="w-4 h-4 text-violet-500" />
+                  <p className="text-sm font-bold text-slate-700">닉네임</p>
+                  {user.nickname && (
+                    <span className="ml-auto text-xs text-slate-400">현재: <span className="font-bold text-slate-600">{user.nickname}</span></span>
+                  )}
+                </div>
+                {(() => {
+                  // 7일 제한 체크
+                  const nextAvailable = user.nicknameUpdatedAt
+                    ? new Date(new Date(user.nicknameUpdatedAt).getTime() + 7 * 24 * 60 * 60 * 1000)
+                    : null;
+                  const canChange = !nextAvailable || Date.now() >= nextAvailable.getTime();
+                  return (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder={canChange ? "닉네임 입력 (2~20자)" : `${nextAvailable?.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} 이후 변경 가능`}
+                        className="h-9 text-sm border-slate-200 bg-white"
+                        value={nicknameInput}
+                        onChange={(e) => setNicknameInput(e.target.value)}
+                        disabled={!canChange}
+                        maxLength={20}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-9 px-3 text-xs font-bold shrink-0"
+                        disabled={!canChange || !nicknameInput.trim() || updateNicknameMutation.isPending}
+                        onClick={() => updateNicknameMutation.mutate(nicknameInput.trim())}
+                      >
+                        {updateNicknameMutation.isPending ? "저장 중..." : "저장"}
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 실명 인증 */}
+              <div className="p-4 border-b border-border/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-500" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">실명 인증</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.realNameVerified ? "실명 인증 완료 – 게시글에 실명 배지 표시" : "실명으로 게시글을 작성할 수 있어요"}
+                      </p>
+                    </div>
+                  </div>
+                  {user.realNameVerified ? (
+                    <span className="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      🔵 실명인증 완료
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8 border-blue-200 text-blue-600 hover:bg-blue-50"
+                      onClick={() => setShowRealNameModal(true)}
+                    >
+                      실명인증 하기
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               {/* 북마크 게시글 바로가기 */}
               <Link href="/community/bookmarks">
                 <div className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
@@ -219,6 +324,48 @@ export default function More() {
             </div>
           </motion.div>
         )}
+
+        {/* 실명 인증 모달 */}
+        <AnimatePresence>
+          {showRealNameModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4"
+              onClick={(e) => { if (e.target === e.currentTarget) setShowRealNameModal(false); }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-black text-slate-900">실명 인증</h3>
+                  <button onClick={() => setShowRealNameModal(false)}>
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">실명을 입력하세요. 인증 후 게시글에 "파란 실명 배지" 가 표시됩니다.</p>
+                <Input
+                  placeholder="실제 이름 (2자 이상)"
+                  className="mb-4 h-11"
+                  value={realNameInput}
+                  onChange={(e) => setRealNameInput(e.target.value)}
+                  maxLength={20}
+                />
+                <Button
+                  className="w-full h-11 font-bold"
+                  disabled={realNameInput.trim().length < 2 || verifyRealNameMutation.isPending}
+                  onClick={() => verifyRealNameMutation.mutate(realNameInput.trim())}
+                >
+                  {verifyRealNameMutation.isPending ? "인증 중..." : "인증하기"}
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 즐겨찾기 관리 (로그인 시만 표시) */}
         {user && (
