@@ -1,0 +1,406 @@
+<!DOCTYPE html><html class="light" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#f9f9ff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#ebddff",
+                    "outline-variant": "#ccc3d7",
+                    "primary-fixed-dim": "#d3bbff",
+                    "on-secondary-container": "#693300",
+                    "surface-variant": "#dce2f3",
+                    "surface-tint": "#7331df",
+                    "on-error": "#ffffff",
+                    "on-surface-variant": "#4a4455",
+                    "surface-container-highest": "#dce2f3",
+                    "inverse-primary": "#d3bbff",
+                    "primary": "#5300b7",
+                    "on-primary-container": "#dac5ff",
+                    "surface-bright": "#f9f9ff",
+                    "on-tertiary-fixed": "#3d0026",
+                    "surface-dim": "#d3daea",
+                    "outline": "#7b7486",
+                    "inverse-surface": "#2a313d",
+                    "on-surface": "#151c27",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#ffb783",
+                    "on-primary-fixed": "#250059",
+                    "surface-container-high": "#e2e8f8",
+                    "secondary-fixed": "#ffdcc5",
+                    "secondary": "#944a00",
+                    "on-background": "#151c27",
+                    "tertiary-fixed-dim": "#ffafd3",
+                    "tertiary-container": "#9c2a6c",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f0f3ff",
+                    "tertiary": "#7e0b54",
+                    "primary-container": "#6d28d9",
+                    "on-secondary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed": "#ffd8e7",
+                    "inverse-on-surface": "#ebf1ff",
+                    "secondary-container": "#fd933d",
+                    "on-secondary-fixed": "#301400",
+                    "on-primary-fixed-variant": "#5b00c5",
+                    "on-tertiary-container": "#ffbcd9",
+                    "on-secondary-fixed-variant": "#713700",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#e7eefe",
+                    "on-tertiary-fixed-variant": "#85145a",
+                    "surface-container-lowest": "#ffffff",
+                    "background": "#f9f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sm": "8px",
+                    "gutter": "16px",
+                    "base": "4px",
+                    "container-margin": "20px",
+                    "lg": "24px",
+                    "md": "16px",
+                    "xs": "4px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "h3": ["Inter"],
+                    "h2": ["Inter"],
+                    "h1": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "h3": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9f9ff;
+        }
+        .member-card-shadow {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background">
+<!-- SideNavBar (Authority Source: JSON) -->
+<aside class="h-screen w-64 border-r fixed left-0 top-0 bg-slate-50 border-slate-200 z-50 hidden md:block">
+<div class="flex flex-col p-4 gap-2 h-full">
+<div class="mb-8 px-4">
+<h1 class="text-xl font-bold tracking-tighter text-violet-700">Lyu</h1>
+<p class="text-xs text-slate-500 font-medium">Open Governance</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg transition-transform duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-md text-label-md">홈</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-violet-50 text-violet-700 rounded-lg font-bold transition-transform duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: &quot;FILL&quot; 1;">group</span>
+<span class="font-label-md text-label-md">인물 검색</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg transition-transform duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span class="font-label-md text-label-md">커뮤니티</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg transition-transform duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-label-md text-label-md">법안 현황</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg transition-transform duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-md text-label-md">마이페이지</span>
+</a>
+</nav>
+<button class="mt-auto w-full py-3 bg-violet-700 text-white rounded-lg font-label-md text-label-md shadow-sm hover:bg-violet-800 transition-colors">새 게시글 작성</button>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="md:ml-64 min-h-screen">
+<!-- TopAppBar (Authority Source: JSON) -->
+<header class="bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm sticky top-0 z-40 w-full h-16 flex justify-between items-center px-6">
+<div class="flex items-center gap-4 w-full max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-label-md focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="국회의원 이름으로 검색..." type="text">
+</div>
+<button class="p-2 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-600" data-icon="tune">tune</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="ml-2 w-10 h-10 rounded-full overflow-hidden border border-slate-200">
+<img alt="User profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJ2JgehJDHZGI4x2iqlvtwmXxhO5Th9Cy8PyU4_bPSsXcn9KBMlGvS1swCyCdEplDCn53M7N_Ix6yf0J7ikqWPKB8zzOdgUJQxXLU8XsNqqP3DxsPgkOOPONcMH4AHXpx5ybK95qaYExej4I7EGorkX5PF-6616_4y0NJt8f0J9jmrBPQIJyK71bGPlKLDBlpyKhV-uZe-dj4kCO9hMu1jycmcjBcNVyrxQ1KwLsqOxf_vwVc6c6xNMtTmH6i533RyP0cpnCg6mKE">
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-gutter md:p-xl max-w-7xl mx-auto space-y-xl">
+<!-- Title Section -->
+<section class="space-y-base">
+<h2 class="font-h1 text-h1 text-on-surface">인물 검색</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">내 지역구 의원을 찾고 팔로우하세요. 입법 활동과 최신 활동 소식을 한눈에 확인하세요.</p>
+</section>
+<!-- 1. Recently Noted Members (Top Section) -->
+<section class="space-y-md">
+<div class="flex items-center justify-between">
+<h3 class="font-h3 text-h3 text-on-surface">최근 주목받는 의원</h3>
+<button class="text-primary font-label-md text-label-md hover:underline">더보기</button>
+</div>
+<div class="flex gap-gutter overflow-x-auto pb-4 hide-scrollbar">
+<!-- Featured Card 1 -->
+<div class="min-w-[280px] bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+<div class="flex items-center gap-3">
+<div class="w-14 h-14 rounded-full overflow-hidden border-2 border-violet-100">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi0WUPk97fxGKLfK3eCIXrtUrfyRcKNvuPq_2J516g8H_UkobcwSjOwdfc-XqtKJbPVPo87aCpzqxl8ue2t67S188uFPdr8RrJtrqtxO_25VBDQjRmyt7fggUCcIq9ERVQg8PPmlNRy-xKQfeYz3wRBdi2Ne56j_AF3Jz5lkHAUBliVmbiFPTihrk7LH3iJSVl_UqyYkf5fFCYGRbBhIhOPUOYmGRlKGuEK78XeALVELa7m7rfIWQkXv7yBUyOGFUouzE7Uw1AdiQ">
+</div>
+<div>
+<h4 class="font-h3 text-h3">김철수</h4>
+<p class="text-xs text-primary font-bold">더불어민주당 · 서울 종로</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-xs font-bold text-on-surface-variant mb-1">최근 활동</p>
+<p class="text-sm font-medium text-on-surface line-clamp-2">"기후위기 대응법" 대표 발의 및 토론회 주최</p>
+</div>
+</div>
+<!-- Featured Card 2 -->
+<div class="min-w-[280px] bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+<div class="flex items-center gap-3">
+<div class="w-14 h-14 rounded-full overflow-hidden border-2 border-orange-100">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSxvg9ijtkKvVMGToZSz1RbAIVKSZGMdXA0pHczM9WkiakCs7C3HwnOl-XQV3zMvdhH3PZUQ-Rvy0Z38DMh3gLnMAUd_2oZXky9zAnXdOtkEV3IiiQLmyixCkyvuyQfUwtVRpIIh766aAw4w2UQocgNiwK3ZpnugJe6XteGWqdDBw7uokUWiYh4uITqWG23Zxp-AC3K7Cnfq39tBci4iK-XO1lVhl-ZLQNEcIVBhrc19UFXsUA3PiIHHX8JpB7killH_SdXX9WlgI">
+</div>
+<div>
+<h4 class="font-h3 text-h3">이영희</h4>
+<p class="text-xs text-secondary font-bold">국민의힘 · 부산 해운대</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-xs font-bold text-on-surface-variant mb-1">최근 활동</p>
+<p class="text-sm font-medium text-on-surface line-clamp-2">전통시장 활성화 간담회 참석 및 상인회 의견 수렴</p>
+</div>
+</div>
+<!-- Featured Card 3 -->
+<div class="min-w-[280px] bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+<div class="flex items-center gap-3">
+<div class="w-14 h-14 rounded-full overflow-hidden border-2 border-violet-100">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsTqg7sdE7MC0W4RxhVITDI8JpSV2uaWWIUEU72ppaja5skBSg0h07lVoHGYl06ugmn5Dk7s1RKaBAdIRKF8O2ceu_3lzqeEkBS7pKaZ92qxi9OB1WimzCPxdjvHem1gFKerv6VemLcJYrj-dcXsHkpMqg5uMa_cgoV2Wd2oF5HqzA33hRh7DJmWeN_Xj64j_fJwqmXueXKGg4DpYn9k_dUfF4C8UYfqhQmn_UfWGbF15sxJjKKbm5Fn4nTlxvXmRhpEmec-eprhI">
+</div>
+<div>
+<h4 class="font-h3 text-h3">박지성</h4>
+<p class="text-xs text-primary font-bold">더불어민주당 · 인천 남동</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-xs font-bold text-on-surface-variant mb-1">최근 활동</p>
+<p class="text-sm font-medium text-on-surface line-clamp-2">신기술 규제 혁신을 위한 공청회 개최 예정</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Layout Grid: Main Content & Sidebar -->
+<div class="flex flex-col lg:flex-row gap-lg">
+<!-- Left Content: Member List -->
+<div class="flex-1 space-y-gutter">
+<div class="flex justify-between items-center">
+<div>
+<h3 class="font-h3 text-h3 text-on-surface mb-1">의원 리스트</h3>
+<span class="font-label-sm text-label-sm text-slate-500 uppercase tracking-widest"><br></span>
+</div>
+<div class="flex gap-2">
+<span class="bg-surface-container px-3 py-1 rounded-full text-label-sm text-primary font-bold cursor-pointer">전체 정당</span>
+<span class="bg-surface-container-lowest border border-outline-variant px-3 py-1 rounded-full text-label-sm text-on-surface-variant cursor-pointer">활동 중인 의원</span>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-gutter">
+<!-- Member Card 1 -->
+<div class="bg-white rounded-xl member-card-shadow overflow-hidden hover:scale-[1.02] transition-transform duration-300 group cursor-pointer">
+<div class="h-48 overflow-hidden relative">
+<img alt="Member Portrait" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi0WUPk97fxGKLfK3eCIXrtUrfyRcKNvuPq_2J516g8H_UkobcwSjOwdfc-XqtKJbPVPo87aCpzqxl8ue2t67S188uFPdr8RrJtrqtxO_25VBDQjRmyt7fggUCcIq9ERVQg8PPmlNRy-xKQfeYz3wRBdi2Ne56j_AF3Jz5lkHAUBliVmbiFPTihrk7LH3iJSVl_UqyYkf5fFCYGRbBhIhOPUOYmGRlKGuEK78XeALVELa7m7rfIWQkXv7yBUyOGFUouzE7Uw1AdiQ">
+<span class="absolute top-3 left-3 bg-primary-container text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">활동 중</span>
+</div>
+<div class="p-gutter space-y-xs">
+<span class="font-label-sm text-label-sm text-primary">더불어민주당</span>
+<h3 class="font-h3 text-h3 text-on-surface">김철수 의원</h3>
+<div class="flex items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="font-label-md text-label-md">서울 종로구</span>
+</div>
+</div>
+</div>
+<!-- Member Card 2 -->
+<div class="bg-white rounded-xl member-card-shadow overflow-hidden hover:scale-[1.02] transition-transform duration-300 group cursor-pointer">
+<div class="h-48 overflow-hidden relative">
+<img alt="Member Portrait" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSxvg9ijtkKvVMGToZSz1RbAIVKSZGMdXA0pHczM9WkiakCs7C3HwnOl-XQV3zMvdhH3PZUQ-Rvy0Z38DMh3gLnMAUd_2oZXky9zAnXdOtkEV3IiiQLmyixCkyvuyQfUwtVRpIIh766aAw4w2UQocgNiwK3ZpnugJe6XteGWqdDBw7uokUWiYh4uITqWG23Zxp-AC3K7Cnfq39tBci4iK-XO1lVhl-ZLQNEcIVBhrc19UFXsUA3PiIHHX8JpB7killH_SdXX9WlgI">
+<span class="absolute top-3 left-3 bg-secondary-container text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">신규</span>
+</div>
+<div class="p-gutter space-y-xs">
+<span class="font-label-sm text-label-sm text-secondary">국민의힘</span>
+<h3 class="font-h3 text-h3 text-on-surface">이영희 의원</h3>
+<div class="flex items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="font-label-md text-label-md">부산 해운대구</span>
+</div>
+</div>
+</div>
+<!-- Member Card 3 -->
+<div class="bg-white rounded-xl member-card-shadow overflow-hidden hover:scale-[1.02] transition-transform duration-300 group cursor-pointer">
+<div class="h-48 overflow-hidden relative">
+<img alt="Member Portrait" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsTqg7sdE7MC0W4RxhVITDI8JpSV2uaWWIUEU72ppaja5skBSg0h07lVoHGYl06ugmn5Dk7s1RKaBAdIRKF8O2ceu_3lzqeEkBS7pKaZ92qxi9OB1WimzCPxdjvHem1gFKerv6VemLcJYrj-dcXsHkpMqg5uMa_cgoV2Wd2oF5HqzA33hRh7DJmWeN_Xj64j_fJwqmXueXKGg4DpYn9k_dUfF4C8UYfqhQmn_UfWGbF15sxJjKKbm5Fn4nTlxvXmRhpEmec-eprhI">
+<span class="absolute top-3 left-3 bg-primary-container text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">활동 중</span>
+</div>
+<div class="p-gutter space-y-xs">
+<span class="font-label-sm text-label-sm text-primary">더불어민주당</span>
+<h3 class="font-h3 text-h3 text-on-surface">박지성 의원</h3>
+<div class="flex items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="font-label-md text-label-md">인천 남동구</span>
+</div>
+</div>
+</div>
+<!-- Member Card 4 -->
+<div class="bg-white rounded-xl member-card-shadow overflow-hidden hover:scale-[1.02] transition-transform duration-300 group cursor-pointer">
+<div class="h-48 overflow-hidden relative">
+<img alt="Member Portrait" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8W_04omkwWeesN_70vAckjGgMSiFgCu8Z8-eALzCElXVpwLRNH83A_oUoQ5PjhzDpj8j4-9DwtA6qNVJLCPyKrg-zb_4SlUhhcqjo8ZkY9KPRJV9hGScXHe4B93qaVoYZiG_ExPdF0yX5i_NgA_56zCcoa50W8XraN2A6yY0IFw59gcECxaypMxGLucOVeMMUnXYKIbawpHEVOWpb5Lnsk2YV40KLnakXLGlKbFPMLDyTJpdXVClyLw7P4hvLolfRGxLd_oykHCg">
+<span class="absolute top-3 left-3 bg-primary-container text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">활동 중</span>
+</div>
+<div class="p-gutter space-y-xs">
+<span class="font-label-sm text-label-sm text-primary">더불어민주당</span>
+<h3 class="font-h3 text-h3 text-on-surface">최유리 의원</h3>
+<div class="flex items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="font-label-md text-label-md">경기 수원시</span>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 bg-white border border-slate-200 rounded-xl text-on-surface-variant font-bold text-label-md hover:bg-slate-50 transition-colors">더 많은 의원 보기</button>
+</div>
+<!-- Right Sidebar: Recently Active -->
+<aside class="lg:w-80 space-y-gutter">
+<div class="flex items-center justify-between">
+<h3 class="font-h3 text-h3 text-on-surface">최근 활동 의원</h3>
+<span class="material-symbols-outlined text-violet-600" data-icon="bolt">bolt</span>
+</div>
+<div class="space-y-gutter">
+<!-- Active Card 1 -->
+<div class="bg-violet-700 rounded-2xl p-lg text-white space-y-md shadow-lg">
+<div class="flex items-start justify-between">
+<div class="w-16 h-16 rounded-full border-2 border-violet-400/50 overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDntOLFhx4lnEvHPy-aCiTa8QPtQWEqLFrCeYFm_Qjk-nH244nvWiL4vChLS5AhKmC5BdEAf2vAUBGIeQ6wXWFvOAhbtQ-ZTAP3S12SZ2sE9XWVjVYMKIBvEkN4hEy0VlQKoLP4XCqYUIcittNJzcUBnKKVstwR7Yt29RdvKQQDBDlXrfGr8ks_GTFIj7e9dnKZRa4_o04bcRJcO8onWok9klgptbNzdMEfked2JDv3UOAKOMy5Di3iAZCDlSmsOjU26TrCK0owlMA">
+</div>
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-violet-700 bg-slate-200"></div>
+<div class="w-8 h-8 rounded-full border-2 border-violet-700 bg-slate-300"></div>
+<div class="w-8 h-8 rounded-full border-2 border-violet-700 bg-violet-500 flex items-center justify-center text-[10px] font-bold">+12</div>
+</div>
+</div>
+<div>
+<h4 class="font-h3 text-h3">송민호 의원</h4>
+<p class="text-violet-200 font-label-md text-label-md line-clamp-2">방금 "디지털 프라이버시법"을 대표 발의했습니다</p>
+</div>
+<div class="flex gap-4 pt-2">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: &quot;FILL&quot; 1;">forum</span>
+<span class="text-xs font-bold">2.4k</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: &quot;FILL&quot; 1;">favorite</span>
+<span class="text-xs font-bold">842</span>
+</div>
+</div>
+</div>
+<!-- Active Card 2 -->
+<div class="bg-surface-container rounded-2xl p-lg border border-slate-200 space-y-md">
+<div class="flex items-start justify-between">
+<div class="w-16 h-16 rounded-full overflow-hidden border border-slate-300">
+<img alt="Profile" class="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCodnmIUPIprDTRoUOk1nCSRQw4joqhoo7lMOwh6zg6YmGw2MhSfsd25o7r05qtZkskOyuNAYz024XP3op2GSfHKCFX0-X4Gh6_AwVxId72hXypEtLx2K-xqlU4Z5xJOE3iicWhQmI7ez6ZnY4satHriUvEMsQbjT3HPeksYbaVQKU7rJAtx9bIJnax5eiuneErAAJ1RCawSiXEixlq9zqf8jaKuTNN1K0av9AmrWtGglYxGXDTMo8jLqhlmtQFBdLvkzAAsQn91BU">
+</div>
+<span class="bg-white px-2 py-1 rounded-full text-[10px] font-black text-slate-800 shadow-sm uppercase">인기 토픽</span>
+</div>
+<div>
+<h4 class="font-h3 text-h3 text-on-surface">정우성 의원</h4>
+<p class="text-on-surface-variant font-label-md text-label-md">2시간 후 "커뮤니티 타운홀"을 개최합니다</p>
+</div>
+<button class="w-full py-2 bg-white border border-slate-200 rounded-lg text-primary font-bold text-label-md hover:bg-slate-50 transition-colors">토론 참여하기</button>
+</div>
+</div>
+<!-- Newsletter/CTA Card -->
+<div class="bg-secondary-container/10 border border-secondary-container/20 rounded-2xl p-gutter space-y-sm">
+<div class="flex items-center gap-2 text-secondary">
+<span class="material-symbols-outlined" data-icon="mail">mail</span>
+<span class="font-label-md text-label-md font-bold">주간 소식 받기</span>
+</div>
+<p class="text-xs text-on-secondary-fixed-variant">의원들의 투표 기록과 법안 발의 현황 보고서를 이메일로 받아보세요.</p>
+<div class="flex gap-2">
+<input class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-secondary-container" placeholder="이메일 주소" type="email">
+<button class="px-3 py-2 bg-secondary text-white rounded-lg text-xs font-bold">신청</button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation (Hidden on MD up) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-50">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[10px] font-bold">홈</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: &quot;FILL&quot; 1;">group</span>
+<span class="text-[10px] font-bold">인물</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span class="text-[10px] font-bold">커뮤니티</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="text-[10px] font-bold">법안</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px] font-bold">내 정보</span>
+</button>
+</nav>
+
+
+</body></html>

@@ -88,7 +88,7 @@ export default function Evaluation() {
                   <h3 className="font-semibold text-sm">최고 평가 의원</h3>
                 </div>
                 {sorted.slice(0, 3).map((m, i) => (
-                  <Link key={m.id} href={`/members/${m.id}`}>
+                  <Link key={m.id} href={`/members/${m.id}`} className="block cursor-pointer">
                     <div className="flex items-center gap-3 py-2 hover-elevate rounded-md px-2 cursor-pointer" data-testid={`link-top-member-${m.id}`}>
                       <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
                       <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
@@ -113,7 +113,7 @@ export default function Evaluation() {
                   <h3 className="font-semibold text-sm">개선 필요 의원</h3>
                 </div>
                 {sorted.slice(-3).reverse().map((m, i) => (
-                  <Link key={m.id} href={`/members/${m.id}`}>
+                  <Link key={m.id} href={`/members/${m.id}`} className="block cursor-pointer">
                     <div className="flex items-center gap-3 py-2 hover-elevate rounded-md px-2 cursor-pointer" data-testid={`link-bottom-member-${m.id}`}>
                       <span className="text-sm font-bold text-muted-foreground w-5">{sorted.length - i}</span>
                       <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
@@ -187,7 +187,7 @@ export default function Evaluation() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Link href={`/members/${member.id}`}>
+                          <Link href={`/members/${member.id}`} className="block cursor-pointer">
                             <ArrowRight className="w-4 h-4 text-muted-foreground" />
                           </Link>
                         </TableCell>

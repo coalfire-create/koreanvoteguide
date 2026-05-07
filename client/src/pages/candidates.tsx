@@ -3,39 +3,74 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCheck, Star, ChevronDown, ChevronUp, Clock } from "lucide-react";
-import { candidates, getPartyColor } from "@/lib/mock-data";
+import { UserCheck, Star, ChevronDown, ChevronUp, Clock, GraduationCap, Briefcase } from "lucide-react";
+import { candidates, getPartyColor, getPartyRank } from "@/lib/mock-data";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useFavorites, type FavoritePerson } from "@/lib/useFavorites";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { MessageCircle, ThumbsUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-function StarRating({ rating, onRate, disabled }: { rating: number; onRate: (r: number) => void; disabled: boolean }) {
-  const [hover, setHover] = useState(0);
+function CandidatePosts({ candidateId, candidateName }: { candidateId: string, candidateName: string }) {
+  const { data: posts, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/community/posts", "candidate", candidateId],
+    queryFn: () => apiRequest("GET", `/api/community/posts?tagType=candidate&tagId=${candidateId}`).then((r) => r.json()),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mb-4">
+        {[1, 2].map((i) => (
+          <Skeleton key={i} className="w-[200px] h-[80px] rounded-xl shrink-0" />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={disabled}
-          className="p-0.5 disabled:cursor-not-allowed"
-          onMouseEnter={() => setHover(star)}
-          onMouseLeave={() => setHover(0)}
-          onClick={() => onRate(star)}
-          data-testid={`button-star-${star}`}
-        >
-          <Star
-            className={`w-5 h-5 transition-colors ${
-              star <= (hover || rating)
-                ? "fill-amber-400 text-amber-400"
-                : "text-gray-300 dark:text-gray-600"
-            }`}
-          />
-        </button>
-      ))}
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2 px-1">
+        <h4 className="text-[12px] font-black text-gray-900 flex items-center gap-1.5">
+          <MessageCircle className="w-3.5 h-3.5 text-primary" />
+          국회의원 게시판
+        </h4>
+        <Link href={`/community/write?tagType=candidate&tagId=${candidateId}&tagName=${candidateName}`}>
+          <span className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
+             토론하기
+          </span>
+        </Link>
+      </div>
+
+      {!posts || posts.length === 0 ? (
+        <div className="text-[11px] text-gray-400 py-3 bg-muted/30 rounded-xl text-center border border-dashed border-gray-100">
+          아직 등록된 게시물이 없습니다.
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+          {posts.map((post) => (
+            <Link key={post.id} href={`/community/${post.id}`}>
+              <div className="w-[200px] shrink-0 bg-white border border-gray-200 rounded-xl p-3 snap-center hover:border-primary/50 transition-colors cursor-pointer flex flex-col justify-between h-[80px]">
+                <h4 className="text-[13px] font-bold text-gray-900 line-clamp-2 leading-snug">
+                  {post.title}
+                </h4>
+                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold mt-1">
+                  <span className="text-gray-700 truncate max-w-[60px]">{post.displayName || "익명"}</span>
+                  <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                    <span className="flex items-center gap-0.5"><ThumbsUp className="w-2.5 h-2.5" /> {post.likes}</span>
+                    <span className="flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" /> {post.commentCount}</span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
 
 function CandidateCard({
   candidate,
@@ -49,31 +84,9 @@ function CandidateCard({
   removeFavorite: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [userRating, setUserRating] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const avgRating = candidate.ratings.length > 0
-    ? candidate.ratings.reduce((a, b) => a + b, 0) / candidate.ratings.length
-    : 0;
 
-  const handleRate = async (rating: number) => {
-    setSubmitting(true);
-    try {
-      await apiRequest("POST", "/api/candidates/rate", {
-        candidateId: candidate.id,
-        rating,
-      });
-      setUserRating(rating);
-      queryClient.invalidateQueries({ queryKey: ["/api/candidates"] });
-      toast({ title: "평가 완료", description: `${candidate.name} 후보에게 ${rating}점을 부여했습니다` });
-    } catch {
-      setUserRating(rating);
-      toast({ title: "평가 완료", description: `${candidate.name} 후보에게 ${rating}점을 부여했습니다` });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <Card className="hover-elevate" data-testid={`card-candidate-${candidate.id}`}>
@@ -107,8 +120,13 @@ function CandidateCard({
           />
         </button>
         <div className="flex items-start gap-4 mb-4">
-          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold shrink-0">
-            {candidate.name.charAt(0)}
+          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0">
+            <PoliticianPhoto
+              name={candidate.name}
+              photo={candidate.photo || (candidate as any).imageUrl}
+              monaCd={candidate.id}
+              avatarClassName="w-full h-full flex items-center justify-center bg-muted text-lg font-bold"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-bold text-lg" data-testid={`text-candidate-name-${candidate.id}`}>{candidate.name}</h3>
@@ -122,16 +140,26 @@ function CandidateCard({
               </Badge>
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <div className="flex items-center gap-1 justify-end">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-              <span className="font-bold" data-testid={`text-avg-rating-${candidate.id}`}>{avgRating.toFixed(1)}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground">{candidate.ratings.length}명 평가</p>
-          </div>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{candidate.background}</p>
+        <CandidatePosts candidateId={String(candidate.id)} candidateName={candidate.name} />
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-3 border border-primary/10">
+            <div className="flex items-center gap-2 mb-1">
+              <GraduationCap className="w-4 h-4 text-primary" />
+              <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">학력</span>
+            </div>
+            <p className="text-sm font-medium line-clamp-1">{candidate.education || "정보 없음"}</p>
+          </div>
+          <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-3 border border-primary/10">
+            <div className="flex items-center gap-2 mb-1">
+              <Briefcase className="w-4 h-4 text-primary" />
+              <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">주요 경력</span>
+            </div>
+            <p className="text-sm font-medium line-clamp-1">{candidate.career || "정보 없음"}</p>
+          </div>
+        </div>
 
         <div className="mb-4">
           <h4 className="font-semibold text-sm mb-2">핵심 공약</h4>
@@ -195,20 +223,18 @@ function CandidateCard({
           </div>
         )}
 
-        <div className="mt-4 pt-4 border-t">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-xs text-muted-foreground">시민 평가</p>
-            <StarRating rating={userRating} onRate={handleRate} disabled={submitting} />
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
 }
 
 export default function Candidates() {
-  const presidential = candidates.filter((c) => c.electionType === "presidential");
-  const local = candidates.filter((c) => c.electionType === "local");
+  const presidential = candidates
+    .filter((c) => c.electionType === "presidential")
+    .sort((a, b) => getPartyRank(a.party) - getPartyRank(b.party));
+  const local = candidates
+    .filter((c) => c.electionType === "local")
+    .sort((a, b) => getPartyRank(a.party) - getPartyRank(b.party));
   const { isFavorite, addFavorite, removeFavorite } = useFavorites();
 
   return (
@@ -219,7 +245,7 @@ export default function Candidates() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title-candidates">후보자</h1>
         </div>
         <p className="text-muted-foreground text-sm">
-          선거 후보자의 공약, 이력, 시민 평가를 확인하세요
+          선거 후보자의 공약과 이력을 확인하세요
         </p>
       </div>
 

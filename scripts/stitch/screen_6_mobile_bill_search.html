@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "surface-dim": "#d3daea",
+                "inverse-primary": "#d3bbff",
+                "secondary-fixed": "#ffdcc5",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-fixed": "#3d0026",
+                "error-container": "#ffdad6",
+                "on-primary": "#ffffff",
+                "on-error-container": "#93000a",
+                "on-surface": "#151c27",
+                "primary-fixed-dim": "#d3bbff",
+                "inverse-on-surface": "#ebf1ff",
+                "surface-variant": "#dce2f3",
+                "secondary-container": "#fd933d",
+                "on-surface-variant": "#4a4455",
+                "on-tertiary-container": "#ffbcd9",
+                "outline-variant": "#ccc3d7",
+                "surface-container-lowest": "#ffffff",
+                "surface-tint": "#7331df",
+                "tertiary-fixed": "#ffd8e7",
+                "tertiary-fixed-dim": "#ffafd3",
+                "on-primary-fixed-variant": "#5b00c5",
+                "surface-bright": "#f9f9ff",
+                "on-secondary-container": "#693300",
+                "surface-container-high": "#e2e8f8",
+                "surface-container": "#e7eefe",
+                "primary-fixed": "#ebddff",
+                "surface-container-low": "#f0f3ff",
+                "outline": "#7b7486",
+                "secondary-fixed-dim": "#ffb783",
+                "on-tertiary-fixed-variant": "#85145a",
+                "inverse-surface": "#2a313d",
+                "on-secondary-fixed-variant": "#713700",
+                "error": "#ba1a1a",
+                "on-secondary-fixed": "#301400",
+                "secondary": "#944a00",
+                "primary": "#5300b7",
+                "surface-container-highest": "#dce2f3",
+                "on-error": "#ffffff",
+                "primary-container": "#6d28d9",
+                "tertiary": "#7e0b54",
+                "tertiary-container": "#9c2a6c",
+                "on-background": "#151c27",
+                "background": "#f9f9ff",
+                "on-secondary": "#ffffff",
+                "on-primary-container": "#dac5ff",
+                "surface": "#f9f9ff",
+                "on-primary-fixed": "#250059"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "xl": "32px",
+                "lg": "24px",
+                "gutter": "16px",
+                "md": "16px",
+                "base": "4px",
+                "xs": "4px",
+                "container-margin": "20px",
+                "sm": "8px"
+            },
+            "fontFamily": {
+                "h2": ["Inter"],
+                "label-sm": ["Inter"],
+                "h1": ["Inter"],
+                "h3": ["Inter"],
+                "body-lg": ["Inter"],
+                "label-md": ["Inter"],
+                "body-md": ["Inter"]
+            },
+            "fontSize": {
+                "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "h3": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f9f9ff;
+            color: #151c27;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="font-body-md text-on-background min-h-screen pb-[64px]">
+<!-- TopAppBar Shell -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-5 h-16 w-full bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 shadow-sm">
+<div class="flex items-center gap-4">
+<button class="active:opacity-70 transition-all text-violet-700 dark:text-violet-400">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="text-2xl font-black text-violet-700 dark:text-violet-400 font-['Inter'] tracking-tight">Lyu</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="active:opacity-70 transition-all text-violet-700 dark:text-violet-400">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="px-container-margin py-md space-y-lg">
+<!-- Search Section -->
+<section class="space-y-sm">
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+</div>
+<input class="w-full h-[52px] pl-12 pr-4 bg-surface-container-lowest border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-body-md shadow-sm" placeholder="법안 제목, 발의자, 키워드로 검색..." type="text"/>
+</div>
+<!-- Quick Filter Chips -->
+<div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+<span class="inline-flex items-center px-4 py-2 bg-primary-container text-on-primary-container rounded-full font-label-md whitespace-nowrap">전체</span>
+<span class="inline-flex items-center px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-label-md whitespace-nowrap">경제</span>
+<span class="inline-flex items-center px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-label-md whitespace-nowrap">복지</span>
+<span class="inline-flex items-center px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-label-md whitespace-nowrap">환경</span>
+<span class="inline-flex items-center px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-label-md whitespace-nowrap">교육</span>
+</div>
+</section>
+<!-- Trending Section - Bento Style -->
+<section class="space-y-md">
+<div class="flex items-center justify-between">
+<h2 class="font-h2 text-h2 text-on-surface">인기 토픽</h2>
+<button class="text-primary font-label-md">더보기</button>
+</div>
+<div class="grid grid-cols-2 gap-md">
+<!-- Large Trending Card -->
+<div class="col-span-2 relative overflow-hidden rounded-xl bg-primary-container p-lg aspect-[16/7] flex flex-col justify-end">
+<div class="absolute top-0 right-0 p-lg opacity-20">
+<span class="material-symbols-outlined text-6xl" data-icon="trending_up">trending_up</span>
+</div>
+<span class="font-label-sm text-on-primary-container opacity-80 mb-base">인기 법안</span>
+<h3 class="font-h3 text-h3 text-on-primary-container leading-tight">기후 위기 대응 및 탄소 중립법 개정안</h3>
+</div>
+<!-- Small Info Cards -->
+<div class="bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-gray-50 space-y-sm">
+<div class="w-10 h-10 rounded-lg bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-fixed" data-icon="gavel">gavel</span>
+</div>
+<p class="font-label-md text-on-surface-variant">오늘 발의된 법안</p>
+<p class="font-h2 text-h2 text-secondary">24건</p>
+</div>
+<div class="bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-gray-50 space-y-sm">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed" data-icon="forum">forum</span>
+</div>
+<p class="font-label-md text-on-surface-variant">가장 활발한 토론</p>
+<p class="font-h2 text-h2 text-tertiary">교육 격차 해소</p>
+</div>
+</div>
+</section>
+<!-- Recent Searches or Suggestions -->
+<section class="space-y-md">
+<h2 class="font-h2 text-h2 text-on-surface">인기 토픽</h2>
+<div class="space-y-sm">
+<div class="flex items-center justify-between p-md bg-white rounded-xl border border-gray-100 shadow-sm active:bg-gray-50 transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" data-icon="history">history</span>
+<span class="font-body-md text-on-surface">국민연금 개혁</span>
+</div>
+<span class="material-symbols-outlined text-outline text-sm" data-icon="close">close</span>
+</div>
+<div class="flex items-center justify-between p-md bg-white rounded-xl border border-gray-100 shadow-sm active:bg-gray-50 transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" data-icon="history">history</span>
+<span class="font-body-md text-on-surface">최저임금 위원회</span>
+</div>
+<span class="material-symbols-outlined text-outline text-sm" data-icon="close">close</span>
+</div>
+</div>
+</section>
+<!-- Recommended Member Section -->
+<section class="space-y-md pb-xl">
+<h2 class="font-h2 text-h2 text-on-surface">인기 토픽</h2>
+<div class="flex gap-md overflow-x-auto no-scrollbar py-base">
+<!-- Member Card 1 -->
+<div class="min-w-[140px] bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col items-center text-center space-y-sm">
+<img alt="Member Portrait" class="w-16 h-16 rounded-full object-cover" data-alt="A professional studio portrait of a mid-aged male lawmaker with a friendly expression. He is wearing a sharp charcoal suit and white shirt, set against a clean, soft-grey gradient background that conveys trust and corporate authority. The lighting is bright and modern, matching a premium light-mode digital platform aesthetic with high clarity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJwdaYBY4FBy05vjC_slj79SR_lNrlDil8OpVdYf6yXs_hf3Zmx4DTT2Akyut1QSzQPx4wF8_6Nm2XntmP5L5tazAeEjpZTnHAP4ur3PMLCGEf2XEHkpTlfO20URM9LJRNjUFzEYH0ol9pjv5J64rfaK9OxISfVatFXuBuhvImJlx4oOeiPROZfBxXLI0sOpcb-ymrTM6ti_IO6x3BFHCtGYH4pXxeY2ZuNb2SjOv_S23-T5hU3ysKrW_o8vZDD5xkUFhc5qtS3JY"/>
+<div>
+<p class="font-h3 text-label-md text-on-surface">김현우 의원</p>
+<p class="font-label-sm text-secondary">국민의힘</p>
+</div>
+<button class="w-full py-base bg-secondary-fixed text-on-secondary-fixed rounded-lg font-label-sm active:scale-95 transition-transform">팔로우</button>
+</div>
+<!-- Member Card 2 -->
+<div class="min-w-[140px] bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col items-center text-center space-y-sm">
+<img alt="Member Portrait" class="w-16 h-16 rounded-full object-cover" data-alt="A professional headshot of a female legislator in her 40s, exuding confidence and transparency. She is dressed in a navy blazer over a light blue blouse. The photograph is taken in a well-lit office setting with natural light, emphasizing a professional yet accessible persona. The colors are crisp and neutral, aligning with a sophisticated political information app." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZShZxMsHo9Bbv-rL7TekHnSGf4dytdjXZwJoc08rBknwSXSXtdQ8nRHyys65M4WOTaZqY24bo4TDXXnFqITYPoRbHB9FVV5CPz9klwzKHolyFcHRB3SV1khKyg1vXj5_BEC11h8aTmMM3WVQsmmlTLYFt7_Xyy_hF_-eh6y-gMmEcXKhj8WoMbfhNBedmsczsim1uYWczW0PCRLuN2ZuZRyNXXvTr2mHgHMHpQQc0QXnHGwdhucMhomL4KzR7xvj4-bCbxqfKQQU"/>
+<div>
+<p class="font-h3 text-label-md text-on-surface">이서윤 의원</p>
+<p class="font-label-sm text-primary">더불어민주당</p>
+</div>
+<button class="w-full py-base bg-primary-fixed text-on-primary-fixed rounded-lg font-label-sm active:scale-95 transition-transform">팔로우</button>
+</div>
+<!-- Member Card 3 -->
+<div class="min-w-[140px] bg-white p-md rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col items-center text-center space-y-sm">
+<img alt="Member Portrait" class="w-16 h-16 rounded-full object-cover" data-alt="A sharp, professional portrait of an elderly statesman wearing a traditional suit. He is looking directly at the camera with a look of wisdom and experience. The setting is an architectural office with clean lines and soft ambient lighting. The overall visual style is high-end, clean, and democratic, focusing on clarity and professional vibrancy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_MyoN6awT7ux7kxMGUCiq7ZMGhYLjvmYnlLp4jK_jp8b77lVW0FT8vIjq2WBITWRUJvRkRTW6eMty0lsV2nVyQlq3w4X0eyxtG1MgzxR4CnUbdn9OhGA8POfmlm3cmMJjQP-8gYI5jgq5PkRdiNxQKk4javbdtOJbQEltONuyEKLy4m2mrPCdfFI62cPAugTg7xBzX9vi60eO370TmNm-CpCILyjLRLGp1uOuFdB2jG95EkQeLcXPERqMUNqRZ8KnJSjOOkA4YL4"/>
+<div>
+<p class="font-h3 text-label-md text-on-surface">박준석 의원</p>
+<p class="font-label-sm text-tertiary">정의당</p>
+</div>
+<button class="w-full py-base bg-tertiary-fixed text-on-tertiary-fixed rounded-lg font-label-sm active:scale-95 transition-transform">팔로우</button>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center px-2 h-[64px] bg-white/80 dark:bg-gray-950/80 backdrop-blur-lg border-t border-gray-100 dark:border-gray-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Inter'] text-[10px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-['Inter'] text-[10px] font-medium">Members</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span class="font-['Inter'] text-[10px] font-medium">Community</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-700 dark:text-violet-400 font-bold active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="gavel" style='font-variation-settings: "FILL" 1;'>gavel</span>
+<span class="font-['Inter'] text-[10px] font-medium">Bills</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[10px] font-medium">My</span>
+</a>
+</nav>
+</body></html>

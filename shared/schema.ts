@@ -104,6 +104,26 @@ export interface AssemblyMember {
   activities: Activity[];
   score: ObjectiveScore;
   stance?: PoliticianStance;
+  // 선관위 22대 총선 데이터 (재산/학력/전과/경력)
+  propertyAmount?: string | null;   // 재산 신고액 (예: "12억 3,456만원")
+  education?: string | null;        // 최종 학력
+  criminalRecord?: string | null;   // 전과 상세 (null이면 전과 없음으로 표시)
+  criminalCount?: number | null;    // 전과 건수
+  career?: string | null;           // 주요 경력
+  // SNS / 연락처
+  homepage?: string | null;
+  email?: string | null;
+  twitter?: string | null;
+  facebook?: string | null;
+  youtube?: string | null;
+  blog?: string | null;
+  // 공직자윤리위원회 재산 상세 (단위: 만원)
+  propertyLand?: number | null;
+  propertyBuilding?: number | null;
+  propertyDeposit?: number | null;
+  propertyStock?: number | null;
+  propertyDebt?: number | null;
+  propertyDetailSyncedAt?: string | null;
 }
 
 export interface CandidatePromise {
@@ -129,6 +149,8 @@ export interface Candidate {
   promises: CandidatePromise[];
   pastActivities: string[];
   timeline: TimelineEvent[];
+  education?: string;
+  career?: string;
   ratings: number[];
 }
 
@@ -218,11 +240,12 @@ export const insertPostSchema = createInsertSchema(communityPosts).pick({
   title: true,
   content: true,
 }).extend({
-  boardType: z.enum(["open", "members"]).default("open"),
+  boardType: z.enum(["open", "members", "free", "legislators", "bills", "candidate"]).default("free"),
   category: z.enum(["자유", "토론", "정보공유", "질문"]).default("자유"),
   showRealName: z.boolean().default(false),
   legislatorId: z.string().optional(),
   authorType: z.enum(["anonymous", "nickname", "realname"]).default("anonymous"),
+  attachments: z.array(z.any()).optional(),
 });
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
@@ -300,6 +323,35 @@ export const legislators = pgTable("legislators", {
   photoUrl: text("photo_url").default("").notNull(),
   committee: text("committee").default("").notNull(),
   electedTerm: integer("elected_term").default(22).notNull(),
+  // 선관위 22대 총선 데이터 (재산/학력/전과)
+  propertyAmount: text("property_amount"),       // 재산 신고액 (문자열, 단위: 만원)
+  education: text("education"),                  // 최종 학력
+  criminalRecord: text("criminal_record"),       // 전과 상세 내용 (없으면 null)
+  criminalCount: integer("criminal_count"),      // 전과 건수
+  career: text("career"),                        // 주요 경력 (줄바꿈 구분)
+  necDetailSyncedAt: timestamp("nec_detail_synced_at"), // 선관위 데이터 마지막 동기화 시각
+  // 국회 API 추가 정보
+  telNo: text("tel_no"),                           // 사무실 전화
+  email: text("email"),                            // 이메일
+  homepage: text("homepage"),                      // 홈페이지 (분류 후 저장)
+  twitter: text("twitter"),                        // 트위터/X URL
+  facebook: text("facebook"),                      // 페이스북 URL
+  youtube: text("youtube"),                        // 유튜브 채널 URL
+  blog: text("blog"),                              // 블로그 URL
+  instagram: text("instagram"),                    // 인스타그램 URL
+  birthDate: text("birth_date"),                   // 생년월일 (YYYY-MM-DD)
+  gender: text("gender"),                          // 성별
+  reelectionGbn: text("reelection_gbn"),           // 선수 (초선/재선/삼선 등)
+  committees: text("committees"),                  // 소속 위원회 전체 (쉼표 구분)
+  memTitle: text("mem_title"),                     // 의원 경력/이력 원문
+  assemblyAddr: text("assembly_addr"),             // 의원실 주소
+  // 공직자윤리위원회 재산 상세 (단위: 만원)
+  propertyLand: integer("property_land"),
+  propertyBuilding: integer("property_building"),
+  propertyDeposit: integer("property_deposit"),
+  propertyStock: integer("property_stock"),
+  propertyDebt: integer("property_debt"),
+  propertyDetailSyncedAt: timestamp("property_detail_synced_at"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 });
 
@@ -325,6 +377,7 @@ export const assemblyBills = pgTable("assembly_bills", {
   category: text("category").default("일반").notNull(),
   passedDate: text("passed_date"),
   effectiveDate: text("effective_date"),
+  aiDescription: text("ai_description"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 });
 
@@ -504,3 +557,32 @@ export const billOpinionVotes = pgTable("bill_opinion_votes", {
 }));
 
 export type BillOpinionVote = typeof billOpinionVotes.$inferSelect;
+
+// ===== 여론조사 결과 (nesdc.go.kr 크롤링) =====
+export const pollResults = pgTable("poll_results", {
+  id: serial("id").primaryKey(),
+  regionCode: text("region_code").notNull(),       // 지역 코드 (서울특별시 등)
+  districtName: text("district_name").notNull(),   // 선거구명 (서울시장 등)
+  electionType: text("election_type").notNull(),   // 시도지사/구시군의장 등
+  surveyOrg: text("survey_org").notNull(),         // 조사기관명
+  commissioner: text("commissioner").notNull(),    // 의뢰기관
+  surveyDate: text("survey_date").notNull(),       // 조사기간 (예: 2026.04.28~04.29)
+  publishedDate: text("published_date").notNull(), // 공표일
+  sampleSize: integer("sample_size"),              // 표본 크기
+  candidates: jsonb("candidates").notNull(),       // [{name, party, rate}]
+  sourceUrl: text("source_url"),                   // 출처 URL
+  scrapedAt: timestamp("scraped_at").defaultNow().notNull(),
+});
+
+export type PollResult = typeof pollResults.$inferSelect;
+
+// ===== 검색 히스토리 =====
+export const searchHistory = pgTable("search_history", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),         // 로그인 사용자 ID (없으면 null)
+  sessionId: text("session_id"),   // 비로그인 세션 식별자
+  query: text("query").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SearchHistory = typeof searchHistory.$inferSelect;

@@ -4,7 +4,7 @@ import {
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, asc, inArray, or } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -20,7 +20,7 @@ export interface IStorage {
   getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
   getPosts(opts?: { boardType?: string; category?: string; sort?: string; legislatorId?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
   getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined>;
-  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null): Promise<CommunityPost>;
+  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments?: any[], contentType?: string): Promise<CommunityPost>;
   incrementViewCount(postId: string): Promise<void>;
   getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]>;
   createComment(postId: string, userId: string, content: string, anonNickname: string, authorType?: string, displayName?: string | null, isVerified?: boolean): Promise<CommunityComment & { authorBadges: string[] }>;
@@ -139,17 +139,32 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     if (opts.boardType) conditions.push(eq(communityPosts.boardType, opts.boardType));
     if (opts.category) conditions.push(eq(communityPosts.category, opts.category));
-    if (opts.legislatorId) conditions.push(eq(communityPosts.legislatorId, opts.legislatorId));
-    if (opts.tagType) conditions.push(eq(communityPosts.tagType, opts.tagType));
-    if (opts.tagId) conditions.push(eq(communityPosts.tagId, opts.tagId));
-    // If we only want global posts when no legislatorId is provided, we can add a check here, 
-    // but typically boardType='open' separates them. We'll explicitly filter by legislatorId if provided.
+    if (opts.legislatorId) {
+      // Both the board-specific column and the general tag columns should be checked
+      conditions.push(or(
+        eq(communityPosts.legislatorId, opts.legislatorId),
+        and(
+          eq(communityPosts.tagId, opts.legislatorId),
+          eq(communityPosts.tagType, "legislator")
+        )
+      ));
+    }
+    
+    // If tagId is provided specifically (other than legislator search), use it
+    if (opts.tagId && !opts.legislatorId) {
+       if (opts.tagType) {
+         conditions.push(and(eq(communityPosts.tagId, opts.tagId), eq(communityPosts.tagType, opts.tagType)));
+       } else {
+         conditions.push(eq(communityPosts.tagId, opts.tagId));
+       }
+    }
     
     const posts = await db
       .select()
       .from(communityPosts)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(orderCol);
+      .orderBy(orderCol)
+      .limit(200);
 
     const counts = await db
       .select({ postId: communityComments.postId, count: sql<number>`count(*)::int` })
@@ -177,12 +192,33 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return posts.map((p) => ({
-      ...p,
-      commentCount: countMap.get(p.id) || 0,
-      authorBadges: authorBadgeMap.get(p.userId) ?? [],
-      authorName: authorNameMap.get(p.userId) ?? "",
-    }));
+    let allComments: any[] = [];
+    let commentLikes = new Map<string, number>();
+    if (posts.length > 0) {
+      allComments = await db.select().from(communityComments).where(inArray(communityComments.postId, posts.map(p => p.id)));
+      const commentIds = allComments.map(c => c.id);
+      if (commentIds.length > 0) {
+        const { reactions } = await import("@shared/schema");
+        const likesData = await db.select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+          .from(reactions)
+          .where(and(eq(reactions.targetType, 'comment'), eq(reactions.type, 'like'), inArray(reactions.targetId, commentIds)))
+          .groupBy(reactions.targetId);
+        likesData.forEach(ld => commentLikes.set(ld.targetId, ld.count));
+      }
+    }
+
+    return posts.map((p) => {
+      const postComments = allComments.filter(c => c.postId === p.id);
+      postComments.sort((a, b) => (commentLikes.get(b.id) || 0) - (commentLikes.get(a.id) || 0));
+      return {
+        ...p,
+        commentCount: countMap.get(p.id) || 0,
+        authorBadges: authorBadgeMap.get(p.userId) ?? [],
+        authorName: authorNameMap.get(p.userId) ?? "",
+        topComment: postComments[0] || null,
+        topCommentLikes: postComments[0] ? (commentLikes.get(postComments[0].id) || 0) : 0,
+      };
+    });
   }
 
   async getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined> {
@@ -194,10 +230,10 @@ export class DatabaseStorage implements IStorage {
     return { ...post, authorBadges: badges, authorName };
   }
 
-  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false, legislatorId?: string, authorType = "anonymous", displayName?: string | null, isVerified = false, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null): Promise<CommunityPost> {
+  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false, legislatorId?: string, authorType = "anonymous", displayName?: string | null, isVerified = false, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments: any[] = [], contentType = "plain"): Promise<CommunityPost> {
     const [post] = await db
       .insert(communityPosts)
-      .values({ userId, title, content, anonNickname, boardType, category, showRealName, legislatorId, authorType, displayName: displayName ?? null, isVerified, thumbnailUrl: thumbnailUrl ?? null, tagType: tagType ?? null, tagId: tagId ?? null, tagName: tagName ?? null })
+      .values({ userId, title, content, anonNickname, boardType, category, showRealName, legislatorId, authorType, displayName: displayName ?? null, isVerified, thumbnailUrl: thumbnailUrl ?? null, tagType: tagType ?? null, tagId: tagId ?? null, tagName: tagName ?? null, attachments: attachments ?? [], contentType })
       .returning();
     // postCount 증가 & 배지 자동 부여
     await db.execute(sql`UPDATE users SET post_count = post_count + 1 WHERE id = ${userId}`);

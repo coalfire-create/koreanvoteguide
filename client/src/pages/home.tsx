@@ -1,116 +1,308 @@
-import { Link } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Search, Bell, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Plus, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, TrendingUp, Star, ChevronRight, User, Flame, Eye, ThumbsUp } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { LoginPrompt } from "@/components/LoginPrompt";
+import { useAuth } from "@/lib/auth";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Home() {
-  const { data: trendingMembers, isLoading: isTrendingLoading } = useQuery<any[]>({
-    queryKey: ["/api/members/trending"],
-    queryFn: () => apiRequest("GET", "/api/members/trending").then((r) => r.json()),
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const { members, isLoading: isMembersLoading } = useAssemblyMembers();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: billsData, isLoading: isBillsLoading } = useQuery({
+    queryKey: ["/api/bills"],
+    queryFn: async () => {
+      const res = await fetch(`/api/bills`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data || [];
+    },
   });
 
-  const { data: bestPosts, isLoading: isPostsLoading } = useQuery<any[]>({
-    queryKey: ["/api/community/posts", "best"],
-    queryFn: () => apiRequest("GET", "/api/community/posts?sort=popular").then((r) => r.json()),
+  const followMutation = useMutation({
+    mutationFn: async (legislatorId: string) => {
+      if (!user) return;
+      const isFollowed = user.favorites.includes(legislatorId);
+      const newFavorites = isFollowed 
+        ? user.favorites.filter(id => id !== legislatorId)
+        : [...user.favorites, legislatorId];
+      
+      const res = await apiRequest("PATCH", "/api/auth/favorites", { favorites: newFavorites });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
   });
+
+  // Stories: Show followed members if logged in, otherwise show top 10
+  const followedIds = user?.favorites || [];
+  const followedMembersList = members.filter(m => followedIds.includes(m.id));
+  const otherMembers = members.filter(m => !followedIds.includes(m.id));
+  
+  const storyMembers = followedMembersList.length > 0 
+    ? followedMembersList 
+    : members.slice(0, 10);
+
+  // Recommended members for the right sidebar: exclude already followed
+  const recommendedMembers = otherMembers.slice(0, 5);
+
+  // Filter bills based on followed members if any exist
+  const displayBills = (followedMembersList.length > 0 && billsData)
+    ? billsData.filter((b: any) => followedIds.includes(members.find(m => m.name === b.proposer)?.id || ""))
+    : billsData || [];
+
+  // Fallback if followed members have no bills
+  const finalBills = displayBills.length > 0 ? displayBills : (billsData || []);
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-br from-[#425091] to-indigo-900 pt-14 pb-16 px-6 rounded-b-[3.5rem] shadow-xl text-white">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-black mb-1">우리 동네의 목소리</h1>
-            <p className="text-indigo-100/70 text-sm font-medium">유권자의 토론이 더 좋은 정치를 만듭니다.</p>
-          </div>
-          <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md">
-            <Flame className="w-6 h-6 text-orange-400 fill-orange-400" />
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+      {/* Top Bar */}
+      <header className="sticky top-0 z-40 w-full h-[72px] bg-white border-b border-gray-100 flex items-center px-8">
+        <div className="flex-1 flex items-center">
+          <div className="relative w-full max-w-[500px] group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6320EE] transition-colors" />
+            <input
+              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6320EE]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              placeholder="국회의원 이름으로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-100 rounded shadow-sm">
+              <span className="text-[10px] font-bold text-gray-400">⌘K</span>
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-4">
+          <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
+          </button>
+          <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shadow-sm cursor-pointer"></div>
+        </div>
+      </header>
 
-        <Link href="/community">
-          <Button className="w-full bg-white text-indigo-900 border-0 hover:bg-white/90 h-14 rounded-2xl font-black text-[16px] shadow-lg flex items-center justify-between px-6">
-            커뮤니티 바로가기
-            <ChevronRight className="w-5 h-5 text-indigo-400" />
-          </Button>
-        </Link>
-      </div>
-
-      <div className="max-w-lg mx-auto px-5 -mt-8 space-y-8 relative z-10">
-        {/* Trending Politicians Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-indigo-600" />
-              지금 주목받는 인물
-            </h2>
-            <Link href="/members">
-              <span className="text-xs font-bold text-indigo-600">더 보기</span>
-            </Link>
-          </div>
-          
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-            {isTrendingLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="w-24 h-32 rounded-2xl shrink-0" />
-              ))
-            ) : trendingMembers?.slice(0, 6).map((member) => (
-              <Link key={member.id || member.monaCd} href={`/members/${member.id || member.monaCd}`}>
-                <div className="w-24 shrink-0 snap-start flex flex-col items-center gap-2 group">
-                  <div className="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden shadow-sm group-hover:shadow-md transition-all">
-                    {member.photoUrl ? (
-                      <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-300">
-                        <User className="w-10 h-10" />
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-[13px] font-black text-slate-800 line-clamp-1">{member.name}</span>
+      <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-8 gap-8">
+        {/* Main Feed Section */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Stories / Member Circles */}
+          <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            <button className="flex flex-col items-center gap-2 group flex-shrink-0">
+              <div className="w-14 h-14 rounded-full border border-dashed border-gray-300 flex items-center justify-center group-hover:border-[#6320EE] transition-colors">
+                <Plus className="w-5 h-5 text-gray-400 group-hover:text-[#6320EE]" />
+              </div>
+              <span className="text-[11px] font-bold text-gray-400">탐색</span>
+            </button>
+            {isMembersLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
+                  <Skeleton className="w-14 h-14 rounded-full" />
+                  <Skeleton className="w-10 h-3" />
                 </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Best Posts Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-              실시간 베스트 글
-            </h2>
-          </div>
-
-          <div className="bg-slate-50 rounded-[2.5rem] p-2 space-y-1">
-            {isPostsLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="w-full h-20 rounded-2xl" />
               ))
-            ) : bestPosts?.slice(0, 5).map((post) => (
-              <Link key={post.id} href={`/community/${post.id}`}>
-                <div className="bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      {post.category}
-                    </span>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold">
-                      <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" /> {post.likes}</span>
-                      <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {post.commentCount}</span>
+            ) : (
+              storyMembers.map((member, idx) => (
+                <Link key={member.id} href={`/members/${member.id}`} className="flex flex-col items-center gap-2 group flex-shrink-0">
+                  <div className={`w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-purple-500 to-indigo-500 group-hover:scale-105 transition-transform`}>
+                    <div className="w-full h-full rounded-full bg-white p-[2px]">
+                      <div className="w-full h-full rounded-full overflow-hidden">
+                        <PoliticianPhoto
+                          name={member.name}
+                          photo={member.photo}
+                          monaCd={member.id}
+                          className="w-full h-full object-cover"
+                          avatarClassName="text-[14px] font-black bg-gray-100 text-gray-400"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-indigo-600">
-                    {post.title}
-                  </h3>
+                  <span className="text-[11px] font-bold text-gray-900 truncate w-14 text-center">{member.name}</span>
+                </Link>
+              ))
+            )}
+          </div>
+
+          <div className="h-px bg-gray-100 w-full" />
+
+          {/* Feed List */}
+          <div className="space-y-6">
+            {isBillsLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="w-full h-[300px] rounded-[24px]" />
+              ))
+            ) : (
+              finalBills.map((bill: any, idx: number) => (
+                <div key={bill.billId} className="bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  {/* Card Header */}
+                  <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden">
+                        <PoliticianPhoto
+                          name={bill.proposer || ""}
+                          photo={members.find(m => m.name === bill.proposer)?.photo || ""}
+                          monaCd={members.find(m => m.name === bill.proposer)?.id || ""}
+                          className="w-full h-full object-cover"
+                          avatarClassName="text-[12px] font-black bg-gray-100 text-gray-400"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[14px] font-black text-gray-900">{bill.proposer || "의원 이름"}</span>
+                          <span className="text-[14px] text-gray-400 font-medium">의원</span>
+                        </div>
+                        <p className="text-[11px] font-bold text-gray-400">{bill.party || "더불어민주당"} · {bill.committee || "전북 익산시을"}</p>
+                      </div>
+                    </div>
+                    <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors">
+                      <MoreHorizontal className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="px-6 pb-2">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="text-[12px] font-bold text-blue-500">법안 발의</span>
+                    </div>
+                    <h2 className="text-[20px] font-black text-gray-900 mb-2 leading-tight">
+                      {bill.billName}
+                    </h2>
+                    <p className="text-[14px] text-gray-500 font-medium leading-relaxed mb-4">
+                      제출 · {bill.committee || "국토교통위원회"} 회부
+                    </p>
+                  </div>
+
+                  {/* Card Interactions */}
+                  <div className="px-6 py-4 flex items-center justify-between border-t border-gray-50">
+                    <div className="flex items-center gap-5">
+                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-red-500 transition-colors">
+                        <Heart className="w-5 h-5" />
+                      </button>
+                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-[#6320EE] transition-colors">
+                        <MessageCircle className="w-5 h-5" />
+                      </button>
+                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-green-500 transition-colors">
+                        <Share2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <button className="text-gray-400 hover:text-gray-900 transition-colors">
+                      <Bookmark className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="px-6 pb-6 pt-0">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[13px] font-black text-gray-900">좋아요 {Math.floor(Math.random() * 2000).toLocaleString()}개</span>
+                      <span className="text-[11px] font-bold text-gray-300 uppercase tracking-tight">{idx + 2}시간 전</span>
+                    </div>
+                  </div>
                 </div>
-              </Link>
-            ))}
+              ))
+            )}
           </div>
         </div>
+
+        {/* Right Sidebar Section */}
+        <aside className="hidden lg:block w-[320px] space-y-8">
+          {/* User Account Summary */}
+          <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                  {user ? (
+                    <div className="w-full h-full bg-[#6320EE] flex items-center justify-center text-white font-black">
+                      {user.name.charAt(0)}
+                    </div>
+                  ) : (
+                    <span className="text-gray-200"><Plus className="w-8 h-8" /></span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black text-gray-900">{user ? user.name : "내 계정"}</h3>
+                  <p className="text-[12px] font-bold text-gray-400">{followedIds.length}명 팔로우 중</p>
+                </div>
+              </div>
+              {!user && (
+                <Link href="/login">
+                  <button className="text-[12px] font-black text-[#6320EE] hover:underline">로그인</button>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Recommended Members */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[14px] font-black text-gray-400">추천 의원</h3>
+              <button className="text-[12px] font-black text-gray-900 hover:underline">모두 보기</button>
+            </div>
+            
+            <div className="space-y-4">
+              {isMembersLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="w-full h-12 rounded-xl" />)
+              ) : (
+                recommendedMembers.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between group">
+                    <Link href={`/members/${member.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <PoliticianPhoto
+                          name={member.name}
+                          photo={member.photo}
+                          monaCd={member.id}
+                          className="w-full h-full object-cover"
+                          avatarClassName="text-[12px] font-black bg-gray-100 text-gray-400"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[13px] font-black text-gray-900 truncate group-hover:text-[#6320EE] transition-colors">{member.name}</h4>
+                        <p className="text-[11px] font-bold text-gray-400 truncate">{member.party} · {member.district.split(' ')[0]}</p>
+                      </div>
+                    </Link>
+                    <button 
+                      onClick={() => {
+                        if (!user) {
+                          setShowLoginPrompt(true);
+                          return;
+                        }
+                        followMutation.mutate(member.id);
+                      }}
+                      disabled={followMutation.isPending}
+                      className="text-[12px] font-black text-[#6320EE] hover:text-[#5218D0] transition-colors pl-2 disabled:opacity-50"
+                    >
+                      팔로우
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Footer Info */}
+          <div className="px-1 text-[11px] font-bold text-gray-300 space-y-4">
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <span>정보</span>
+              <span>도움말</span>
+              <span>홍보 센터</span>
+              <span>API</span>
+              <span>채용 정보</span>
+              <span>개인정보처리방침</span>
+              <span>약관</span>
+              <span>위치</span>
+              <span>언어</span>
+            </div>
+            <p>© 2024 이유 FROM COALFIRE</p>
+          </div>
+        </aside>
       </div>
+
+      <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </div>
   );
 }

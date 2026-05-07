@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(229, 231, 235, 0.5);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f9f9ff",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#ebddff",
+                        "outline-variant": "#ccc3d7",
+                        "primary-fixed-dim": "#d3bbff",
+                        "on-secondary-container": "#693300",
+                        "surface-variant": "#dce2f3",
+                        "surface-tint": "#7331df",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#4a4455",
+                        "surface-container-highest": "#dce2f3",
+                        "inverse-primary": "#d3bbff",
+                        "primary": "#5300b7",
+                        "on-primary-container": "#dac5ff",
+                        "surface-bright": "#f9f9ff",
+                        "on-tertiary-fixed": "#3d0026",
+                        "surface-dim": "#d3daea",
+                        "outline": "#7b7486",
+                        "inverse-surface": "#2a313d",
+                        "on-surface": "#151c27",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#ffb783",
+                        "on-primary-fixed": "#250059",
+                        "surface-container-high": "#e2e8f8",
+                        "secondary-fixed": "#ffdcc5",
+                        "secondary": "#944a00",
+                        "on-background": "#151c27",
+                        "tertiary-fixed-dim": "#ffafd3",
+                        "tertiary-container": "#9c2a6c",
+                        "on-primary": "#ffffff",
+                        "surface-container-low": "#f0f3ff",
+                        "tertiary": "#7e0b54",
+                        "primary-container": "#6d28d9",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffd8e7",
+                        "inverse-on-surface": "#ebf1ff",
+                        "secondary-container": "#fd933d",
+                        "on-secondary-fixed": "#301400",
+                        "on-primary-fixed-variant": "#5b00c5",
+                        "on-tertiary-container": "#ffbcd9",
+                        "on-secondary-fixed-variant": "#713700",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#e7eefe",
+                        "on-tertiary-fixed-variant": "#85145a",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f9f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "container-margin": "20px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "xl": "32px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "h3": ["Inter"],
+                        "h2": ["Inter"],
+                        "h1": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "h3": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 fixed left-0 top-0 z-50 flex flex-col p-4 gap-2 h-full">
+<div class="px-2 py-4 mb-4">
+<h1 class="text-xl font-bold tracking-tighter text-violet-700 dark:text-violet-400">Lyu</h1>
+<p class="text-xs text-slate-500 font-label-sm">Open Governance</p>
+</div>
+<nav class="space-y-1">
+<div class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg cursor-pointer transition-transform duration-200 hover:translate-x-1 font-['Inter'] text-sm font-medium">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span>홈</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg cursor-pointer transition-transform duration-200 hover:translate-x-1 font-['Inter'] text-sm font-medium">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>인물</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg cursor-pointer transition-transform duration-200 hover:translate-x-1 font-['Inter'] text-sm font-medium">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span>커뮤니티</span>
+</div>
+<!-- Active Tab: Bills -->
+<div class="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-lg font-bold font-['Inter'] text-sm">
+<span class="material-symbols-outlined" data-icon="gavel" style="font-variation-settings: 'FILL' 1;">gavel</span>
+<span>법안</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg cursor-pointer transition-transform duration-200 hover:translate-x-1 font-['Inter'] text-sm font-medium">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span>내 프로필</span>
+</div>
+</nav>
+<div class="mt-auto p-4">
+<button class="w-full py-3 bg-primary-container text-on-primary rounded-lg font-bold shadow-md hover:opacity-90 active:scale-95 transition-all">새 게시글 작성</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center w-full h-16 px-6 sticky top-0 z-40 font-['Inter'] antialiased tracking-tight">
+<div class="flex items-center gap-4 flex-1 max-w-2xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" data-icon="search">search</span>
+<input class="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-container transition-all" placeholder="법안 제목, 발의자, 키워드로 검색..." type="text"/>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-full text-label-md text-on-surface-variant hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-sm" data-icon="tune">tune</span> 필터</button>
+</div>
+<div class="flex items-center gap-4 ml-6">
+<button class="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-full relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary-container rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-slate-200">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a person with a friendly expression, set against a clean, softly lit office background. The lighting is natural and high-key, reflecting a modern corporate aesthetic with a professional yet accessible mood. The color palette is composed of soft grays and warm skin tones, aligning with a premium light-mode UI design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVMpzNSPsEy0QujFYdsUfgUJ0QJJWxcZCbqb_D6FrtTm79D0mYGWQ2AOwSJHrKStsGkMd8SsuN2vmjeN2BA8MPLbTRWdluA_ni5KOZ9YDxtamn1kOY96Q2KdGUTVaIJ4mrUbPfP4xUFXDq60E0Kymx7FcdJ-P8hsIIoohAYjef6o83dF250nHt79XGH3Ve3iCnk2cw_626RQ1c0WWyTJEA9Y9PC8FfCfWHBklL8Dh3KIchySkGyTuOtR-J0_3iqq3pA1GnbiuKdjA"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-8 space-y-8 max-w-7xl mx-auto w-full">
+<!-- Horizontal Tag Filter -->
+<section class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-6 py-2 rounded-full bg-primary-container text-on-primary font-label-md transition-all active:scale-95">전체</button>
+<button class="px-6 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-label-md hover:bg-surface-variant transition-all active:scale-95 border border-transparent hover:border-outline-variant">경제</button>
+<button class="px-6 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-label-md hover:bg-surface-variant transition-all active:scale-95 border border-transparent hover:border-outline-variant">복지</button>
+<button class="px-6 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-label-md hover:bg-surface-variant transition-all active:scale-95 border border-transparent hover:border-outline-variant">환경</button>
+<button class="px-6 py-2 rounded-full bg-surface-container-high text-on-surface-variant font-label-md hover:bg-surface-variant transition-all active:scale-95 border border-transparent hover:border-outline-variant">교육</button>
+</section>
+<!-- Trending Topics Section: Bento Grid -->
+<section class="grid grid-cols-12 gap-6">
+<!-- Hot Bill Card -->
+<div class="col-span-8 glass-card rounded-xl p-8 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[120px]" data-icon="trending_up">trending_up</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="px-3 py-1 bg-secondary-container/20 text-on-secondary-container text-label-sm rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1;">local_fire_department</span> 인기 법안</span>
+<span class="text-label-sm text-slate-400">2시간 전 업데이트</span>
+</div>
+<h2 class="text-h2 font-h2 text-on-surface mb-4 max-w-lg">Climate Crisis and Carbon Neutrality Act</h2>
+<p class="text-body-md text-on-surface-variant mb-6 max-w-xl">
+                            A comprehensive legislative framework aimed at reducing greenhouse gas emissions by 40% by 2030 through carbon pricing and renewable energy subsidies.
+                        </p>
+</div>
+<div class="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
+<div class="flex gap-4">
+<div class="flex flex-col">
+<span class="text-label-sm text-slate-400">지지자</span>
+<span class="text-h3 font-h3 text-primary">2,481</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-sm text-slate-400">증가율</span>
+<span class="text-h3 font-h3 text-secondary">+12.4%</span>
+</div>
+</div>
+<button class="bg-secondary-container text-on-secondary-fixed font-bold py-3 px-8 rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">찬반 투표하기</button>
+</div>
+</div>
+<!-- Metric Cards -->
+<div class="col-span-4 flex flex-col gap-6">
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer">
+<div class="w-14 h-14 bg-primary-fixed rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="post_add">post_add</span>
+</div>
+<div>
+<p class="text-label-sm text-slate-500 mb-1">오늘 발의된 법안</p>
+<h3 class="text-h1 font-h1 text-on-surface">14</h3>
+<p class="text-xs text-secondary-fixed-variant mt-1 font-medium">어제보다 +3개 증가</p>
+</div>
+</div>
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer">
+<div class="w-14 h-14 bg-on-tertiary-container/10 rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary text-3xl" data-icon="forum">forum</span>
+</div>
+<div>
+<p class="text-label-sm text-slate-500 mb-1">가장 활발한 토론</p>
+<h3 class="text-h3 font-h3 text-on-surface">Education Reform Bill</h3>
+<p class="text-xs text-slate-400 mt-1">428개의 새로운 댓글</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Recent Searches Section -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-h3 font-h3 text-on-surface">최근 검색어</h3>
+<button class="text-label-md text-primary hover:underline">전체 삭제</button>
+</div>
+<div class="flex flex-wrap gap-3">
+<div class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg group hover:border-primary transition-colors cursor-pointer shadow-sm">
+<span class="text-label-md text-on-surface-variant">최저임금 정책</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-error text-sm" data-icon="close">close</span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg group hover:border-primary transition-colors cursor-pointer shadow-sm">
+<span class="text-label-md text-on-surface-variant">사이버 보안 2024</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-error text-sm" data-icon="close">close</span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg group hover:border-primary transition-colors cursor-pointer shadow-sm">
+<span class="text-label-md text-on-surface-variant">대중교통 지원금</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-error text-sm" data-icon="close">close</span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg group hover:border-primary transition-colors cursor-pointer shadow-sm">
+<span class="text-label-md text-on-surface-variant">데이비드 헨더슨</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-error text-sm" data-icon="close">close</span>
+</div>
+</div>
+</section>
+<!-- Featured Members Section -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-h3 font-h3 text-on-surface">주요 활동 의원</h3>
+<button class="text-label-md text-primary font-semibold flex items-center gap-1 group">전체 보기 <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span></button>
+</div>
+<div class="grid grid-cols-4 gap-6">
+<!-- Member 1 -->
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-center group hover:translate-y-[-4px] transition-all">
+<div class="relative w-24 h-24 mx-auto mb-4">
+<div class="absolute inset-0 rounded-full border-4 border-violet-100 group-hover:border-violet-300 transition-colors"></div>
+<img alt="Member Avatar" class="w-full h-full rounded-full object-cover" data-alt="A portrait of a male politician in a tailored charcoal suit, featuring a confident and visionary gaze. The setting is a minimalist architectural backdrop with soft, direct lighting that highlights facial features. The style is professional and crisp, with a cool-toned palette that emphasizes transparency and modern governance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlzDCK3yS-55zeI4gTw2Ik1Ib8R_vKPktTT7DobtF7KzU-_F_wL_1lYhAqbL4WVZ0bjUcsUf0hnGHPYZKr3vPFOvVDe0e2H-vdakKDrD2A6Uq15g0S0WDL9tXGPXovBpycusdUToNYG7s4t8fkxA6Fr1NdfgvRYvoAm6Kb1k2x6IywVa7JFXQ_ESA9n3GB-01Ke6XWq9POW8VLwoqTMxltVV_jfCSZw9IK3iew3Fn4JF0ZZUigfIsM9ZztGgCQOJj5DfjrgYoPaM0"/>
+</div>
+<h4 class="text-label-md font-bold text-on-surface">Dr. Elena Rodriguez</h4>
+<p class="text-xs text-slate-500 mb-4">Progressive Party • Dist. 4</p>
+<button class="w-full py-2 bg-secondary-container/10 text-on-secondary-fixed-variant font-bold rounded-lg border border-secondary-container/20 hover:bg-secondary-container text-label-md hover:text-white transition-all active:scale-95">팔로우</button>
+</div>
+<!-- Member 2 -->
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-center group hover:translate-y-[-4px] transition-all">
+<div class="relative w-24 h-24 mx-auto mb-4">
+<div class="absolute inset-0 rounded-full border-4 border-violet-100 group-hover:border-violet-300 transition-colors"></div>
+<img alt="Member Avatar" class="w-full h-full rounded-full object-cover" data-alt="A professional headshot of a female representative with an intelligent and determined expression. She is wearing a structured navy blazer in a high-clarity workspace. The lighting is diffused and professional, creating an atmosphere of trust and openness. The image follows a corporate modernist aesthetic with sharp focus and clean lines." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJ0wQW5Q3-TMaYCqj43MVmkrF1yOYLE4w5z6vXvvnelWgIO9CepWwL2PZt0nuQn3-CqF9107xPnI-rT-GuPkndUaOyv5n2aDcm1nWYaiIpqQcbhG8gCuT_x2xiHaRPBwwC671hl-Uz2fEJWzQnXTrXeYZFPrq1ZC4ruBgNt1bhHgHI_inR5kblRWKuADpOpeUcdRM7l12mNxLBBgr9XCl9saGw3OitAQJG8dx-U12CaalJGV0YQVtJTPHlW6vstjKSaiPArmpMJ3k"/>
+</div>
+<h4 class="text-label-md font-bold text-on-surface">Mark J. Harrison</h4>
+<p class="text-xs text-slate-500 mb-4">Liberty Alliance • Dist. 12</p>
+<button class="w-full py-2 bg-secondary-container text-white font-bold rounded-lg hover:opacity-90 text-label-md transition-all active:scale-95 shadow-sm">팔로우</button>
+</div>
+<!-- Member 3 -->
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-center group hover:translate-y-[-4px] transition-all">
+<div class="relative w-24 h-24 mx-auto mb-4">
+<div class="absolute inset-0 rounded-full border-4 border-violet-100 group-hover:border-violet-300 transition-colors"></div>
+<img alt="Member Avatar" class="w-full h-full rounded-full object-cover" data-alt="A portrait of an experienced male legislator in a professional setting, looking thoughtful and composed. The lighting is soft and directional, typical of a high-end editorial shoot. The background is a blurred modern library or office, reinforcing a theme of expertise and legislative knowledge. The color scheme is balanced with warm skin tones and cool office shades." src="https://lh3.googleusercontent.com/aida-public/AB6AXuASvrkOlFBLFF-MhuXxJzvD5wWe6Bq6fwESmH7figk7QT2JW7vM02RO5VpfB0C9u5vkflBYMG2cdcpN2cJOSJZhuqxbO5RpCowzrxBt3BEnA5KDJVEemKWx0ooW9KNU1aTwWv2agxmtiphBNWJGRq02N4sApOtrizrKU_i4ICFspy7BAlK6mkqr_reQADdtXS5P7QjpKoj_0FC7gVVqKzqFkLlYw2WzYAVJWrVExTGsRnc-0zuwy17xNFQZ192srTnQ62MYGAlP5bU"/>
+</div>
+<h4 class="text-label-md font-bold text-on-surface">Sarah Cho</h4>
+<p class="text-xs text-slate-500 mb-4">Green Coalition • Dist. 7</p>
+<button class="w-full py-2 bg-secondary-container/10 text-on-secondary-fixed-variant font-bold rounded-lg border border-secondary-container/20 hover:bg-secondary-container text-label-md hover:text-white transition-all active:scale-95">팔로우</button>
+</div>
+<!-- Member 4 -->
+<div class="glass-card rounded-xl p-6 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-center group hover:translate-y-[-4px] transition-all">
+<div class="relative w-24 h-24 mx-auto mb-4">
+<div class="absolute inset-0 rounded-full border-4 border-violet-100 group-hover:border-violet-300 transition-colors"></div>
+<img alt="Member Avatar" class="w-full h-full rounded-full object-cover" data-alt="A bright and vibrant portrait of a young professional woman with a welcoming and energetic demeanor. The style is modern corporate, using high-key studio lighting that produces clean shadows. The color palette is dominated by neutral tones with small, energetic purple accents, suitable for a cutting-edge civic platform UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvh_DOQ70u57c8ONTJ65BfwnRL17-qTAsPv6M763xgETIC9QwBZsdeTUbdEzVJ40RZhi970RkVnoast45nE6uDVnaHLUeE78_Cy5mS656iA9qJbOzItHRaeAOaN2xw_zbzTfLJWuJvxbYEvsoaf1rfQM6nOfrQIIoOIeuaEmytV1s600B-sN9w1bWPZMcQ5CS1Vd9E0tiaXbbve_L-r4r6tx2EVNj0EQcpNf8Lov-5kulNI4nNbKdGX0uh5aE0U0P5-HL9oZGp98c"/>
+</div>
+<h4 class="text-label-md font-bold text-on-surface">David Henderson</h4>
+<p class="text-xs text-slate-500 mb-4">Independent • Dist. 22</p>
+<button class="w-full py-2 bg-secondary-container/10 text-on-secondary-fixed-variant font-bold rounded-lg border border-secondary-container/20 hover:bg-secondary-container text-label-md hover:text-white transition-all active:scale-95">팔로우</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FAB (Suppressed on Details/Search usually, but shown here for high-reachability civic engagement as per Style Guidance) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform z-50">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</body></html>

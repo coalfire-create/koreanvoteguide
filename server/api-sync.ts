@@ -3,6 +3,7 @@ import { db } from "./db";
 import { legislators, assemblyBills, assemblyVotes } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
+
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
 const API_KEY = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
 const AGE = "22";
@@ -11,6 +12,27 @@ const DELAY_MS = 500;
 
 export function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/** 의원 홈페이지 URL을 SNS 종류별로 자동 분류 */
+function classifyHomepageUrl(url: string): {
+  homepage: string | null;
+  youtube: string | null;
+  twitter: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  blog: string | null;
+} {
+  const result = { homepage: null as string | null, youtube: null as string | null, twitter: null as string | null, facebook: null as string | null, instagram: null as string | null, blog: null as string | null };
+  if (!url) return result;
+  const u = url.toLowerCase();
+  if (u.includes("youtube.com") || u.includes("youtu.be")) { result.youtube = url; }
+  else if (u.includes("twitter.com") || u.includes("x.com")) { result.twitter = url; }
+  else if (u.includes("facebook.com") || u.includes("fb.com")) { result.facebook = url; }
+  else if (u.includes("instagram.com")) { result.instagram = url; }
+  else if (u.includes("blog.naver.com") || u.includes("tistory.com") || u.includes("blog.") || u.includes(".blog.")) { result.blog = url; }
+  else { result.homepage = url; }
+  return result;
 }
 
 interface PageResult {
@@ -101,6 +123,10 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
       }
 
       try {
+        // HOMEPAGE URL을 SNS 종류별로 자동 분류
+        const rawHomepage = (row.HOMEPAGE || "").trim();
+        const classifiedSns = classifyHomepageUrl(rawHomepage);
+
         await db
           .insert(legislators)
           .values({
@@ -112,7 +138,21 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
               ? `https://open.assembly.go.kr/portal/assm/assmpic/${row.HG_NM_A}`
               : "",
             committee: row.CMIT_NM || "",
+            committees: row.CMITS || row.CMIT_NM || "",
             electedTerm: 22,
+            email: (row.E_MAIL || row.EMAIL || "").trim() || null,
+            telNo: (row.TEL_NO || "").trim() || null,
+            birthDate: (row.BTH_DATE || "").trim() || null,
+            gender: (row.SEX_GBN_NM || "").trim() || null,
+            reelectionGbn: (row.REELE_GBN_NM || "").trim() || null,
+            memTitle: (row.MEM_TITLE || "").trim() || null,
+            assemblyAddr: (row.ASSEM_ADDR || "").trim() || null,
+            homepage: classifiedSns.homepage,
+            twitter: classifiedSns.twitter,
+            facebook: classifiedSns.facebook,
+            youtube: classifiedSns.youtube,
+            blog: classifiedSns.blog,
+            instagram: classifiedSns.instagram,
             syncedAt: new Date(),
           })
           .onConflictDoUpdate({
@@ -121,8 +161,22 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
               name: sql`EXCLUDED.name`,
               party: sql`EXCLUDED.party`,
               district: sql`EXCLUDED.district`,
-              photoUrl: sql`EXCLUDED.photo_url`,
+              photoUrl: sql`CASE WHEN EXCLUDED.photo_url != '' THEN EXCLUDED.photo_url ELSE ${legislators.photoUrl} END`,
               committee: sql`EXCLUDED.committee`,
+              committees: sql`EXCLUDED.committees`,
+              email: sql`EXCLUDED.email`,
+              telNo: sql`EXCLUDED.tel_no`,
+              birthDate: sql`EXCLUDED.birth_date`,
+              gender: sql`EXCLUDED.gender`,
+              reelectionGbn: sql`EXCLUDED.reelection_gbn`,
+              memTitle: sql`EXCLUDED.mem_title`,
+              assemblyAddr: sql`EXCLUDED.assembly_addr`,
+              homepage: sql`EXCLUDED.homepage`,
+              twitter: sql`EXCLUDED.twitter`,
+              facebook: sql`EXCLUDED.facebook`,
+              youtube: sql`EXCLUDED.youtube`,
+              blog: sql`EXCLUDED.blog`,
+              instagram: sql`EXCLUDED.instagram`,
               syncedAt: sql`EXCLUDED.synced_at`,
             },
           });
@@ -163,11 +217,11 @@ export async function syncBills(): Promise<{ synced: number; errors: string[] }>
           .values({
             billId,
             billNo: row.BILL_NO || "",
-            billName: row.BILL_NM || "",
-            proposer: row.PROPOSER || "",
-            proposeDate: row.PROPOSE_DT || "",
-            result: row.PROC_RESULT_CD || "",
-            committee: row.COMMITTEE_NM || "",
+            billName: row.BILL_NAME || row.BILL_NM || "",
+            proposer: row.PROPOSER || row.RST_PROPOSER || "",
+            proposeDate: row.PROPOSE_DT || row.PROC_DT || "",
+            result: row.PROC_RESULT_CD || row.PROC_RESULT || "",
+            committee: row.COMMITTEE_NM || row.COMMITTEE || "",
             yesCount: parseInt(row.YES_TCNT) || 0,
             noCount: parseInt(row.NO_TCNT) || 0,
             abstainCount: parseInt(row.BLANK_TCNT) || 0,

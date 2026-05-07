@@ -7,8 +7,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { BottomNav } from "@/components/bottom-nav";
+import { SideNav } from "@/components/side-nav";
 import { SplashScreen } from "@/components/splash-screen";
-import { AuthProvider, useAuth } from "@/lib/auth";
+import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -26,34 +27,31 @@ import AuthPage from "@/pages/auth";
 import More from "@/pages/more";
 import NewsPage from "@/pages/news";
 import Onboarding from "@/pages/onboarding";
+import CitySelect from "@/pages/city-select";
+import BillVote from "@/pages/bill-vote";
 import CandidateDetail from "@/pages/candidate-detail";
-import { LogIn, Menu, UserCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
 
-
-
-function ElectionHomeWithRedirect() {
+function HomeWithRedirect() {
   const [, setLocation] = useLocation();
   const hasRegion = typeof window !== "undefined" && (localStorage.getItem("userRegions") || localStorage.getItem("userRegion"));
 
   if (!hasRegion) {
-    // Cannot call setLocation during render, defer to effect
-    setTimeout(() => setLocation("/onboarding"), 0);
+    setTimeout(() => setLocation("/city-select"), 0);
     return null;
   }
-  return <ElectionHome />;
+  return isElectionMode() ? <ElectionHome /> : <Home />;
 }
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={isElectionMode() ? ElectionHomeWithRedirect : Home} />
+      <Route path="/" component={HomeWithRedirect} />
       <Route path="/members" component={Members} />
       <Route path="/members/:id" component={MemberDetail} />
       <Route path="/candidates" component={Candidates} />
       <Route path="/candidates/:id" component={CandidateDetail} />
       <Route path="/bills" component={BillSearch} />
+      <Route path="/bills/:id/vote" component={BillVote} />
       <Route path="/evaluation" component={Evaluation} />
       <Route path="/community" component={Community} />
       <Route path="/community/write" component={CommunityWrite} />
@@ -61,6 +59,7 @@ function Router() {
       <Route path="/community/:id" component={CommunityDetail} />
       <Route path="/login" component={AuthPage} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/city-select" component={CitySelect} />
       <Route path="/news" component={NewsPage} />
       <Route path="/more" component={More} />
       <Route component={NotFound} />
@@ -69,17 +68,21 @@ function Router() {
 }
 
 function MainApp() {
-  const { user, isLoading } = useAuth();
   const [location] = useLocation();
   const isLoginPage = location === "/login";
   const isOnboardingPage = location === "/onboarding";
-  const hideHeaderNav = isLoginPage || isOnboardingPage;
+  const isCitySelectPage = location === "/city-select";
+  const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage;
 
   return (
-    <div className="flex flex-col min-h-screen w-full">
-
-      <main className="flex-1 overflow-auto pb-[60px] bg-white">
-        <Router />
+    <div className="flex min-h-screen w-full bg-white">
+      {!hideHeaderNav && <SideNav />}
+      
+      <main className={`flex-1 w-full ${!hideHeaderNav ? "md:pl-[260px]" : ""}`}>
+        {/* Full width content area for desktop, matching Stitch design */}
+        <div className="w-full min-h-screen pb-[60px] md:pb-10">
+          <Router />
+        </div>
       </main>
       {!hideHeaderNav && <BottomNav />}
     </div>

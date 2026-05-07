@@ -180,6 +180,8 @@ export const candidates: Candidate[] = [
       { id: "p2", title: "부동산 가격 안정화", description: "공공주택 100만호 공급 및 토지공개념 강화로 부동산 가격 안정" },
       { id: "p3", title: "디지털 전환 가속화", description: "AI·빅데이터 기반 정부 혁신 및 디지털 뉴딜 확대" },
     ],
+    education: "서울대학교 법학 학사",
+    career: "前 경기도지사, 제20대 국회의원",
     pastActivities: [
       "성남시장 재직 (2010-2018)",
       "경기도지사 재직 (2018-2022)",
@@ -205,6 +207,8 @@ export const candidates: Candidate[] = [
       { id: "p5", title: "안보 강화", description: "한미동맹 강화 및 국방력 현대화 추진" },
       { id: "p6", title: "교육 개혁", description: "대학 자율성 확대 및 직업교육 강화" },
     ],
+    education: "서울대학교 경영학 학사",
+    career: "前 경기도지사, 제15·16·17대 국회의원",
     pastActivities: [
       "경기도지사 재직 (2006-2014)",
       "국회의원 3선",
@@ -229,6 +233,8 @@ export const candidates: Candidate[] = [
       { id: "p8", title: "청년 주거 안정", description: "역세권 청년주택 5만호 추가 공급" },
       { id: "p9", title: "대중교통 혁신", description: "GTX 조기 완공 및 자율주행 버스 시범 운행" },
     ],
+    education: "고려대학교 법학 학사",
+    career: "現 서울특별시장, 제16대 국회의원",
     pastActivities: [
       "서울특별시장 재직 (2006-2011, 2021-현재)",
       "변호사 경력 10년",
@@ -435,8 +441,31 @@ export function getPartyColor(party: string): string {
     case "더불어민주당": return "bg-blue-500 dark:bg-blue-600";
     case "국민의힘": return "bg-red-500 dark:bg-red-600";
     case "조국혁신당": return "bg-indigo-500 dark:bg-indigo-600";
+    case "개혁신당": return "bg-orange-500 dark:bg-orange-600";
+    case "진보당": return "bg-red-800 dark:bg-red-900";
+    case "국가혁명당": return "bg-red-700 dark:bg-red-800";
     default: return "bg-gray-500 dark:bg-gray-600";
   }
+}
+
+export const PARTY_RANK: Record<string, number> = {
+  "더불어민주당": 1,
+  "국민의힘": 2,
+  "조국혁신당": 3,
+  "개혁신당": 4,
+  "진보당": 5,
+  "기본소득당": 6,
+  "사회민주당": 7,
+  "새로운미래": 8,
+  "무소속": 100,
+};
+
+export function getPartyRank(partyName: string): number {
+  if (!partyName) return 999;
+  for (const [name, rank] of Object.entries(PARTY_RANK)) {
+    if (partyName.includes(name)) return rank;
+  }
+  return 99;
 }
 
 export function getPartyTextColor(party: string): string {
@@ -444,6 +473,9 @@ export function getPartyTextColor(party: string): string {
     case "더불어민주당": return "text-blue-600 dark:text-blue-400";
     case "국민의힘": return "text-red-600 dark:text-red-400";
     case "조국혁신당": return "text-indigo-600 dark:text-indigo-400";
+    case "개혁신당": return "text-orange-600 dark:text-orange-400";
+    case "진보당": return "text-red-800 dark:text-red-700";
+    case "국가혁명당": return "text-red-700 dark:text-red-600";
     default: return "text-gray-600 dark:text-gray-400";
   }
 }

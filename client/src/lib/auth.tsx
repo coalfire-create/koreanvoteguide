@@ -13,6 +13,8 @@ interface AuthUser {
   nicknameUpdatedAt?: string | null;
   badges: string[];
   postCount: number;
+  favorites: string[];
+  favoriteRegions: { code: string; name: string }[];
 }
 
 interface AuthContextType {

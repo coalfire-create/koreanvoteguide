@@ -16,6 +16,13 @@ interface Poll {
   options: PollOption[];
   votes: Record<number, number>;
   hasVoted: boolean;
+  topComment?: {
+    id: number;
+    content: string;
+    displayName: string;
+    authorType: string;
+    likes: number;
+  };
 }
 
 interface DailyPollProps {
@@ -94,6 +101,22 @@ export function DailyPoll({ board }: DailyPollProps) {
     onSuccess: () => {
       setCommentText("");
       queryClient.invalidateQueries({ queryKey: ["/api/poll-comments", poll?.id] });
+    },
+  });
+
+  const commentLikeMutation = useMutation({
+    mutationFn: async ({ commentId, type }: { commentId: number; type: string }) => {
+      let sId = localStorage.getItem('poll_session_id');
+      if (!sId) {
+        sId = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('poll_session_id', sId);
+      }
+      const res = await apiRequest("POST", `/api/reactions`, { targetType: "comment", targetId: String(commentId), type, sessionId: sId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/poll-comments", poll?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/polls/today", board] });
     },
   });
 
@@ -222,6 +245,26 @@ export function DailyPoll({ board }: DailyPollProps) {
             투표하면 다수의 의견을 확인할 수 있습니다
           </motion.p>
         )}
+
+        {poll.topComment && !showComments && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-5 p-3.5 bg-indigo-50/40 rounded-2xl border border-indigo-100/50 relative overflow-hidden group cursor-pointer hover:bg-indigo-50/60 transition-colors"
+            onClick={() => setShowComments(true)}
+          >
+            <div className="flex items-center gap-1.5 mb-2 relative z-10">
+              <span className="text-[10px] font-black text-white bg-indigo-500 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                <Flame className="w-2.5 h-2.5 fill-white" /> 베스트 댓글
+              </span>
+              <span className="text-[12px] font-extrabold text-slate-800 ml-1">{poll.topComment.displayName || "익명"}</span>
+              <span className="text-[11px] text-indigo-600 font-black ml-auto flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-full border border-indigo-100/50">
+                <ThumbsUp className="w-3 h-3 fill-indigo-600" /> {poll.topComment.likes}
+              </span>
+            </div>
+            <p className="text-[13px] text-slate-600 line-clamp-2 leading-relaxed font-medium relative z-10 pl-1">{poll.topComment.content}</p>
+          </motion.div>
+        )}
       </div>
 
       <div className="bg-white px-4 py-3 border-t border-slate-100 flex items-center justify-between">
@@ -299,7 +342,17 @@ export function DailyPoll({ board }: DailyPollProps) {
                             {new Date(c.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
                         </div>
-                        <p className="text-[13px] text-slate-600 leading-snug font-medium break-words">{c.content}</p>
+                        <p className="text-[13px] text-slate-600 leading-snug font-medium break-words mb-2">{c.content}</p>
+                        
+                        <div className="flex items-center gap-3 mt-1">
+                          <button 
+                            onClick={() => commentLikeMutation.mutate({ commentId: c.id, type: "like" })}
+                            className={`flex items-center gap-1 text-[11px] font-extrabold transition-colors ${c.myReaction === 'like' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                            <ThumbsUp className={`w-3 h-3 ${c.myReaction === 'like' ? 'fill-primary text-primary' : ''}`} />
+                            {c.likes || 0}
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
                   ))}

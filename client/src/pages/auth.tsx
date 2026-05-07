@@ -57,10 +57,10 @@ export default function AuthPage() {
             whileTap={{ scale: 0.95 }}
             className="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl flex items-center justify-center mb-6 shadow-xl border border-white/30"
           >
-            <span className="text-white font-black text-3xl tracking-tighter drop-shadow-md">I</span>
+            <span className="text-white font-black text-2xl tracking-tighter drop-shadow-md">이유</span>
           </motion.div>
-          <h1 className="text-[32px] font-black tracking-tight mb-2 leading-tight">Iyu</h1>
-          <p className="text-white/80 font-semibold text-[15px] tracking-tight">당신의 소중한 투표를 위한<br />데이터 기반 가이드</p>
+          <h1 className="text-[32px] font-black tracking-tight mb-2 leading-tight">이유</h1>
+          <p className="text-white/80 font-semibold text-[15px] tracking-tight">투표에 이유를 갖는다</p>
         </motion.div>
 
         {/* 메인 폼 카드 */}

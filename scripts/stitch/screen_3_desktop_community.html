@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lyu - Community</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#f9f9ff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#ebddff",
+                    "outline-variant": "#ccc3d7",
+                    "primary-fixed-dim": "#d3bbff",
+                    "on-secondary-container": "#693300",
+                    "surface-variant": "#dce2f3",
+                    "surface-tint": "#7331df",
+                    "on-error": "#ffffff",
+                    "on-surface-variant": "#4a4455",
+                    "surface-container-highest": "#dce2f3",
+                    "inverse-primary": "#d3bbff",
+                    "primary": "#5300b7",
+                    "on-primary-container": "#dac5ff",
+                    "surface-bright": "#f9f9ff",
+                    "on-tertiary-fixed": "#3d0026",
+                    "surface-dim": "#d3daea",
+                    "outline": "#7b7486",
+                    "inverse-surface": "#2a313d",
+                    "on-surface": "#151c27",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#ffb783",
+                    "on-primary-fixed": "#250059",
+                    "surface-container-high": "#e2e8f8",
+                    "secondary-fixed": "#ffdcc5",
+                    "secondary": "#944a00",
+                    "on-background": "#151c27",
+                    "tertiary-fixed-dim": "#ffafd3",
+                    "tertiary-container": "#9c2a6c",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f0f3ff",
+                    "tertiary": "#7e0b54",
+                    "primary-container": "#6d28d9",
+                    "on-secondary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed": "#ffd8e7",
+                    "inverse-on-surface": "#ebf1ff",
+                    "secondary-container": "#fd933d",
+                    "on-secondary-fixed": "#301400",
+                    "on-primary-fixed-variant": "#5b00c5",
+                    "on-tertiary-container": "#ffbcd9",
+                    "on-secondary-fixed-variant": "#713700",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#e7eefe",
+                    "on-tertiary-fixed-variant": "#85145a",
+                    "surface-container-lowest": "#ffffff",
+                    "background": "#f9f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sm": "8px",
+                    "gutter": "16px",
+                    "base": "4px",
+                    "container-margin": "20px",
+                    "lg": "24px",
+                    "md": "16px",
+                    "xs": "4px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "h3": ["Inter"],
+                    "h2": ["Inter"],
+                    "h1": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "h3": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #f9f9ff; }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- Layout Shell -->
+<div class="flex min-h-screen">
+<!-- SideNavBar Component -->
+<aside class="h-screen w-64 border-r fixed left-0 top-0 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 flex flex-col p-4 gap-2 z-50">
+<div class="px-4 py-6 mb-4">
+<h1 class="text-xl font-bold tracking-tighter text-violet-700 dark:text-violet-400">Lyu</h1>
+<p class="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">Open Governance</p>
+</div>
+<nav class="space-y-1">
+<!-- Home -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-transform duration-200 hover:translate-x-1 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-md text-label-md">홈</span>
+</a>
+<!-- Members -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-transform duration-200 hover:translate-x-1 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-md text-label-md">인물</span>
+</a>
+<!-- Community (Active) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-lg font-bold transition-transform duration-200 hover:translate-x-1 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="forum" style="font-variation-settings: 'FILL' 1;">forum</span>
+<span class="font-label-md text-label-md">커뮤니티</span>
+</a>
+<!-- Bills -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-transform duration-200 hover:translate-x-1 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-label-md text-label-md">법안</span>
+</a>
+<!-- My Profile -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg transition-transform duration-200 hover:translate-x-1 cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-md text-label-md">내 프로필</span>
+</a>
+</nav>
+<div class="mt-auto px-4 py-6">
+<button class="w-full bg-violet-700 hover:bg-violet-800 text-white font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"><span class="material-symbols-outlined text-sm" data-icon="add">add</span> 새 게시글 작성</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex-1 flex flex-col">
+<!-- TopAppBar Component -->
+<header class="sticky top-0 z-40 h-16 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 flex justify-between items-center px-8 shadow-sm">
+<div class="flex items-center gap-6 flex-1">
+<h2 class="font-h2 text-h2 text-on-surface">커뮤니티</h2>
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" data-icon="search">search</span>
+<input class="w-full bg-slate-50 border-transparent focus:border-violet-400 focus:ring-0 rounded-full pl-10 pr-4 py-2 text-sm transition-all" placeholder="토론, 주제 또는 의원 검색..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-violet-100 overflow-hidden border border-violet-200">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a person with a friendly expression, set against a clean, neutral background. The lighting is soft and even, characteristic of a modern corporate portrait style. The overall color palette is muted with soft blue and white tones to match the Lyu platform aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwu5KSEC8sc25RlYs7FFxdGM-F8vOKXD0Q4p_mzKE_GIowlZZp4sqgLZUbMtDRbcnoNCjf84xN6YIl4_vEQN7LSeT9uexIGF6oySlH7PmOTJnu_fs25a9cnotBJurVUrbfxfFDAj9w5uq4eU1ULUxfh54rDFV27LmVNPwfpIw0JgSMDvs8mktceATRl9bM2dByNccsLlta18flPYDWY29WbcWar0I8DVycj6O1bXXWJfEw_8GaVgiZKkGLpICM9p40VWrkyPebAWU"/>
+</div>
+</div>
+</header>
+<!-- Community Content Container -->
+<div class="p-8 max-w-7xl w-full mx-auto grid grid-cols-12 gap-8">
+<!-- Center Column: Tabs and Empty State -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Tab Bar -->
+<div class="flex border-b border-slate-200">
+<button class="px-6 py-4 border-b-2 border-violet-700 text-violet-700 font-semibold text-label-md font-label-md">자유게시판</button>
+<button class="px-6 py-4 text-slate-500 hover:text-violet-600 transition-colors text-label-md font-label-md">의원 게시판</button>
+<button class="px-6 py-4 text-slate-500 hover:text-violet-600 transition-colors text-label-md font-label-md">법안 게시판</button>
+</div>
+<!-- Empty State Section -->
+<div class="bg-white rounded-3xl p-12 border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col items-center justify-center text-center space-y-6">
+<div class="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-violet-700 text-5xl" data-icon="edit_note">edit_note</span>
+</div>
+<div class="space-y-2">
+<h3 class="font-h3 text-h3 text-on-surface">아직 등록된 게시글이 없습니다</h3>
+<p class="font-body-md text-body-md text-slate-500 max-w-xs">첫 번째 의견을 나누고 커뮤니티와 대화를 시작해 보세요.</p>
+</div>
+<button class="bg-secondary-container text-on-secondary-container hover:opacity-90 font-bold px-8 py-4 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-secondary-container/20"><span class="material-symbols-outlined" data-icon="edit">edit</span> 글쓰기</button>
+</div>
+<!-- Glassmorphism Suggested Topics (Visual interest) -->
+<div class="grid grid-cols-3 gap-4">
+<div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl border border-white/60 text-center">
+<span class="material-symbols-outlined text-violet-500 mb-2" data-icon="trending_up">trending_up</span>
+<p class="font-label-sm text-label-sm text-slate-600 block">인기 키워드</p>
+<p class="font-bold text-on-surface">#Economy2024</p>
+</div>
+<div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl border border-white/60 text-center">
+<span class="material-symbols-outlined text-violet-500 mb-2" data-icon="local_fire_department">local_fire_department</span>
+<p class="font-label-sm text-label-sm text-slate-600 block">인기 주제</p>
+<p class="font-bold text-on-surface">#Environment</p>
+</div>
+<div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl border border-white/60 text-center">
+<span class="material-symbols-outlined text-violet-500 mb-2" data-icon="auto_awesome">auto_awesome</span>
+<p class="font-label-sm text-label-sm text-slate-600 block">최신 주제</p>
+<p class="font-bold text-on-surface">#HealthPolicy</p>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Trending & Popular Posts -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Trending Searches Section -->
+<div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] space-y-4">
+<div class="flex items-center justify-between">
+<h4 class="font-h3 text-h3 text-on-surface">실시간 인기 급상승 검색어</h4>
+<span class="material-symbols-outlined text-violet-600 text-xl" data-icon="trending_up">trending_up</span>
+</div>
+<ol class="space-y-4">
+<li class="flex items-center gap-4 group cursor-pointer">
+<span class="font-bold text-violet-700 text-lg w-4">1</span>
+<span class="text-on-surface font-medium group-hover:text-violet-700 transition-colors">기후 위기 대응 특별법</span>
+<span class="ml-auto text-xs text-green-600 flex items-center gap-0.5"><span class="material-symbols-outlined text-xs" data-icon="arrow_upward">arrow_upward</span>3</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<span class="font-bold text-violet-700 text-lg w-4">2</span>
+<span class="text-on-surface font-medium group-hover:text-violet-700 transition-colors">청년 주거 지원금</span>
+<span class="ml-auto text-xs text-green-600 flex items-center gap-0.5"><span class="material-symbols-outlined text-xs" data-icon="arrow_upward">arrow_upward</span>1</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<span class="font-bold text-violet-700 text-lg w-4">3</span>
+<span class="text-on-surface font-medium group-hover:text-violet-700 transition-colors">디지털 기본권</span>
+<span class="ml-auto text-xs text-slate-400">-</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<span class="font-bold text-violet-700 text-lg w-4">4</span>
+<span class="text-on-surface font-medium group-hover:text-violet-700 transition-colors">국회의원 후원금 투명성</span>
+<span class="ml-auto text-xs text-green-600 flex items-center gap-0.5"><span class="material-symbols-outlined text-xs" data-icon="arrow_upward">arrow_upward</span>5</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<span class="font-bold text-violet-700 text-lg w-4">5</span>
+<span class="text-on-surface font-medium group-hover:text-violet-700 transition-colors">지방 자치 분권</span>
+<span class="ml-auto text-xs text-red-600 flex items-center gap-0.5"><span class="material-symbols-outlined text-xs" data-icon="arrow_downward">arrow_downward</span>2</span>
+</li>
+</ol>
+</div>
+<!-- Popular Posts Section -->
+<div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] space-y-4">
+<div class="flex items-center justify-between">
+<h4 class="font-h3 text-h3 text-on-surface">인기 게시글</h4>
+<span class="material-symbols-outlined text-violet-600 text-xl" data-icon="equalizer">equalizer</span>
+</div>
+<div class="space-y-4">
+<a class="block group space-y-2 border-b border-slate-50 pb-4 last:border-0 last:pb-0" href="#">
+<h5 class="text-label-md font-bold text-on-surface group-hover:text-violet-700 transition-colors line-clamp-2">현행 선거법의 문제점과 개편 방향에 대한 제언</h5>
+<div class="flex items-center gap-4 text-xs text-slate-500">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 128</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 42</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span> 1.2k</span>
+</div>
+</a>
+<a class="block group space-y-2 border-b border-slate-50 pb-4 last:border-0 last:pb-0" href="#">
+<h5 class="text-label-md font-bold text-on-surface group-hover:text-violet-700 transition-colors line-clamp-2">우리 동네 의원의 입법 성적표를 확인해보세요</h5>
+<div class="flex items-center gap-4 text-xs text-slate-500">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 95</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 18</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span> 850</span>
+</div>
+</a>
+<a class="block group space-y-2 border-b border-slate-50 pb-4 last:border-0 last:pb-0" href="#">
+<h5 class="text-label-md font-bold text-on-surface group-hover:text-violet-700 transition-colors line-clamp-2">탄소세 도입, 여러분은 어떻게 생각하시나요?</h5>
+<div class="flex items-center gap-4 text-xs text-slate-500">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 72</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 56</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span> 2.1k</span>
+</div>
+</a>
+</div>
+<button class="w-full text-center py-2 text-label-sm text-slate-500 hover:text-violet-700 transition-colors font-medium">더 많은 인기글 보기</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

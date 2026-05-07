@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import { MapPin, ChevronRight, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export const REGIONS = [
   { code: "11", name: "서울" },
@@ -31,14 +31,16 @@ type Region = { code: string; name: string };
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   const { user, mutate } = useAuth();
-  
-  // legacy userRegion 처리 포함 (단일에서 배열로 마이그레이션)
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    setLocation("/city-select");
+  }, [setLocation]);
+
   const [selectedRegions, setSelectedRegions] = useState<Region[]>(() => {
-    // 1. 기존 유저 DB 선호지역
-    if (user && user.favoriteRegions && Array.isArray(user.favoriteRegions) && user.favoriteRegions.length > 0) {
+    if (user?.favoriteRegions && Array.isArray(user.favoriteRegions) && user.favoriteRegions.length > 0) {
       return user.favoriteRegions;
     }
-    // 2. 새로운 로컬스토리지 다중지역
     const storedMulti = localStorage.getItem("userRegions");
     if (storedMulti) {
       try {
@@ -46,7 +48,6 @@ export default function Onboarding() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
-    // 3. 기존 로컬스토리지 단일지역
     const storedSingle = localStorage.getItem("userRegion");
     if (storedSingle) {
       try {
@@ -57,115 +58,148 @@ export default function Onboarding() {
     return [];
   });
 
-  // 초기 렌더링 검사 제거: 명시적으로 편집하러 온 사용자일 수 있음.
-  // App.tsx에서 첫 진입 시 권한을 제어합니다.
-
   const handleToggleRegion = (region: Region) => {
     setSelectedRegions((prev) => {
       const exists = prev.find((r) => r.code === region.code);
       if (exists) {
         return prev.filter((r) => r.code !== region.code);
-      } else {
-        return [...prev, region];
       }
+      if (prev.length >= 3) {
+        toast({
+          title: "최대 3개까지만 선택 가능합니다",
+          description: "관심 지역은 최대 3개까지만 설정할 수 있습니다.",
+        });
+        return prev;
+      }
+      return [...prev, region];
     });
   };
 
   const handleComplete = async () => {
     if (selectedRegions.length === 0) return;
-    
-    // 로컬스토리지 저장
     localStorage.setItem("userRegions", JSON.stringify(selectedRegions));
-    
-    // 로그인 상태면 DB 동기화
     if (user) {
       try {
         await apiRequest("PATCH", "/api/auth/favorite-regions", { regions: selectedRegions });
-        await mutate(); // auth state 업데이트
+        await mutate();
       } catch (err) {
         console.error("관심지역 저장 실패", err);
       }
     }
-    
     setLocation("/");
   };
 
   const container = {
     hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.05, delayChildren: 0.2 }
-    }
+    show: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.3 } },
   };
-
   const item = {
-    hidden: { opacity: 0, scale: 0.9 },
-    show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 200, damping: 20 } }
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex flex-col p-6 items-center flex-1 w-full max-w-[430px] mx-auto relative pb-28">
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col w-full pb-32">
+
+      {/* ─── Hero ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: -24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full text-center mt-12 mb-8"
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full px-6 pt-16 pb-10 max-w-[680px] mx-auto"
       >
-        <div className="mx-auto w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-200">
-          <MapPin className="w-8 h-8 text-white" />
+        {/* Logo mark */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-11 h-11 rounded-[14px] bg-[#6320EE] flex items-center justify-center shadow-lg">
+            <span className="text-white font-black text-sm tracking-tight">이유</span>
+          </div>
+          <span className="text-[#6320EE] font-black text-xl tracking-tight">이유</span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
-          투표소 가는 길
+
+        {/* Headline */}
+        <h1 className="text-[36px] font-black text-gray-900 leading-[1.15] tracking-tight mb-3">
+          내 지역구를<br />선택해주세요
         </h1>
-        <p className="text-gray-500 font-medium whitespace-pre-wrap">당신의 관심 지역을 선택하세요\n(여러 개 선택 시 순위가 지정됩니다)</p>
+        <p className="text-[15px] text-gray-500 leading-relaxed">
+          2026 지방선거 후보자 정보와 정책을<br />지역에 맞춰 바로 확인하세요.
+          <br />
+          <span className="text-[13px] text-gray-400 mt-1 inline-block">최대 3개까지 선택 가능하며, 선택한 순서대로 순위가 지정됩니다.</span>
+        </p>
       </motion.div>
 
-      <motion.div 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="w-full grid grid-cols-3 gap-3 flex-1"
-      >
-        {REGIONS.map((region) => {
-          const selectedIndex = selectedRegions.findIndex((r) => r.code === region.code);
-          const isSelected = selectedIndex !== -1;
-          
-          return (
-            <motion.div key={region.code} variants={item}>
-              <button
-                onClick={() => handleToggleRegion(region)}
-                className={`w-full p-4 h-auto flex flex-col items-center justify-center gap-2 rounded-xl transition-all relative shadow-sm border-2 ${
-                  isSelected 
-                    ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-md" 
-                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200 text-gray-700"
-                }`}
-              >
-                {isSelected && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm border-2 border-white">
-                    {selectedIndex + 1}
-                  </div>
-                )}
-                <span className="text-[17px] font-bold">{region.name}</span>
-              </button>
-            </motion.div>
-          );
-        })}
-      </motion.div>
+      {/* ─── Region Grid ─── */}
+      <div className="w-full max-w-[680px] mx-auto px-6">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-3 sm:grid-cols-4 gap-3"
+        >
+          {REGIONS.map((region) => {
+            const selectedIndex = selectedRegions.findIndex((r) => r.code === region.code);
+            const isSelected = selectedIndex !== -1;
 
+            return (
+              <motion.div key={region.code} variants={item}>
+                <button
+                  onClick={() => handleToggleRegion(region)}
+                  className={`relative w-full py-5 flex flex-col items-center justify-center rounded-[20px] transition-all duration-200 shadow-sm border-2 focus:outline-none ${
+                    isSelected
+                      ? "bg-[#6320EE] border-[#6320EE] text-white shadow-lg shadow-[#6320EE]/20 scale-[1.03]"
+                      : "bg-white border-gray-100 text-gray-700 hover:border-[#6320EE]/30 hover:shadow-md active:scale-[0.97]"
+                  }`}
+                >
+                  {/* Order badge */}
+                  {isSelected && (
+                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-white text-[#6320EE] rounded-full flex items-center justify-center text-[11px] font-black shadow border border-[#6320EE]/20">
+                      {selectedIndex + 1}
+                    </div>
+                  )}
+                  <span className="text-[15px] font-bold leading-none">{region.name}</span>
+                </button>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
+
+      {/* ─── Bottom CTA ─── */}
       <AnimatePresence>
         {selectedRegions.length > 0 && (
           <motion.div
-            initial={{ y: 100, opacity: 0 }}
+            initial={{ y: 120, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-indigo-100 z-50 flex items-center justify-center shadow-[0_-5px_20px_rgba(0,0,0,0.05)] max-w-[430px] mx-auto"
+            exit={{ y: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#F8F9FA]/90 backdrop-blur-xl border-t border-gray-200/60 px-6 py-5"
           >
-            <Button
-              onClick={handleComplete}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-14 rounded-xl text-lg font-bold shadow-lg flex items-center justify-center gap-2"
-            >
-              선택 완료 <ChevronRight className="w-5 h-5" />
-            </Button>
+            <div className="max-w-[680px] mx-auto">
+              {/* Selected chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {selectedRegions.map((r, i) => (
+                  <motion.span
+                    key={r.code}
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.7, opacity: 0 }}
+                    className="flex items-center gap-1.5 bg-[#6320EE]/10 text-[#6320EE] text-[12px] font-bold px-3 py-1.5 rounded-full"
+                  >
+                    <span className="w-4 h-4 bg-[#6320EE] text-white rounded-full text-[10px] flex items-center justify-center font-black">{i + 1}</span>
+                    {r.name}
+                  </motion.span>
+                ))}
+              </div>
+
+              <button
+                onClick={handleComplete}
+                className="w-full h-14 bg-[#6320EE] hover:bg-[#5210d4] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black shadow-xl shadow-[#6320EE]/30 flex items-center justify-center gap-2 transition-all duration-150"
+              >
+                {selectedRegions.length === 1
+                  ? `${selectedRegions[0].name} 선택 완료`
+                  : `${selectedRegions.length}개 지역 선택 완료`}
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

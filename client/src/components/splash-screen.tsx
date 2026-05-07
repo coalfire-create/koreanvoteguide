@@ -35,7 +35,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               className="text-white font-black"
               style={{ fontSize: "clamp(64px, 15vw, 96px)", letterSpacing: "-0.05em" }}
             >
-              Iyu
+              이유
             </span>
           </motion.div>
         </motion.div>

@@ -19,7 +19,7 @@ app.use(
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https://open.assembly.go.kr"],
+            imgSrc: ["'self'", "data:", "https://open.assembly.go.kr", "https://upload.wikimedia.org", "https://wikimedia.org"],
             connectSrc: ["'self'"],
           },
         }
@@ -28,17 +28,27 @@ app.use(
   })
 );
 
-// CORS (프로덕션에서는 허용 오리진 환경변수로 제한)
+// CORS (프로덕션에서는 ALLOWED_ORIGIN 환경변수에 명시된 오리진만 허용)
 app.use((req, res, next) => {
-  const allowedOrigin = isProduction
-    ? process.env.ALLOWED_ORIGIN || ""
-    : "*";
   const origin = req.headers.origin;
-  if (!isProduction || !allowedOrigin || (origin && allowedOrigin.split(",").includes(origin))) {
+  if (!isProduction) {
+    // 개발: 모두 허용
     res.setHeader("Access-Control-Allow-Origin", origin || "*");
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  } else {
+    // 프로덕션: ALLOWED_ORIGIN에 명시된 오리진만 허용 (미설정 시 차단)
+    const allowedOrigins = (process.env.ALLOWED_ORIGIN || "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    }
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();

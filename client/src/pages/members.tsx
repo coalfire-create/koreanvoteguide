@@ -1,129 +1,104 @@
-import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import { Search, Users, MapPin, FileText, CheckCircle2, Star, X } from "lucide-react";
+import { Search, Bell, SlidersHorizontal, Zap, Star, TrendingUp, Users, ChevronDown, Flame, Newspaper, FileText, RefreshCw, ChevronRight, ExternalLink, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { LastUpdated } from "@/components/last-updated";
-import { FavoriteMiniCard } from "@/components/FavoriteMiniCard";
-import { Flame, Newspaper } from "lucide-react";
-import { useMemo } from "react";
 import { useAssemblyMembers } from "@/lib/api-data";
-import { useFavorites } from "@/lib/useFavorites";
-import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
+import { getPartyRank } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth";
+import { useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { LoginPrompt } from "@/components/LoginPrompt";
 
-// ─── 뉴스 타입 ──────────────────────────────────────────────────────────────
 interface NewsItem {
   title: string;
   link: string;
   pubDate: string;
   source: string;
-}
-interface NewsResponse {
-  items: NewsItem[];
-}
-
-function formatTime(pubDate: string): string {
-  if (!pubDate) return "";
-  try {
-    const date = new Date(pubDate);
-    const diff = Date.now() - date.getTime();
-    const hours = Math.floor(diff / 3600000);
-    if (hours < 1) return "방금";
-    if (hours < 24) return `${hours}시간 전`;
-    return `${Math.floor(hours / 24)}일 전`;
-  } catch {
-    return "";
-  }
+  sourceCode: string;
+  thumbnail?: string;
 }
 
-function MembersSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-        <Card key={i} className="border-border/50 shadow-sm overflow-hidden">
-          <CardContent className="p-0">
-            <div className="h-1.5 bg-muted/20" />
-            <div className="p-6">
-              <div className="flex items-start gap-4 mb-6">
-                <Skeleton className="w-16 h-16 rounded-full shrink-0" />
-                <div className="space-y-2 flex-1 pt-1">
-                  <div className="flex justify-between items-center">
-                    <Skeleton className="h-6 w-16" />
-                    <Skeleton className="h-5 w-8" />
-                  </div>
-                  <Skeleton className="h-4 w-12" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-              <div className="space-y-4 pt-4 border-t border-border/50">
-                <div className="flex justify-between items-center">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-8" />
-                </div>
-                <Skeleton className="h-2 w-full" />
-                <div className="flex justify-between items-center pt-1">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-8" />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+const SOURCE_COLORS: Record<string, string> = {
+  yna:      "bg-red-50 text-red-600 border-red-100",
+  kbs:      "bg-blue-50 text-blue-600 border-blue-100",
+  mbc:      "bg-purple-50 text-purple-600 border-purple-100",
+  sbs:      "bg-pink-50 text-pink-600 border-pink-100",
+  jtbc:     "bg-orange-50 text-orange-600 border-orange-100",
+  ytn:      "bg-sky-50 text-sky-600 border-sky-100",
+  hani:     "bg-green-50 text-green-600 border-green-100",
+  khan:     "bg-teal-50 text-teal-600 border-teal-100",
+  chosun:   "bg-slate-50 text-slate-600 border-slate-100",
+  joongang: "bg-amber-50 text-amber-600 border-amber-100",
+  donga:    "bg-indigo-50 text-indigo-600 border-indigo-100",
+  news1:    "bg-rose-50 text-rose-600 border-rose-100",
+};
+
+function newsTimeAgo(pubDate: string) {
+  const d = new Date(pubDate);
+  if (isNaN(d.getTime())) return pubDate;
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
 }
 
 export default function Members() {
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParty, setSelectedParty] = useState("전체");
-  const [selectedRegion, setSelectedRegion] = useState("전체");
-  const [hasSearched, setHasSearched] = useState(false);
-  const [selectedFavorite, setSelectedFavorite] = useState<{ id: string; type: "member" | "candidate" } | null>(null);
-
+  const [followedMembers, setFollowedMembers] = useState<Record<string, boolean>>({});
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const { user } = useAuth();
   const { members, isLoading } = useAssemblyMembers();
-  const { favorites, isFavorite, addFavorite, removeFavorite } = useFavorites();
 
-  // 의원 데이터에 존재하는 정당 목록 추출 (기본 '전체' 포함)
-  const parties = ["전체", ...Array.from(new Set(members.map(m => m.party)))];
-  // 주요 지역구 목록
-  const regions = ["전체", "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주", "비례"];
+  useEffect(() => {
+    if (user?.favorites) {
+      const followMap: Record<string, boolean> = {};
+      user.favorites.forEach(id => {
+        followMap[id] = true;
+      });
+      setFollowedMembers(followMap);
+    }
+  }, [user?.favorites]);
+
+  const handleSearchClick = () => {};
+
+  // Extract unique parties for the filter and sort by seat count
+  const parties = ["전체", ...Array.from(new Set(members.map(m => m.party))).sort((a, b) => getPartyRank(a) - getPartyRank(b))];
 
   const filtered = members.filter(
-    (m) =>
-      (m.name.includes(searchQuery) ||
-       m.party.includes(searchQuery) ||
-       m.district.includes(searchQuery)) &&
-      (selectedParty === "전체" || m.party === selectedParty) &&
-      (selectedRegion === "전체" || m.district.startsWith(selectedRegion))
-  );
+    (m) => {
+      const matchesSearch = m.name.includes(searchQuery) ||
+                          m.party.includes(searchQuery) ||
+                          m.district.includes(searchQuery);
+      const matchesParty = selectedParty === "전체" || m.party === selectedParty;
+      return matchesSearch && matchesParty;
+    }
+  ).sort((a, b) => getPartyRank(a.party) - getPartyRank(b.party));
 
-  const { data: trending = [] } = useQuery<{ memberId: string; name: string; count: number }[]>({
-    queryKey: ["/api/members/trending"],
-    refetchInterval: 30000,
+  // ===== 최근 주목받는 의원 크롤링 =====
+  const {
+    data: trendingData,
+    isLoading: isTrendingLoading,
+    refetch: refetchTrending,
+  } = useQuery<{ success: boolean; data: any[]; cachedAt: string }>({
+    queryKey: ["/api/trending-members"],
+    queryFn: () => fetch("/api/trending-members").then(r => r.json()).catch(() => ({ success: false, data: [] })),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: newsData } = useQuery<NewsResponse>({
-    queryKey: ["/api/news", "member"],
-    queryFn: async () => {
-      const res = await fetch(`/api/news?category=member`);
-      if (!res.ok) return { items: [] };
-      return res.json();
-    },
-  });
+  const trendingMembers = trendingData?.data || [];
+  const [trendingRefreshing, setTrendingRefreshing] = useState(false);
 
-  const trendingWithDetails = trending
-    .map((t) => {
-      const member = members.find((m) => m.id === t.memberId);
-      return member ? { ...t, member } : null;
-    })
-    .filter(Boolean) as any[];
-  const topTrending = trendingWithDetails.slice(0, 5);
+  async function handleRefreshTrending() {
+    setTrendingRefreshing(true);
+    await refetchTrending();
+    setTrendingRefreshing(false);
+  }
 
   const { data: billsData } = useQuery({
     queryKey: ["/api/bills"],
@@ -134,431 +109,460 @@ export default function Members() {
     },
   });
 
-  const recentProposers = useMemo(() => {
-    const list: { member: typeof members[0], billName: string, summary: string }[] = [];
-    for (const bill of (billsData?.data || [])) {
-      if (!bill.proposer) continue;
-      const member = members.find(m => bill.proposer.includes(m.name));
-      if (member && !list.some(l => l.member.id === member.id)) {
-        list.push({ member, billName: bill.billName, summary: bill.summary || "" });
-        if (list.length >= 5) break;
-      }
-    }
-    return list;
-  }, [billsData?.data, members]);
+  const { data: activeMembers = [] } = useQuery<{
+    id: string;
+    name: string;
+    party: string;
+    district: string;
+    photo: string;
+    recentBill: string;
+    billId: string;
+    proposeDate: string;
+  }[]>({
+    queryKey: ["/api/members/active"],
+  });
 
-  // ── 공통 필터 컨트롤 (지역/정당 필터는 UI에서 제거, 검색창만 유지) ──
-  const FilterControls = (
-    <div className="relative group w-full max-w-xl mx-auto">
-      <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-      <Input
-        type="search"
-        placeholder="국회의원 이름으로 검색..."
-        value={searchQuery}
-        onChange={(e) => { setSearchQuery(e.target.value); setHasSearched(true); }}
-        className="pl-14 pr-5 py-3 text-base rounded-2xl border border-gray-200 shadow-md focus:shadow-md focus:ring-2 focus:ring-primary/20 transition-all w-full bg-white h-[50px]"
-        data-testid="input-member-search"
-      />
-    </div>
-  );
+  const { data: memberNews, isLoading: isMemberNewsLoading } = useQuery<{ items: NewsItem[] }>({
+    queryKey: ["/api/news", "member"],
+    queryFn: () => fetch("/api/news?category=member").then((r) => r.json()),
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const newsItems = (memberNews?.items ?? []).slice(0, 6);
+
+  const visibleMembers = filtered.slice(0, 12);
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* ── 검색 전: 중앙 레이아웃 ── */}
-      {!hasSearched && (
-        <div className="flex flex-col items-center justify-center min-h-[55vh] gap-6 px-6 mt-10">
+    <div className="min-h-screen bg-[#F8F9FC] font-sans text-slate-900 overflow-x-hidden">
+      {/* Premium Top Bar */}
+      <header className="sticky top-0 z-40 w-full h-[72px] bg-white border-b border-gray-100 flex items-center px-8">
+        <div className="flex-1 flex items-center">
+          <div className="relative w-full max-w-[500px] group">
+            <Search 
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6320EE] transition-colors cursor-pointer" 
+              onClick={handleSearchClick}
+            />
+            <input
+              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6320EE]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              placeholder="국회의원 이름으로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearchClick()}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-100 rounded shadow-sm">
+              <span className="text-[10px] font-bold text-gray-400">⌘K</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
+          </button>
+          <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shadow-sm cursor-pointer"></div>
+        </div>
+      </header>
 
-          {/* 핫한 국회의원 & 관련 뉴스 & 최근 발의 */}
-          <div className="w-full max-w-xl flex flex-col gap-6 w-full mt-2">
-            {/* 최근 대표발의한 국회의원 */}
-            {recentProposers.length > 0 && (
-              <div className="w-full">
-                <h2 className="font-bold text-sm text-gray-800 mb-3 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-emerald-500" />
-                    최근 대표발의한 국회의원 <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-full ml-1">매일 업데이트</span>
-                  </span>
-                </h2>
-                <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide">
-                  {recentProposers.map(({ member, billName, summary }) => (
-                    <Link key={member.id} href={`/members/${member.id}`}>
-                      <div className="shrink-0 flex flex-col gap-2 bg-white border border-gray-100 shadow-sm rounded-xl py-3 px-4 hover:border-emerald-200 transition-colors cursor-pointer min-w-[220px] max-w-[260px]">
-                        {/* 의원 정보 */}
-                        <div className="flex items-center gap-2">
-                          {member.photo ? (
-                            <img src={member.photo} alt={member.name} className="w-8 h-8 rounded-full object-cover border border-gray-100" />
-                          ) : (
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 ${getPartyColor(member.party)}`}>
-                              {member.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-gray-800">{member.name}</span>
-                            <span className="text-[10px] text-gray-400 font-medium truncate">{member.party}</span>
+      <main className="p-8 w-full max-w-full lg:max-w-[1400px] mx-auto">
+        <div className="flex flex-col lg:flex-row gap-10">
+          
+          {/* Main Content (Center) */}
+          <div className="flex-1 min-w-0 space-y-12">
+            {/* Elegant Title Section */}
+            <section className="space-y-3">
+              <h1 className="text-[32px] font-black text-gray-900 tracking-tight leading-tight">의원을 팔로우하세요</h1>
+              <p className="text-gray-500 text-[15px] font-medium leading-relaxed max-w-2xl">
+                관심 의원의 활동을 받아보고, 한 명씩 알아가보세요.
+              </p>
+            </section>
+
+            {/* List Section */}
+            <section className="space-y-8">
+              <div className="flex items-center gap-6 border-b border-gray-100">
+                {["추천", "내 지역구", "주목받는", "신규 의원"].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`pb-4 text-[14px] font-bold transition-all relative ${
+                      tab === "추천" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {tab}
+                    {tab === "추천" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-900 rounded-t-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => <div key={i} className="aspect-[3/4] bg-white rounded-2xl animate-pulse border border-gray-100" />)
+                ) : filtered.length > 0 ? (
+                  visibleMembers.map((member, idx) => {
+                    const isFollowed = followedMembers[member.id];
+
+                    return (
+                      <div key={member.id} className="bg-white rounded-[24px] border border-gray-100 p-8 flex flex-col items-center transition-all hover:shadow-lg group">
+                        <Link href={`/members/${member.id}`} className="w-28 h-28 rounded-full overflow-hidden mb-6 relative shadow-md hover:scale-105 transition-transform">
+                          <PoliticianPhoto
+                            name={member.name}
+                            photo={member.photo}
+                            monaCd={member.id}
+                            className="w-full h-full object-cover"
+                            avatarClassName="text-[32px] font-black bg-gray-100 text-gray-400"
+                          />
+                        </Link>
+                        
+                        <div className="text-center space-y-1 mb-6">
+                          <h3 className="text-[18px] font-black text-gray-900">{member.name}</h3>
+                          <p className="text-[12px] font-bold text-gray-400">{member.party} · {member.district}</p>
+                        </div>
+
+                        <div className="flex items-center gap-4 mb-8 text-[11px] font-bold text-gray-400">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-900">{(Math.random() * 30).toFixed(1)}k</span>
+                            <span>팔로워</span>
+                          </div>
+                          <div className="w-1 h-1 rounded-full bg-gray-200" />
+                          <div className="flex items-center gap-1.5">
+                            <span>국토교통</span>
                           </div>
                         </div>
-                        {/* 법안 이름 */}
-                        <div className="bg-emerald-50 rounded-lg px-2.5 py-1.5 border border-emerald-100">
-                          <p className="text-[11px] font-bold text-emerald-700 line-clamp-2 leading-tight">{billName}</p>
-                        </div>
-                        {/* 법안 요약 */}
-                        {summary && (
-                          <p className="text-[10px] text-gray-500 line-clamp-3 leading-relaxed">
-                            {summary}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* 핫한 국회의원 */}
-            {topTrending.length > 0 && (
-              <div className="w-full">
-                <h2 className="font-bold text-sm text-gray-800 mb-3 flex items-center gap-1.5">
-                  <Flame className="w-4 h-4 text-orange-500" />
-                  실시간 핫한 국회의원
-                </h2>
-                <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
-                  {topTrending.map((item, idx) => (
-                    <Link key={item.memberId} href={`/members/${item.memberId}`}>
-                      <div className="shrink-0 flex items-center gap-2 bg-white border border-gray-100 shadow-sm rounded-xl py-2 px-3 hover:border-indigo-200 transition-colors cursor-pointer">
-                        <span className="font-black text-red-500 text-xs">{idx + 1}</span>
-                        {item.member.photo ? (
-                          <img src={item.member.photo} alt={item.member.name} className="w-6 h-6 rounded-full object-cover border border-gray-100" />
-                        ) : (
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${getPartyColor(item.member.party)}`}>
-                            {item.member.name.charAt(0)}
-                          </div>
-                        )}
-                        <span className="text-sm font-bold text-gray-800">{item.member.name}</span>
-                        <span className="text-[10px] text-gray-400 font-medium ml-1 flex items-center gap-0.5">
-                          조회 {item.count}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* 관련 뉴스 */}
-            {newsData && newsData.items && newsData.items.length > 0 && (
-              <div className="w-full">
-                <h2 className="font-bold text-sm text-gray-800 mb-3 flex items-center gap-1.5">
-                  <Newspaper className="w-4 h-4 text-blue-500" />
-                  국회의원 관련 주요 뉴스
-                </h2>
-                <div className="flex flex-col gap-2">
-                  {newsData.items.slice(0, 3).map((news: any, idx: number) => (
-                    <a key={idx} href={news.link} target="_blank" rel="noopener noreferrer" className="block bg-white border border-gray-100 shadow-sm rounded-xl p-3 hover:border-blue-200 hover:bg-blue-50/50 transition-colors">
-                      <h3 className="text-sm font-bold text-gray-900 line-clamp-1 mb-1" dangerouslySetInnerHTML={{ __html: news.title }} />
-                      <div className="flex items-center justify-between text-[11px] text-gray-500">
-                        <span dangerouslySetInnerHTML={{ __html: news.source || "뉴스" }} />
-                        <span>{formatTime(news.pubDate)}</span>
+                        <button 
+                          onClick={async () => {
+                            if (!user) {
+                              setShowLoginPrompt(true);
+                              return;
+                            }
+                            
+                            const isFollowed = followedMembers[member.id];
+                            const newFavorites = isFollowed 
+                              ? user.favorites.filter(id => id !== member.id)
+                              : [...user.favorites, member.id];
+                            
+                            try {
+                              const res = await fetch("/api/auth/favorites", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ favorites: newFavorites }),
+                              });
+                              
+                              if (res.ok) {
+                                setFollowedMembers(prev => ({...prev, [member.id]: !prev[member.id]}));
+                              }
+                            } catch (e) {
+                              console.error("Follow error:", e);
+                            }
+                          }}
+                          className={`w-full py-3.5 rounded-xl text-[14px] font-black transition-all ${
+                            followedMembers[member.id] 
+                            ? 'bg-gray-100 text-gray-500' 
+                            : 'bg-[#6320EE] text-white hover:bg-[#5218D0] shadow-md shadow-[#6320EE]/10'
+                          }`}
+                        >
+                          {followedMembers[member.id] ? '팔로우 중' : '팔로우'}
+                        </button>
                       </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full py-20 text-center space-y-4">
+                    <p className="text-slate-400 font-medium text-lg">해당 조건에 맞는 의원이 없습니다.</p>
+                    <button onClick={() => {setSelectedParty("전체"); setSearchQuery("");}} className="text-[#6320EE] font-bold hover:underline">필터 초기화</button>
+                  </div>
+                )}
+              </div>
+              
+              {filtered.length > 12 && (
+                <div className="flex justify-center pt-8">
+                  <button className="px-10 py-3.5 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[14px] font-bold hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 group">
+                    더 많은 의원 보기
+                    <ChevronDown className="w-5 h-5 text-slate-400 group-hover:translate-y-1 transition-transform" />
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Right Sidebar */}
+          <aside className="w-full lg:w-[320px] space-y-8 flex-shrink-0">
+
+            {/* Widget: 국회의원 관련 뉴스 */}
+            <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Newspaper className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-[15px]">국회의원 뉴스</h3>
+                </div>
+                <Link href="/news">
+                  <span className="text-[11px] font-bold text-gray-400 hover:text-[#6320EE] transition-colors cursor-pointer">더보기</span>
+                </Link>
+              </div>
+
+              {isMemberNewsLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              ) : newsItems.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-400">
+                  뉴스를 불러오는 중입니다...
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {newsItems.map((item, idx) => (
+                    <a
+                      key={idx}
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
+                    >
+                      {item.thumbnail ? (
+                        <img
+                          src={item.thumbnail}
+                          alt=""
+                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-100"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
+                          <Newspaper className="w-5 h-5 text-slate-200" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-[13px] font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#6320EE] transition-colors">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${SOURCE_COLORS[item.sourceCode] ?? "bg-gray-50 text-gray-500 border-gray-100"}`}>
+                            {item.source}
+                          </span>
+                          <span className="text-[10px] text-slate-300 font-medium flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />
+                            {newsTimeAgo(item.pubDate)}
+                          </span>
+                        </div>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-200 group-hover:text-[#6320EE] transition-colors flex-shrink-0 mt-0.5" />
                     </a>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* Widget: 최근 주목받는 의원 (크롤링) */}
+            <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-[15px]">최근 주목받는 의원</h3>
+                </div>
+                <button
+                  onClick={handleRefreshTrending}
+                  disabled={trendingRefreshing || isTrendingLoading}
+                  className="text-gray-300 hover:text-indigo-500 transition-colors disabled:opacity-40"
+                  title="새로고침"
+                >
+                  <RefreshCw className={`w-4 h-4 ${trendingRefreshing ? "animate-spin" : ""}`} />
+                </button>
               </div>
-            )}
-          </div>
 
-          {/* 검색창 */}
-          <div className="w-full max-w-xl mt-2">
-            {FilterControls}
-          </div>
-
-          {/* 관심 인물 섭션 - 핵심 정보 바로 표시 */}
-          {favorites.length > 0 && (
-            <div className="w-full max-w-xl" data-testid="section-favorites">
-              <h2 className="font-semibold text-sm text-gray-500 mb-3">⭐ 관심 인물</h2>
-              <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide">
-                {favorites.map((fav) => {
-                  const memberData = fav.type === "member" ? members.find(m => m.id === fav.id) : null;
-                  return (
-                    <div key={fav.id} className="relative shrink-0" data-testid={`favorite-card-${fav.id}`}>
-                      {/* ✕ 즐겨찾기 취소 버튼 */}
-                      <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFavorite(fav.id); }}
-                        className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
-                        aria-label={`${fav.name} 관심 취소`}
-                        data-testid={`btn-remove-favorite-${fav.id}`}
-                      >
-                        <X className="w-2.5 h-2.5 text-gray-400 hover:text-red-400" />
-                      </button>
-                      <Link href={fav.type === "member" ? `/members/${fav.id}` : `/candidates/${fav.id}`}>
-                        <div className="w-[150px] bg-white border border-gray-100 rounded-2xl shadow-sm p-3 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer">
-                          {/* 프로필 + 이름 */}
-                          <div className="flex items-center gap-2.5 mb-3">
-                            {fav.imageUrl ? (
-                              <img src={fav.imageUrl} alt={fav.name} className="w-10 h-10 rounded-full object-cover border border-gray-100 shrink-0" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-sm font-bold text-purple-400 shrink-0">
-                                {fav.name.charAt(0)}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold truncate">{fav.name}</p>
-                              {memberData && (
-                                <p className="text-[10px] text-gray-400 truncate">{memberData.district}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 핵심 정보 */}
-                          {memberData ? (
-                            <div className="space-y-2">
-                              <div>
-                                <div className="flex justify-between text-[10px] mb-0.5">
-                                  <span className="text-gray-400">출석률</span>
-                                  <span className="font-semibold text-gray-700">{memberData.score.attendanceRate}%</span>
-                                </div>
-                                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-purple-400 rounded-full" style={{ width: `${memberData.score.attendanceRate}%` }} />
-                                </div>
-                              </div>
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-gray-400">발의법안</span>
-                                <span className="font-semibold text-gray-700">{memberData.score.billProposalCount}건</span>
-                              </div>
-                              <div className="flex justify-between text-[10px] items-center">
-                                <span className="text-gray-400">종합평가</span>
-                                <span className="font-black text-xs text-purple-600">{getScoreGrade(memberData.score.totalScore)}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-gray-400">{fav.type === "candidate" ? "대선 후보" : "데이터 로딩 중..."}</p>
-                          )}
-                        </div>
-                      </Link>
+              {/* 로딩 상태 */}
+              {isTrendingLoading && (
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-2 w-32" />
+                      </div>
+                      <Skeleton className="h-5 w-10 rounded-full" />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                  ))}
+                </div>
+              )}
 
-          {/* 힌트 텍스트 */}
-          <p className="text-gray-300 text-xs">
-            이름으로 검색하면 결과가 표시됩니다
-          </p>
-        </div>
-      )}
+              {/* 의원 목록 */}
+              {!isTrendingLoading && trendingMembers.length > 0 && (
+                <div className="space-y-3">
+                  {trendingMembers.slice(0, 5).map((member: any, idx: number) => {
+                    const partyColor =
+                      member.party?.includes("더불어민주당") ? "bg-blue-500" :
+                      member.party?.includes("국민의힘") ? "bg-red-500" :
+                      member.party?.includes("조국혁신당") ? "bg-blue-800" :
+                      member.party?.includes("개혁신당") ? "bg-orange-500" :
+                      "bg-gray-400";
+                    const rankColors = ["text-orange-500", "text-gray-400", "text-amber-600"];
+                    const rankBg = ["bg-orange-50", "bg-gray-50", "bg-amber-50"];
 
-      {/* ── 검색 후: sticky 필터 바 + 카드 그리드 ── */}
-      {hasSearched && (
-        <div className="max-w-6xl mx-auto px-6 pt-8">
-          {/* sticky 필터 바 */}
-          <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-border/40 py-4 mb-8 -mx-6 px-6">
-            <div className="max-w-6xl mx-auto flex items-center justify-center">
-              {FilterControls}
-            </div>
-          </div>
-
-          {/* 관심 인물 섹션 - 핵심 정보 바로 표시 */}
-          {favorites.length > 0 && (
-            <div className="mb-6" data-testid="section-favorites">
-              <h2 className="font-semibold text-sm text-gray-500 mb-3">⭐ 관심 인물</h2>
-              <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide">
-                {favorites.map((fav) => {
-                  const memberData = fav.type === "member" ? members.find(m => m.id === fav.id) : null;
-                  return (
-                    <div key={fav.id} className="relative shrink-0" data-testid={`favorite-card-${fav.id}`}>
-                      <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFavorite(fav.id); }}
-                        className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
-                        aria-label={`${fav.name} 관심 취소`}
-                        data-testid={`btn-remove-favorite-${fav.id}`}
+                    return (
+                      <Link
+                        key={member.id || member.name}
+                        href={`/members/${member.id || encodeURIComponent(member.name)}`}
+                        className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"
                       >
-                        <X className="w-2.5 h-2.5 text-gray-400" />
-                      </button>
-                      <Link href={fav.type === "member" ? `/members/${fav.id}` : `/candidates/${fav.id}`}>
-                        <div className="w-[150px] bg-white border border-gray-100 rounded-2xl shadow-sm p-3 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer">
-                          <div className="flex items-center gap-2.5 mb-3">
-                            {fav.imageUrl ? (
-                              <img src={fav.imageUrl} alt={fav.name} className="w-10 h-10 rounded-full object-cover border border-gray-100 shrink-0" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-sm font-bold text-purple-400 shrink-0">
-                                {fav.name.charAt(0)}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold truncate">{fav.name}</p>
-                              {memberData && (
-                                <p className="text-[10px] text-gray-400 truncate">{memberData.district}</p>
-                              )}
-                            </div>
-                          </div>
-                          {memberData ? (
-                            <div className="space-y-2">
-                              <div>
-                                <div className="flex justify-between text-[10px] mb-0.5">
-                                  <span className="text-gray-400">출석률</span>
-                                  <span className="font-semibold text-gray-700">{memberData.score.attendanceRate}%</span>
-                                </div>
-                                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-purple-400 rounded-full" style={{ width: `${memberData.score.attendanceRate}%` }} />
-                                </div>
-                              </div>
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-gray-400">발의법안</span>
-                                <span className="font-semibold text-gray-700">{memberData.score.billProposalCount}건</span>
-                              </div>
-                              <div className="flex justify-between text-[10px] items-center">
-                                <span className="text-gray-400">종합평가</span>
-                                <span className="font-black text-xs text-purple-600">{getScoreGrade(memberData.score.totalScore)}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-gray-400">{fav.type === "candidate" ? "대선 후보" : "데이터 로딩 중..."}</p>
-                          )}
-                        </div>
-                      </Link>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 카드 그리드 */}
-          {isLoading ? (
-            <MembersSkeleton />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filtered.map((member) => (
-                <Link key={member.id} href={`/members/${member.id}`}>
-                  <Card
-                    className="group overflow-hidden cursor-pointer h-full border-border/40 shadow-sm bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-primary/20"
-                    data-testid={`card-member-${member.id}`}
-                  >
-                    <div className={`h-1.5 w-full ${getPartyColor(member.party)} opacity-90`} />
-                    <CardContent className="p-6 relative">
-                      {/* ⭐ 즐겨찾기 버튼 */}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (isFavorite(member.id)) {
-                            removeFavorite(member.id);
-                          } else {
-                            addFavorite({
-                              id: member.id,
-                              name: member.name,
-                              type: "member",
-                              imageUrl: member.photo ?? undefined,
-                            });
-                          }
-                        }}
-                        className="absolute top-4 right-4 z-10 p-1 rounded-full hover:bg-yellow-50 transition-colors"
-                        aria-label={isFavorite(member.id) ? "즐겨찾기 해제" : "즐겨찾기 추가"}
-                        data-testid={`btn-favorite-${member.id}`}
-                      >
-                        <Star
-                          className={`w-5 h-5 transition-colors ${
-                            isFavorite(member.id)
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "fill-none text-gray-300 group-hover:text-gray-400"
-                          }`}
-                        />
-                      </button>
-
-                      <div className="flex items-start gap-4 mb-6">
-                        <div className="relative shrink-0">
-                          {member.photo ? (
-                            <div className="w-16 h-16 rounded-full overflow-hidden border shadow-sm">
-                              <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
-                            </div>
-                          ) : (
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/5 to-primary/20 text-primary flex items-center justify-center text-xl font-black border shadow-sm">
-                              {member.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-background border shadow-sm flex items-center justify-center">
-                            <div className={`w-3 h-3 rounded-full ${getPartyColor(member.party)}`} />
-                          </div>
+                        {/* 순위 뱃지 */}
+                        <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-[11px] font-black mt-0.5 ${idx < 3 ? rankBg[idx] : "bg-gray-50"} ${idx < 3 ? rankColors[idx] : "text-gray-400"}`}>
+                          {idx + 1}
                         </div>
 
-                        <div className="min-w-0 flex-1 flex flex-col justify-center">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3
-                              className="font-bold text-xl tracking-tighter group-hover:text-primary transition-colors truncate"
-                              data-testid={`text-member-name-${member.id}`}
-                            >
+                        {/* 프로필 이미지 */}
+                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 relative">
+                          <PoliticianPhoto
+                            name={member.name}
+                            photo={member.photo}
+                            monaCd={member.id}
+                            avatarClassName={`${partyColor} text-white text-sm font-black`}
+                          />
+                          {idx === 0 && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+                              <Flame className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 정보 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[13px] font-bold text-gray-900 group-hover:text-[#6320EE] transition-colors">
                               {member.name}
-                            </h3>
-                            <span
-                              className={`text-xl font-black tracking-tighter ${getScoreColor(member.score.totalScore)} shrink-0`}
-                              data-testid={`text-score-${member.id}`}
-                            >
-                              {getScoreGrade(member.score.totalScore)}
+                            </span>
+                            <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${partyColor}`}>
+                              {member.party?.replace("더불어민주당", "민주당").replace("국민의힘", "국힘").replace("조국혁신당", "조혁당")}
                             </span>
                           </div>
-                          <div className="flex flex-col gap-1.5 items-start mt-0.5">
-                            <Badge
-                              variant="outline"
-                              className={`px-1.5 py-0 text-[10px] bg-transparent font-bold border ${
-                                getPartyColor(member.party).replace("bg-", "text-").replace("text-white", "")
-                              } border-current opacity-80 uppercase tracking-widest`}
-                            >
-                              {member.party}
-                            </Badge>
-                            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground w-full">
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{member.district}</span>
+                          <p className="text-[10px] text-gray-500 truncate">{member.reason}</p>
+                          
+                          <div className="flex items-center gap-2 mt-1">
+                            {member.mentionCount > 0 && (
+                              <div className="flex items-center gap-0.5 text-blue-500 text-[9px] font-bold">
+                                <Newspaper className="w-2.5 h-2.5" />
+                                {member.mentionCount}
+                              </div>
+                            )}
+                            {member.recentBills > 0 && (
+                              <div className="flex items-center gap-0.5 text-green-600 text-[9px] font-bold">
+                                <FileText className="w-2.5 h-2.5" />
+                                {member.recentBills}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-[#6320EE] transition-colors self-center" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 데이터 없을 때 */}
+              {!isTrendingLoading && trendingMembers.length === 0 && (
+                <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <Flame className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-[12px] text-gray-400 font-medium">실시간 데이터 분석 중...</p>
+                </div>
+              )}
+              
+              {/* 범례 */}
+              {!isTrendingLoading && trendingMembers.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between text-[9px] text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1"><Newspaper className="w-2.5 h-2.5 text-blue-300" /> 뉴스</span>
+                    <span className="flex items-center gap-1"><FileText className="w-2.5 h-2.5 text-green-300" /> 의정</span>
+                  </div>
+                  <span>30분 간격</span>
+                </div>
+              )}
+            </div>
+
+            <section className="space-y-6">
+              <div className="flex items-center justify-between pl-1">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-extrabold text-slate-900">최근 활동 의원</h2>
+                  <p className="text-[12px] font-medium text-slate-400">최근 법안을 대표발의한 의원</p>
+                </div>
+                <div className="p-2.5 bg-[#6320EE]/10 rounded-2xl">
+                   <Zap className="w-5 h-5 text-[#6320EE] fill-[#6320EE]" />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {activeMembers.length > 0 ? (
+                  activeMembers.map((member, idx) => (
+                    <Link key={member.id} href={`/members/${member.id}`} className="block group">
+                      <div className={`relative overflow-hidden rounded-[32px] p-6 transition-all duration-500 border ${
+                        idx === 0 
+                        ? "bg-gradient-to-br from-[#6320EE] to-[#4F1AB8] border-transparent text-white shadow-xl shadow-[#6320EE]/20 hover:scale-[1.02]" 
+                        : "bg-white border-slate-100 text-slate-900 hover:border-[#6320EE]/30 hover:shadow-lg hover:-translate-y-1"
+                      }`}>
+                        {idx === 0 && (
+                          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
+                        )}
+                        
+                        <div className="flex items-center gap-4 mb-4 relative z-10">
+                            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                              <PoliticianPhoto
+                                name={member.name}
+                                photo={member.photo}
+                                monaCd={member.id}
+                                avatarClassName={`text-lg font-bold ${idx === 0 ? "bg-white/10 text-white" : "bg-slate-50 text-slate-300"}`}
+                              />
+                            </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className={`text-[17px] font-black tracking-tight ${idx === 0 ? "text-white" : "text-slate-900 group-hover:text-[#6320EE]"}`}>{member.name} 의원</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${idx === 0 ? "bg-white/20 text-white" : "bg-[#6320EE]/10 text-[#6320EE]"}`}>
+                                {member.party}
+                              </span>
+                              <span className={`text-[11px] font-bold opacity-60 ${idx === 0 ? "text-white" : "text-slate-400"}`}>
+                                {member.proposeDate}
+                              </span>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="space-y-4 pt-4 border-t border-border/50">
-                        <div>
-                          <div className="flex items-center justify-between text-xs font-bold mb-2">
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>본회의 출석률</span>
-                            </div>
-                            <span className="text-foreground">{member.score.attendanceRate}%</span>
+                        <div className={`rounded-2xl p-4 border relative z-10 ${
+                          idx === 0 ? "bg-white/10 border-white/10 backdrop-blur-md" : "bg-slate-50 border-slate-100/50"
+                        }`}>
+                          <div className="flex items-center gap-2 mb-2 opacity-70">
+                             <Star className={`w-3 h-3 ${idx === 0 ? "fill-amber-300 text-amber-300" : "fill-amber-500 text-amber-500"}`} />
+                             <p className={`text-[10px] font-bold uppercase tracking-widest ${idx === 0 ? "text-white" : "text-slate-400"}`}>Representative Proposer</p>
                           </div>
-                          <Progress value={member.score.attendanceRate} className="h-2 bg-secondary" />
-                        </div>
-                        <div className="flex items-center justify-between text-xs font-bold pt-1">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>대표 발의 법안</span>
-                          </div>
-                          <span className="text-foreground">{member.score.billProposalCount}건</span>
+                          <p className={`text-[13px] font-bold leading-relaxed line-clamp-2 ${idx === 0 ? "text-white" : "text-slate-600"}`}>
+                            {member.recentBill}
+                          </p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {!isLoading && filtered.length === 0 && (
-            <div className="text-center py-32 bg-card rounded-3xl border border-dashed border-border shadow-sm">
-              <Search className="w-16 h-16 text-muted-foreground/30 mx-auto mb-6" />
-              <h3 className="text-xl font-bold mb-2">검색 결과가 없습니다</h3>
-              <p className="text-muted-foreground" data-testid="text-no-results">
-                다른 검색어를 입력하거나 필터를 확인해 보세요
-              </p>
-            </div>
-          )}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="bg-white rounded-[32px] p-10 text-center border border-slate-100 shadow-sm space-y-4">
+                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto animate-pulse">
+                      <Zap className="w-6 h-6 text-slate-200" />
+                    </div>
+                    <p className="text-slate-400 text-[14px] font-bold">활동 데이터를 수집하고 있습니다...</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </aside>
         </div>
-      )}
+      </main>
 
-      {/* ── FavoriteMiniCard 바텀시트 ── */}
-      {selectedFavorite && (
-        <FavoriteMiniCard
-          personId={selectedFavorite.id}
-          type={selectedFavorite.type}
-          onClose={() => setSelectedFavorite(null)}
-        />
-      )}
+      <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </div>
   );
 }

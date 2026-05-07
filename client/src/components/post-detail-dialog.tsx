@@ -175,12 +175,56 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                   </div>
                 )}
                 
+                {/* 찬반 투표 영역 (토론 카테고리 등에서 유용) */}
+                <div className="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">찬반 투표 결과</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-blue-600">찬성 {data.post.agreeCount + data.post.disagreeCount > 0 ? Math.round((data.post.agreeCount / (data.post.agreeCount + data.post.disagreeCount)) * 100) : 50}%</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-sm font-bold text-red-500">반대 {data.post.agreeCount + data.post.disagreeCount > 0 ? 100 - Math.round((data.post.agreeCount / (data.post.agreeCount + data.post.disagreeCount)) * 100) : 50}%</span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-400 bg-white px-2 py-1 rounded-lg border border-slate-100">총 {data.post.agreeCount + data.post.disagreeCount}명</span>
+                  </div>
+                  
+                  <div className="h-3 bg-slate-200 rounded-full overflow-hidden flex mb-5 shadow-inner">
+                    <div 
+                      className="bg-blue-500 h-full transition-all duration-1000 ease-out" 
+                      style={{ width: `${data.post.agreeCount + data.post.disagreeCount > 0 ? (data.post.agreeCount / (data.post.agreeCount + data.post.disagreeCount)) * 100 : 50}%` }}
+                    />
+                    <div 
+                      className="bg-red-400 h-full transition-all duration-1000 ease-out" 
+                      style={{ width: `${data.post.agreeCount + data.post.disagreeCount > 0 ? (data.post.disagreeCount / (data.post.agreeCount + data.post.disagreeCount)) * 100 : 50}%` }}
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button 
+                      onClick={() => reactMutation.mutate("agree")}
+                      className={`flex-1 h-12 rounded-xl font-bold gap-2 transition-all active:scale-95 ${data.userReactions?.stance === 'agree' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600'}`}
+                    >
+                      {data.userReactions?.stance === 'agree' ? '✅ 찬성함' : '👍 찬성'}
+                    </Button>
+                    <Button 
+                      onClick={() => reactMutation.mutate("disagree")}
+                      className={`flex-1 h-12 rounded-xl font-bold gap-2 transition-all active:scale-95 ${data.userReactions?.stance === 'disagree' ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-red-200 hover:text-red-500'}`}
+                    >
+                      {data.userReactions?.stance === 'disagree' ? '❌ 반대함' : '👎 반대'}
+                    </Button>
+                  </div>
+                </div>
+
                 {/* 첨부파일 영역 */}
                 {Array.isArray(data.post.attachments) && data.post.attachments.map((att: any, idx: number) => {
                   if (att.type === 'poll') {
                     const board = att.pollId?.split(':')[0] || "free";
                     return (
-                      <div key={idx} className="mt-4 pt-4 border-t border-slate-100/60">
+                      <div key={idx} className="mt-6 pt-6 border-t border-slate-100">
+                        <div className="mb-4">
+                           <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/5 px-2 py-1 rounded-lg">Attached Poll</span>
+                        </div>
                         <DailyPoll board={board} />
                       </div>
                     );

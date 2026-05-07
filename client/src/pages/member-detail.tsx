@@ -4,15 +4,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, BarChart3, CheckCircle2, FileText, ExternalLink, Users, Share2, MessageSquare, MessageCircle, Send, Trophy } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, BarChart3, CheckCircle2, FileText, ExternalLink, Users, Share2, MessageSquare, MessageCircle, Send, Trophy, GraduationCap, Landmark, AlertTriangle, Briefcase, Globe, Mail, Phone, Building2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
-import { useAssemblyMembers } from "@/lib/api-data";
+import { useAssemblyMembers, useMemberDetail, useMemberAlumni } from "@/lib/api-data";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getBillEmoji } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Radar,
@@ -22,6 +24,8 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
+import { PostDetailDialog } from "@/components/post-detail-dialog";
+import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 
 interface StanceData {
   econScore: number;
@@ -236,17 +240,32 @@ export default function MemberDetail() {
   const { members, isLoading } = useAssemblyMembers();
   const member = members.find((m) => m.id === id);
 
+  // 선관위 22대 총선 상세 데이터 (재산/학력/전과/경력)
+  const { detail, isLoading: isDetailLoading } = useMemberDetail(id);
+  const { alumni, university, isLoading: isAlumniLoading } = useMemberAlumni(id);
+
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   const communityQuery = useQuery({
     queryKey: ["/api/community/posts", "member", id],
     queryFn: () => fetch(`/api/community/posts?legislatorId=${id}`).then((r) => r.json()),
     enabled: !!id,
+  });
+
+  const quickReactMutation = useMutation({
+    mutationFn: async ({ postId, type }: { postId: string; type: "like" | "dislike" }) => {
+      const res = await apiRequest("POST", `/api/community/posts/${postId}/react`, { sentiment: type });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts", "member", id] });
+    },
   });
 
   const postMutation = useMutation({
@@ -423,8 +442,8 @@ export default function MemberDetail() {
         await navigator.clipboard.writeText(window.location.href);
         alert("링크가 복사되었습니다.");
       }
-    } catch (e) {
-      console.log("공유 취소됨 또는 오류", e);
+    } catch (_e) {
+      // 공유 취소 또는 미지원 환경
     }
   };
 
@@ -452,15 +471,14 @@ export default function MemberDetail() {
       <div className="relative mb-12">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
           <div className="relative group">
-            {member.photo ? (
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden border-4 border-background shadow-xl ring-1 ring-primary/10">
-                <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-primary/5 to-primary/20 text-primary flex items-center justify-center text-4xl font-black border-4 border-background shadow-xl ring-1 ring-primary/10">
-                {member.name.charAt(0)}
-              </div>
-            )}
+            <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden border-4 border-background shadow-xl ring-1 ring-primary/10 bg-gradient-to-br from-primary/5 to-primary/20">
+              <PoliticianPhoto
+                name={member.name}
+                photo={member.photo}
+                monaCd={member.id}
+                avatarClassName="w-full h-full text-primary flex items-center justify-center text-4xl font-black"
+              />
+            </div>
             <div className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-2xl ${getPartyColor(member.party)} border-4 border-background shadow-lg flex items-center justify-center`}>
                <div className="w-4 h-4 rounded-full bg-white/20" />
             </div>
@@ -492,49 +510,42 @@ export default function MemberDetail() {
             </div>
           </div>
 
-          <div className="hidden lg:block pt-4">
-             <div className="bg-card border-none shadow-sm rounded-2xl px-6 py-4 text-center">
-                <p className="text-xs font-bold text-muted-foreground mb-1 uppercase tracking-widest text-primary/60">종합 평가</p>
-                <span className={`text-5xl font-black tracking-tighter ${getScoreColor(computedTotalScore)}`}>
-                  {getScoreGrade(computedTotalScore)}
-                </span>
-             </div>
-          </div>
+
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <Card className="border-none shadow-sm bg-card hover:shadow-md transition-shadow overflow-hidden" data-testid="card-attendance">
           <div className={`h-1 w-full ${getAttendanceColor(displayAttendanceRate)} opacity-60`} />
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
-                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                <div className="w-7 h-7 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                 </div>
-                <h3 className="font-bold text-base">본회의 출석률</h3>
+                <h3 className="font-bold text-sm">본회의 출석률</h3>
               </div>
               {displayAttendanceRate >= 90 && (
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 text-[10px] flex gap-1 items-center">
-                  <Trophy className="w-3 h-3" /> 우수 의원
+                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 text-[10px] py-0 px-2 flex gap-1 items-center h-5">
+                  <Trophy className="w-2.5 h-2.5" /> 우수
                 </Badge>
               )}
             </div>
             
-            <div className="flex items-end gap-2 mb-4">
-              <span className={`text-4xl font-black tracking-tighter ${getAttendanceTextColor(displayAttendanceRate)}`}>
-                {voteHistoryQuery.isLoading ? <Loader2 className="w-8 h-8 animate-spin" /> : `${displayAttendanceRate}%`}
+            <div className="flex items-end gap-1 mb-3">
+              <span className={`text-2xl font-black tracking-tighter ${getAttendanceTextColor(displayAttendanceRate)}`}>
+                {voteHistoryQuery.isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : `${displayAttendanceRate}%`}
               </span>
             </div>
 
-            <div className="space-y-2">
-              <div className="relative h-2.5 rounded-full bg-secondary overflow-hidden">
+            <div className="space-y-1.5">
+              <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ${getAttendanceColor(displayAttendanceRate)}`}
                   style={{ width: `${displayAttendanceRate}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                 <span>활동 기준</span>
                 <span>{presentCount}/{totalVoteCount}회 참석</span>
               </div>
@@ -544,31 +555,31 @@ export default function MemberDetail() {
 
         <Card className="border-none shadow-sm bg-card hover:shadow-md transition-shadow overflow-hidden" data-testid="card-bill-proposals">
           <div className="h-1 w-full bg-primary/40" />
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
-                  <FileText className="w-4 h-4 text-primary" />
+                <div className="w-7 h-7 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
+                  <FileText className="w-3.5 h-3.5 text-primary" />
                 </div>
-                <h3 className="font-bold text-base">대표 발의 법안</h3>
+                <h3 className="font-bold text-sm">대표 발의 법안</h3>
               </div>
             </div>
             
-            <div className="flex items-end gap-2 mb-4">
-              <span className="text-4xl font-black tracking-tighter text-foreground">
+            <div className="flex items-end gap-1 mb-3">
+              <span className="text-2xl font-black tracking-tighter text-foreground">
                 {member.score.billProposalCount}
               </span>
-              <span className="text-lg font-bold text-muted-foreground mb-1">건</span>
+              <span className="text-sm font-bold text-muted-foreground mb-0.5">건</span>
             </div>
 
-            <div className="space-y-2">
-              <div className="relative h-2.5 rounded-full bg-secondary overflow-hidden">
+            <div className="space-y-1.5">
+              <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden">
                 <div
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 bg-primary/60"
                   style={{ width: `${computedBillScore}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                 <span>동료 의원 대비</span>
                 <span>성과 점수 {computedBillScore}점</span>
               </div>
@@ -579,8 +590,15 @@ export default function MemberDetail() {
 
       
 
-      <Tabs defaultValue="votes" className="mb-12">
+      <Tabs defaultValue="info" className="mb-12">
         <TabsList className="w-full justify-start h-auto p-1.5 bg-muted/20 rounded-2xl mb-8 gap-2 overflow-x-auto flex-nowrap scrollbar-hide">
+          <TabsTrigger
+            value="info"
+            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            data-testid="tab-info"
+          >
+            기본 정보
+          </TabsTrigger>
           <TabsTrigger 
             value="votes" 
             className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
@@ -603,6 +621,397 @@ export default function MemberDetail() {
             공개 활동
           </TabsTrigger>
         </TabsList>
+
+        {/* ===== 기본 정보 탭 (선관위 22대 총선 데이터) ===== */}
+        <TabsContent value="info">
+          <div className="space-y-4" data-testid="tab-content-info">
+            {/* 재산 신고액 */}
+            <Card className="border-none shadow-sm overflow-hidden">
+              <div className="h-1 w-full bg-emerald-400/60" />
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                    <Landmark className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <h3 className="font-bold text-base">재산 신고액</h3>
+                  <span className="text-xs text-muted-foreground ml-1">(22대 총선 기준)</span>
+                </div>
+                {isDetailLoading ? (
+                  <Skeleton className="h-7 w-48" />
+                ) : (
+                  <p className="text-2xl font-black tracking-tight text-emerald-700" data-testid="text-property">
+                    {detail?.propertyAmount ?? "정보 없음"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 최종 학력 */}
+            <Card className="border-none shadow-sm overflow-hidden">
+              <div className="h-1 w-full bg-blue-400/60" />
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <h3 className="font-bold text-base">최종 학력</h3>
+                </div>
+                {isDetailLoading ? (
+                  <Skeleton className="h-5 w-64" />
+                ) : (
+                  <p className="text-sm font-semibold text-foreground" data-testid="text-education">
+                    {detail?.education ?? "정보 없음"}
+                  </p>
+                )}
+
+                {/* 동문 의원 섹션 */}
+                {alumni && alumni.length > 0 && (
+                  <div className="mt-6 pt-5 border-t border-dashed border-blue-100">
+                    <div className="flex items-center gap-1.5 mb-4">
+                      <Users className="w-3.5 h-3.5 text-blue-600" />
+                      <h4 className="text-xs font-bold text-blue-600">
+                        {university ? `${university} 출신 의원` : "같은 대학교 출신 의원"}
+                      </h4>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {alumni.map((person) => (
+                        <Link key={person.monaCd} href={`/member/${person.monaCd}`}>
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 border border-blue-100/50 transition-all cursor-pointer group">
+                            {person.photoUrl ? (
+                              <div className="w-8 h-8 rounded-lg overflow-hidden border border-white shadow-sm shrink-0">
+                                <img src={person.photoUrl} alt={person.name} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-blue-200 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {person.name.charAt(0)}
+                              </div>
+                            )}
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-black text-foreground group-hover:text-primary transition-colors">{person.name}</span>
+                              <span className="text-[9px] font-bold text-muted-foreground">{person.party}</span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 전과 기록 */}
+            <Card className="border-none shadow-sm overflow-hidden">
+              <div className={`h-1 w-full ${
+                isDetailLoading ? "bg-gray-200" :
+                detail?.criminalCount ? "bg-red-400/60" : "bg-gray-300/60"
+              }`} />
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                    !isDetailLoading && detail?.criminalCount
+                      ? "bg-red-50 border-red-100"
+                      : "bg-gray-50 border-gray-100"
+                  }`}>
+                    <AlertTriangle className={`w-4 h-4 ${
+                      !isDetailLoading && detail?.criminalCount ? "text-red-500" : "text-gray-400"
+                    }`} />
+                  </div>
+                  <h3 className="font-bold text-base">전과 기록</h3>
+                </div>
+                {isDetailLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ) : detail?.criminalCount ? (
+                  <div data-testid="criminal-record">
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 font-bold mb-2">
+                      전과 {detail.criminalCount}건
+                    </Badge>
+                    {detail.criminalRecord && (
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {detail.criminalRecord}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2" data-testid="no-criminal-record">
+                    <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 font-medium">
+                      전과 없음
+                    </Badge>
+                    {detail && !detail.necDetailSyncedAt && (
+                      <span className="text-xs text-muted-foreground">· 선관위 데이터 동기화 전</span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 주요 경력 */}
+            {(isDetailLoading || (detail?.career && detail.career.trim())) && (
+              <Card className="border-none shadow-sm overflow-hidden">
+                <div className="h-1 w-full bg-purple-400/60" />
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center">
+                      <Briefcase className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <h3 className="font-bold text-base">주요 경력</h3>
+                  </div>
+                  {isDetailLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-4/6" />
+                    </div>
+                  ) : (
+                    <ul className="space-y-1.5" data-testid="career-list">
+                      {detail!.career!.split("\n").filter(Boolean).map((line, i) => (
+                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                          {line.trim()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 항목별 재산 내역 (공직자윤리위원회) */}
+            {!isDetailLoading && detail && (detail.propertyLand !== null || detail.propertyBuilding !== null) && (
+              <Card className="border-none shadow-sm overflow-hidden" data-testid="repa-property-detail">
+                <div className="h-1 w-full bg-teal-400/60" />
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center">
+                      <Landmark className="w-4 h-4 text-teal-600" />
+                    </div>
+                    <h3 className="font-bold text-base">항목별 재산 내역</h3>
+                    <span className="text-xs text-muted-foreground ml-1">(공직자윤리위원회)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {detail.propertyLand !== null && (
+                      <div className="flex justify-between items-center py-1.5 border-b border-dashed border-border">
+                        <span className="text-muted-foreground">토지</span>
+                        <span className="font-semibold tabular-nums">{detail.propertyLand.toLocaleString()}만원</span>
+                      </div>
+                    )}
+                    {detail.propertyBuilding !== null && (
+                      <div className="flex justify-between items-center py-1.5 border-b border-dashed border-border">
+                        <span className="text-muted-foreground">건물</span>
+                        <span className="font-semibold tabular-nums">{detail.propertyBuilding.toLocaleString()}만원</span>
+                      </div>
+                    )}
+                    {detail.propertyDeposit !== null && (
+                      <div className="flex justify-between items-center py-1.5 border-b border-dashed border-border">
+                        <span className="text-muted-foreground">예금</span>
+                        <span className="font-semibold tabular-nums">{detail.propertyDeposit.toLocaleString()}만원</span>
+                      </div>
+                    )}
+                    {detail.propertyStock !== null && (
+                      <div className="flex justify-between items-center py-1.5 border-b border-dashed border-border">
+                        <span className="text-muted-foreground">유가증권</span>
+                        <span className="font-semibold tabular-nums">{detail.propertyStock.toLocaleString()}만원</span>
+                      </div>
+                    )}
+                    {detail.propertyDebt !== null && (
+                      <div className="flex justify-between items-center py-1.5">
+                        <span className="text-muted-foreground">채무</span>
+                        <span className="font-semibold tabular-nums text-red-600">-{detail.propertyDebt.toLocaleString()}만원</span>
+                      </div>
+                    )}
+                  </div>
+                  {detail.propertyDetailSyncedAt && (
+                    <p className="text-xs text-muted-foreground text-right mt-2">
+                      {new Date(detail.propertyDetailSyncedAt).toLocaleDateString("ko-KR")} 동기화
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 기본 인적사항 */}
+            {!isDetailLoading && detail && (detail.birthDate || detail.gender || detail.reelectionGbn || detail.assemblyAddr || detail.telNo) && (
+              <Card className="border-none shadow-sm overflow-hidden">
+                <div className="h-1 w-full bg-orange-400/60" />
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center">
+                      <User className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <h3 className="font-bold text-base">기본 인적사항</h3>
+                    <span className="text-xs text-muted-foreground ml-1">(국회 공공데이터)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
+                    {detail.birthDate && (
+                      <div>
+                        <span className="text-muted-foreground text-xs block mb-0.5">생년월일</span>
+                        <span className="font-semibold">{detail.birthDate}</span>
+                      </div>
+                    )}
+                    {detail.gender && (
+                      <div>
+                        <span className="text-muted-foreground text-xs block mb-0.5">성별</span>
+                        <span className="font-semibold">{detail.gender}</span>
+                      </div>
+                    )}
+                    {detail.reelectionGbn && (
+                      <div>
+                        <span className="text-muted-foreground text-xs block mb-0.5">선수</span>
+                        <span className="font-semibold">{detail.reelectionGbn}</span>
+                      </div>
+                    )}
+                    {detail.committees && detail.committees !== detail.committee && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground text-xs block mb-0.5">소속 위원회</span>
+                        <span className="font-semibold">{detail.committees}</span>
+                      </div>
+                    )}
+                    {detail.assemblyAddr && (
+                      <div className="col-span-2 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-muted-foreground text-xs">의원실</span>
+                        <span className="font-semibold text-xs">{detail.assemblyAddr}</span>
+                      </div>
+                    )}
+                    {detail.telNo && (
+                      <div className="col-span-2 flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-muted-foreground text-xs">사무실</span>
+                        <a href={`tel:${detail.telNo}`} className="font-semibold text-xs text-primary hover:underline">{detail.telNo}</a>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* memTitle 경력 (NEC career가 없을 때 국회 API memTitle 표시) */}
+            {!isDetailLoading && detail?.memTitle && !detail.career && (
+              <Card className="border-none shadow-sm overflow-hidden">
+                <div className="h-1 w-full bg-purple-400/60" />
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center">
+                      <Briefcase className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <h3 className="font-bold text-base">주요 경력</h3>
+                    <span className="text-xs text-muted-foreground ml-1">(국회 공공데이터)</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {detail.memTitle.split("\n").filter(Boolean).map((line, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                        {line.trim()}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SNS / 연락처 */}
+            {!isDetailLoading && detail && (detail.homepage || detail.email || detail.twitter || detail.facebook || detail.youtube || detail.blog || detail.instagram) && (
+              <Card className="border-none shadow-sm overflow-hidden" data-testid="sns-links">
+                <div className="h-1 w-full bg-indigo-400/60" />
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                      <ExternalLink className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <h3 className="font-bold text-base">SNS / 연락처</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {detail.homepage && (
+                      <a
+                        href={detail.homepage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        홈페이지
+                      </a>
+                    )}
+                    {detail.email && (
+                      <a
+                        href={`mailto:${detail.email}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        이메일
+                      </a>
+                    )}
+                    {detail.twitter && (
+                      <a
+                        href={detail.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors"
+                      >
+                        <span className="font-bold text-[11px]">𝕏</span>
+                        Twitter
+                      </a>
+                    )}
+                    {detail.facebook && (
+                      <a
+                        href={detail.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 hover:bg-blue-100 transition-colors"
+                      >
+                        <span className="font-bold text-[11px]">f</span>
+                        Facebook
+                      </a>
+                    )}
+                    {detail.youtube && (
+                      <a
+                        href={detail.youtube}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                      >
+                        <span className="font-bold text-[11px]">▶</span>
+                        YouTube
+                      </a>
+                    )}
+                    {detail.blog && (
+                      <a
+                        href={detail.blog}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        블로그
+                      </a>
+                    )}
+                    {(detail as any).instagram && (
+                      <a
+                        href={(detail as any).instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-pink-50 text-pink-700 hover:bg-pink-100 transition-colors"
+                      >
+                        <span className="font-bold text-[11px]">◉</span>
+                        Instagram
+                      </a>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 데이터 출처 표기 */}
+            {!isDetailLoading && detail?.necDetailSyncedAt && (
+              <p className="text-xs text-muted-foreground text-right px-1" data-testid="nec-data-source">
+                출처: 중앙선거관리위원회 22대 총선 후보자정보 ·
+                {" "}{new Date(detail.necDetailSyncedAt).toLocaleDateString("ko-KR")} 동기화
+              </p>
+            )}
+          </div>
+        </TabsContent>
 
 
 
@@ -682,7 +1091,7 @@ export default function MemberDetail() {
                               className="text-base font-semibold text-left group-hover:text-primary transition-colors hover:underline underline-offset-4 decoration-2 decoration-primary/30 w-full truncate block"
                               data-testid={`button-bill-detail-${record.billId}`}
                             >
-                              {record.billName}
+                              {getBillEmoji(record.billName)} {record.billName}
                             </button>
                           </div>
                           <Badge
@@ -754,7 +1163,9 @@ export default function MemberDetail() {
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <p className="text-base font-bold text-foreground leading-snug mb-3 group-hover:text-primary transition-colors">{billName}</p>
+                            <p className="text-base font-bold text-foreground leading-snug mb-3 group-hover:text-primary transition-colors">
+                              {getBillEmoji(billName, committee)} {billName}
+                            </p>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                               {proposeDate && (
                                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -920,20 +1331,20 @@ export default function MemberDetail() {
             {communityQuery.data.map((post: any) => (
               <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 border-none bg-card group">
                 <CardContent className="p-0">
-                  <Link href={`/post/${post.id}`}>
-                    <div className="p-6 cursor-pointer group-hover:bg-primary/[0.01] transition-colors">
-                      <h4 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-1">{post.title}</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 whitespace-pre-wrap mb-4">{post.content}</p>
-                      <div className="flex items-center gap-3 text-[12px] font-bold text-muted-foreground">
-                        <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-[10px] text-primary">
-                          {post.anonNickname.charAt(0)}
-                        </div>
-                        <span className="text-foreground/80">{post.anonNickname}</span>
-                        <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                        <span>{new Date(post.createdAt).toLocaleDateString('ko-KR')}</span>
+                  <div onClick={() => setSelectedPostId(post.id)} className="p-6 cursor-pointer group-hover:bg-primary/[0.01] transition-colors">
+                    <h4 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-1">{post.title}</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+                      {post.content.replace(/<[^>]*>/g, ' ')}
+                    </p>
+                    <div className="flex items-center gap-3 text-[12px] font-bold text-muted-foreground">
+                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-[10px] text-primary">
+                        {post.anonNickname.charAt(0)}
                       </div>
+                      <span className="text-foreground/80">{post.anonNickname}</span>
+                      <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                      <span>{new Date(post.createdAt).toLocaleDateString('ko-KR')}</span>
                     </div>
-                  </Link>
+                  </div>
                   <div className="flex items-center px-4 py-3 border-t border-border/40 gap-1 bg-muted/5">
                     <button
                       onClick={() => {
@@ -944,11 +1355,12 @@ export default function MemberDetail() {
                     >
                       ❤️ <span>{post.likes ?? 0}</span>
                     </button>
-                    <Link href={`/post/${post.id}`}>
-                      <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all">
-                        <MessageCircle className="w-4 h-4" /> <span>{post.commentCount ?? 0}</span>
-                      </button>
-                    </Link>
+                    <button 
+                      onClick={() => setSelectedPostId(post.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" /> <span>{post.commentCount ?? 0}</span>
+                    </button>
                     <button
                       onClick={() => handlePostShare(post)}
                       className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[12px] font-bold text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-all ml-auto"
@@ -979,6 +1391,11 @@ export default function MemberDetail() {
           onClose={() => setSelectedBill(null)}
         />
       )}
+
+      <PostDetailDialog 
+        postId={selectedPostId} 
+        onOpenChange={(open) => { if (!open) setSelectedPostId(null); }} 
+      />
     </div>
   );
 }

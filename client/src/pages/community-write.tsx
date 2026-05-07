@@ -173,7 +173,7 @@ export default function CommunityWrite() {
       const payload: any = {
         title,
         content,
-        boardType: boardType === "free" ? "open" : boardType === "legislators" ? "open" : "open",
+        boardType: boardType,
         category,
         authorType,
         contentType: "rich",

@@ -13,8 +13,13 @@ const MemoryStore = createMemoryStore(session);
 import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes } from "@shared/schema";
+import { analyzeLegislator } from "./legislator-analysis";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
+import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
+import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
+import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
+import { pollResults } from "@shared/schema";
 import { eq, desc, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
@@ -761,14 +766,14 @@ export async function registerRoutes(
   app.get("/api/members", async (_req, res) => {
     try {
       // DB에 데이터가 있으면 우선 사용 (빠름)
-      const dbRows = await db.select().from(legislators).orderBy(legislators.name);
+      const dbRows = await db.select().from(legislators).orderBy(legislators.name).limit(400);
       if (dbRows.length > 0) {
         return res.json({ source: "db", data: dbRows });
       }
       // DB 없으면 전체 페이지 API 조회
       const { syncLegislators: sync } = await import("./api-sync");
       await sync();
-      const freshRows = await db.select().from(legislators).orderBy(legislators.name);
+      const freshRows = await db.select().from(legislators).orderBy(legislators.name).limit(400);
       return res.json({ source: "api", data: freshRows });
     } catch (error) {
       console.error("Members API fetch error:", error);
@@ -787,6 +792,106 @@ export async function registerRoutes(
 
   app.get("/api/members/trending", async (_req, res) => {
     res.json(getTrendingMembers(5));
+  });
+
+  app.post("/api/admin/fix-photos", requireAdmin, async (_req, res) => {
+    try {
+      const membersMissingPhoto = await db.select().from(legislators).where(eq(legislators.photoUrl, "")).limit(400);
+      let fixedCount = 0;
+      
+      console.log(`[admin] Fixing photos for ${membersMissingPhoto.length} members...`);
+      
+      for (const m of membersMissingPhoto) {
+        const photoUrl = await getPoliticianPhotoUrl(m.name, m.monaCd);
+        if (photoUrl) {
+          await db.update(legislators).set({ photoUrl }).where(eq(legislators.monaCd, m.monaCd));
+          fixedCount++;
+        }
+      }
+      
+      res.json({ success: true, fixedCount, totalMissing: membersMissingPhoto.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ===== 최근에 대표발의한 의원들 (최근 활동 의원) =====
+  app.get("/api/members/active", async (_req, res) => {
+    try {
+      // 1. 최근 발의된 법안 30개 가져오기
+      const recentBills = await db.select()
+        .from(assemblyBills)
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(30);
+
+      // 2. 대표발의자 추출 및 법안 정보 매핑
+      // PROPOSER 형식: "홍길동(국민의힘/洪吉童) 외 10인"
+      const proposerMap = new Map<string, { billName: string; billId: string; proposeDate: string }>();
+      recentBills.forEach(bill => {
+        if (bill.proposer) {
+          const primaryProposer = bill.proposer.split('(')[0].split(',')[0].trim();
+          if (primaryProposer && !proposerMap.has(primaryProposer)) {
+            proposerMap.set(primaryProposer, { 
+              billName: bill.billName, 
+              billId: bill.billId, 
+              proposeDate: bill.proposeDate 
+            });
+          }
+        }
+      });
+
+      const proposerNames = Array.from(proposerMap.keys());
+      if (proposerNames.length === 0) return res.json([]);
+
+      // 3. 해당 의원들의 상세 정보 조회
+      const memberDetails = await db.select()
+        .from(legislators)
+        .where(inArray(legislators.name, proposerNames));
+
+      const result = memberDetails.map(member => {
+        const bill = proposerMap.get(member.name);
+        return {
+          id: member.monaCd,
+          name: member.name,
+          party: member.party,
+          district: member.district,
+          photo: member.photoUrl,
+          recentBill: bill?.billName,
+          billId: bill?.billId,
+          proposeDate: bill?.proposeDate
+        };
+      });
+
+      // 4. 발의 날짜순으로 재정렬
+      result.sort((a, b) => (b.proposeDate || "").localeCompare(a.proposeDate || ""));
+
+      res.json(result.slice(0, 5));
+    } catch (error: any) {
+      console.error("[members/active] 오류:", error.message);
+      res.status(500).json({ error: "최근 활동 의원 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  // ===== 뉴스+국회API 기반 최근 주목받는 의원 (크롤링) =====
+  app.get("/api/trending-members", async (_req, res) => {
+    try {
+      const data = await getTrendingMembersWithCache();
+      res.json({ success: true, data, cachedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.error("[trending-members] 오류:", err.message);
+      res.status(500).json({ success: false, error: "주목 의원 조회 중 오류가 발생했습니다", data: [] });
+    }
+  });
+
+  // 관리자용: 캐시 수동 갱신
+  app.post("/api/trending-members/refresh", requireAdmin, async (_req, res) => {
+    try {
+      clearTrendingMembersCache();
+      const data = await getTrendingMembersWithCache();
+      res.json({ success: true, count: data.length, data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   app.get("/api/bills", async (_req, res) => {
@@ -919,42 +1024,304 @@ export async function registerRoutes(
   });
 
   app.post("/api/sync/bills", syncGuard, async (_req, res) => {
+    // 즉시 응답 후 백그라운드 실행 (법안 수천건 처리 시간 초과 방지)
+    res.json({ ok: true, message: "법안 동기화 백그라운드 시작. /api/sync/bills/status 로 진행상황 확인" });
+    syncBills().then(r => console.log(`[sync/bills] 완료: ${r.synced}건, 오류: ${r.errors.length}건`))
+               .catch(e => console.error("[sync/bills] 실패:", e.message));
+  });
+
+  app.get("/api/sync/bills/status", syncGuard, async (_req, res) => {
     try {
-      const result = await syncBills();
-      res.json({ ok: true, ...result });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      const { count } = await import("drizzle-orm");
+      const rows = await db.select({ cnt: count() }).from(assemblyBills);
+      res.json({ billCount: rows[0]?.cnt ?? 0 });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
   app.post("/api/sync/votes", syncGuard, async (_req, res) => {
-    try {
-      const result = await syncVotes();
-      res.json({ ok: true, ...result });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    res.json({ ok: true, message: "표결 동기화 백그라운드 시작" });
+    syncVotes().then(r => console.log(`[sync/votes] 완료: ${r.synced}건`))
+               .catch(e => console.error("[sync/votes] 실패:", e.message));
   });
+
 
   app.get("/api/db/legislators", async (_req, res) => {
     try {
-      const rows = await db.select().from(legislators).orderBy(legislators.name);
+      const rows = await db.select().from(legislators).orderBy(legislators.name).limit(400);
       res.json(rows);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
+  // ===== 의원 상세 정보 (선관위 22대 총선 데이터 포함) =====
+  // 메모리 캐시: 24시간 TTL (선관위 데이터는 자주 안 바뀜)
+  const legislatorDetailCache = new Map<string, { data: any; cachedAt: number }>();
+  const LEGISLATOR_DETAIL_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+  app.get("/api/legislators/:id/detail", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // 캐시 확인
+      const cached = legislatorDetailCache.get(id);
+      if (cached && Date.now() - cached.cachedAt < LEGISLATOR_DETAIL_CACHE_TTL) {
+        return res.json({ source: "cache", data: cached.data });
+      }
+
+      // DB에서 의원 기본 + 선관위 상세 데이터 조회
+      const rows = await db
+        .select()
+        .from(legislators)
+        .where(eq(legislators.monaCd, id))
+        .limit(1);
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "의원을 찾을 수 없습니다." });
+      }
+
+      const row = rows[0];
+
+      // 선관위 데이터가 아직 없으면 실시간 단건 조회 시도 (비동기, 응답은 먼저 보냄)
+      const hasNecData = !!row.necDetailSyncedAt;
+
+      const detail = {
+        monaCd: row.monaCd,
+        name: row.name,
+        party: row.party,
+        district: row.district,
+        photoUrl: row.photoUrl || "",
+        committee: row.committee,
+        electedTerm: row.electedTerm,
+        // 선관위 데이터 (없으면 fallback)
+        propertyAmount: row.propertyAmount ?? "정보 없음",
+        education: row.education ?? "정보 없음",
+        criminalRecord: row.criminalRecord ?? null,    // null = 전과 없음
+        criminalCount: row.criminalCount ?? 0,
+        career: row.career ?? "",
+        necDetailSyncedAt: row.necDetailSyncedAt ?? null,
+        // 국회 API 추가 필드
+        email: row.email ?? null,
+        telNo: (row as any).telNo ?? null,
+        homepage: row.homepage ?? null,
+        twitter: row.twitter ?? null,
+        facebook: row.facebook ?? null,
+        youtube: row.youtube ?? null,
+        blog: row.blog ?? null,
+        instagram: (row as any).instagram ?? null,
+        birthDate: (row as any).birthDate ?? null,
+        gender: (row as any).gender ?? null,
+        reelectionGbn: (row as any).reelectionGbn ?? null,
+        committees: (row as any).committees ?? null,
+        memTitle: (row as any).memTitle ?? null,
+        assemblyAddr: (row as any).assemblyAddr ?? null,
+        // 공직자윤리위원회 재산 상세
+        propertyLand: row.propertyLand ?? null,
+        propertyBuilding: row.propertyBuilding ?? null,
+        propertyDeposit: row.propertyDeposit ?? null,
+        propertyStock: row.propertyStock ?? null,
+        propertyDebt: row.propertyDebt ?? null,
+        propertyDetailSyncedAt: row.propertyDetailSyncedAt ?? null,
+      };
+
+      legislatorDetailCache.set(id, { data: detail, cachedAt: Date.now() });
+      return res.json({ source: "db", data: detail, hasNecData });
+    } catch (error: any) {
+      console.error("[legislators/detail] 오류:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/legislators/:id/alumni", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rows = await db.select().from(legislators).where(eq(legislators.monaCd, id)).limit(1);
+      if (rows.length === 0) return res.status(404).json({ error: "의원을 찾을 수 없습니다." });
+
+      const education = rows[0].education;
+      if (!education || education === "정보 없음") return res.json([]);
+
+      // 대학교 이름 추출 (예: 연세대학교)
+      const uniMatch = education.match(/([가-힣]+대학교)/);
+      if (!uniMatch) return res.json([]);
+      const university = uniMatch[1];
+
+      // 같은 학교 출신 다른 의원들 검색 (최대 10명)
+      const alumni = await db.select()
+        .from(legislators)
+        .where(
+          and(
+            like(legislators.education, `%${university}%`),
+            notInArray(legislators.monaCd, [id])
+          )
+        )
+        .limit(10);
+
+      res.json({ university, alumni });
+    } catch (error: any) {
+      console.error("[legislators/alumni] 오류:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 선관위 22대 총선 데이터 → legislators 테이블 동기화 트리거
+  app.post("/api/sync/legislators/nec-detail", syncGuard, async (_req, res) => {
+    res.json({ ok: true, message: "선관위 22대 총선 상세정보 동기화를 백그라운드로 시작합니다." });
+    // 완료 후 캐시 초기화
+    const { syncNec22ndDetailsToLegislators } = await import("./nec-sync");
+    syncNec22ndDetailsToLegislators()
+      .then((result) => {
+        legislatorDetailCache.clear();
+        console.log(
+          `[sync/nec-detail] 완료: ${result.synced}명 갱신, ` +
+          `매핑 실패 ${result.notFound.length}명, 오류 ${result.errors.length}건`
+        );
+      })
+      .catch((e) => console.error("[sync/nec-detail] 실패:", e.message));
+  });
+
+  // 선관위 동기화 상태 확인
+  app.get("/api/sync/legislators/nec-detail/status", syncGuard, async (_req, res) => {
+    try {
+      // necDetailSyncedAt이 있는 의원 수 집계
+      const rows = await db
+        .select({ cnt: legislators.monaCd, syncedAt: legislators.necDetailSyncedAt })
+        .from(legislators);
+      const total = rows.length;
+      const synced = rows.filter((r) => !!r.syncedAt).length;
+      const lastSyncedAt = rows
+        .filter((r) => !!r.syncedAt)
+        .map((r) => r.syncedAt as Date)
+        .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+      res.json({ total, synced, notSynced: total - synced, lastSyncedAt });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 공직자윤리위원회 재산 상세 동기화
+  app.post("/api/sync/legislators/repa", syncGuard, async (_req, res) => {
+    res.json({ ok: true, message: "공직자윤리위원회 재산 상세 동기화를 백그라운드로 시작합니다." });
+    const { syncRepaPropertyDetails } = await import("./repa-sync");
+    syncRepaPropertyDetails()
+      .then((result) => {
+        legislatorDetailCache.clear();
+        console.log(`[sync/repa] 완료: ${result.synced}명 갱신, 실패 ${result.failed}명`);
+      })
+      .catch((e) => console.error("[sync/repa] 실패:", e.message));
+  });
+
+  app.get("/api/sync/legislators/repa/status", syncGuard, async (_req, res) => {
+    try {
+      const rows = await db.select({ cnt: legislators.monaCd, syncedAt: legislators.propertyDetailSyncedAt }).from(legislators);
+      const total = rows.length;
+      const synced = rows.filter(r => !!r.syncedAt).length;
+      res.json({ total, synced, notSynced: total - synced });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+
+
   const viewCountCache = new Map<string, number>();
 
-  // 1. 핫한 법안 (GET /api/bills/hot)
+  // 1. 핫한 법안 (GET /api/bills/hot) - 뉴스 언급 기반 심사중인 법안 우선
   app.get("/api/bills/hot", async (_req, res) => {
     try {
-      // 30일 이내: 현재 날짜 30일 전
+      // 뉴스 캐시가 없거나 만료됐으면 자동으로 불러오기
+      if (!newsCache || Date.now() - newsCache.cachedAt >= NEWS_CACHE_TTL) {
+        try {
+          const result = await fetchKoreanPoliticsNews();
+          newsCache = { ...result, cachedAt: Date.now() };
+        } catch (e) {
+          console.error("[bills/hot] 뉴스 자동 로드 실패:", e);
+        }
+      }
+
+      if (newsCache && newsCache.items.length > 0) {
+        // 심사중인 법안 최대 200개 가져오기
+        const reviewingBills = await db.select().from(assemblyBills)
+          .where(notInArray(assemblyBills.result, ["가결", "부결", "폐기", "철회", "통과", "공포", "시행"]))
+          .orderBy(desc(assemblyBills.proposeDate))
+          .limit(200);
+
+        if (reviewingBills.length > 0) {
+          // 각 법안에 대해 뉴스 언급 횟수 계산
+          const billsWithScore = reviewingBills.map(bill => {
+            const keywords = bill.billName
+              .replace(/법|개정안|일부개정|전부개정|제정안|[()【】「」\[\]·]/g, " ")
+              .split(/\s+/)
+              .filter(w => w.length >= 3)
+              .slice(0, 6);
+
+            const mentionCount = newsCache!.items.filter(item =>
+              keywords.some(kw => item.title.includes(kw))
+            ).length;
+
+            const score = (bill.viewCount ?? 0) * 1
+              + (bill.coProposerCount ?? 0) * 2
+              + mentionCount * 10;
+
+            return { ...bill, _liveScore: score, _mentionCount: mentionCount };
+          });
+
+          // 스코어 높은 순으로 정렬
+          billsWithScore.sort((a, b) => b._liveScore - a._liveScore);
+          const top5 = billsWithScore.slice(0, 5);
+
+          // mediaMentionCount 업데이트 (백그라운드)
+          Promise.all(
+            top5
+              .filter(b => b._mentionCount > 0)
+              .map(b =>
+                db.update(assemblyBills)
+                  .set({ mediaMentionCount: b._mentionCount })
+                  .where(eq(assemblyBills.billId, b.billId))
+              )
+          ).catch(e => console.error("[bills/hot] mention update failed:", e.message));
+
+          // 법안명이 없는 경우 국회 API에서 단건 조회
+          const billsWithNames = await Promise.all(top5.map(async (bill) => {
+            if (bill.billName && bill.billName.trim() !== "") return bill;
+            try {
+              const apiKey = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
+              if (!apiKey) return bill;
+              const resp = await axios.get("https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn", {
+                params: { Key: apiKey, Type: "json", AGE: "22", BILL_ID: bill.billId, pIndex: 1, pSize: 1 },
+                timeout: 5000,
+              });
+              const serviceData = resp.data?.nzmimeepazxkubdpn;
+              const row = serviceData?.[1]?.row?.[0];
+              if (row?.BILL_NAME || row?.BILL_NM) {
+                const billName = row.BILL_NAME || row.BILL_NM;
+                const committee = row.COMMITTEE_NM || row.COMMITTEE || bill.committee || "";
+                const proposer = row.PROPOSER || row.RST_PROPOSER || bill.proposer || "";
+                // DB 업데이트 (백그라운드)
+                db.update(assemblyBills)
+                  .set({ billName, committee, proposer })
+                  .where(eq(assemblyBills.billId, bill.billId))
+                  .catch(() => {});
+                return { ...bill, billName, committee, proposer };
+              }
+            } catch (e: any) {
+              console.error(`[bills/hot] billName fetch failed for ${bill.billId}:`, e.message);
+            }
+            return bill;
+          }));
+
+          return res.json(billsWithNames);
+
+        }
+      }
+
+      // 뉴스 캐시 없거나 법안 DB 없을 때: 기존 로직 (30일 이내 viewCount+mediaMentionCount 기준)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateStr = thirtyDaysAgo.toISOString().slice(0, 10);
-      
+
       const rows = await db.select()
         .from(assemblyBills)
         .where(
@@ -967,11 +1334,39 @@ export async function registerRoutes(
         .orderBy(desc(dsql`(${assemblyBills.viewCount} * 1 + ${assemblyBills.coProposerCount} * 2 + ${assemblyBills.mediaMentionCount} * 10)`), desc(assemblyBills.proposeDate))
         .limit(5);
 
-      res.json(rows);
+      // 법안명 없는 경우 국회 API에서 보충
+      const rowsWithNames = await Promise.all(rows.map(async (bill) => {
+        if (bill.billName && bill.billName.trim() !== "") return bill;
+        try {
+          const apiKey = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
+          if (!apiKey) return bill;
+          const resp = await axios.get("https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn", {
+            params: { Key: apiKey, Type: "json", AGE: "22", BILL_ID: bill.billId, pIndex: 1, pSize: 1 },
+            timeout: 5000,
+          });
+          const serviceData = resp.data?.nzmimeepazxkubdpn;
+          const row = serviceData?.[1]?.row?.[0];
+          if (row?.BILL_NAME || row?.BILL_NM) {
+            const billName = row.BILL_NAME || row.BILL_NM;
+            const committee = row.COMMITTEE_NM || row.COMMITTEE || bill.committee || "";
+            const proposer = row.PROPOSER || row.RST_PROPOSER || bill.proposer || "";
+            db.update(assemblyBills)
+              .set({ billName, committee, proposer })
+              .where(eq(assemblyBills.billId, bill.billId))
+              .catch(() => {});
+            return { ...bill, billName, committee, proposer };
+          }
+        } catch {}
+        return bill;
+      }));
+
+      res.json(rowsWithNames);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
+
+
 
   // 2. 생활밀착 법안 (GET /api/bills/daily-life)
   app.get("/api/bills/daily-life", async (_req, res) => {
@@ -1161,6 +1556,119 @@ export async function registerRoutes(
     }
   });
 
+  // 법안 댓글 목록 조회 (GET /api/bills/:id/comments)
+  app.get("/api/bills/:id/comments", async (req, res) => {
+    try {
+      const { id: billId } = req.params;
+      const sessionId = req.sessionID || (req.ip ?? "anon");
+      const userId = (req.session as any)?.userId ?? null;
+
+      const comments = await db.select().from(pollComments)
+        .where(eq(pollComments.pollId, `bill:${billId}`))
+        .orderBy(desc(pollComments.createdAt))
+        .limit(100);
+
+      res.json(comments.map(c => ({
+        id: c.id,
+        content: c.content,
+        displayName: c.displayName || c.authorType || "익명의 유권자",
+        authorType: c.authorType,
+        isVerified: c.isVerified,
+        parentId: c.parentId,
+        createdAt: c.createdAt,
+        isAuthor: userId ? String(c.userId) === String(userId) : false,
+      })));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 법안 댓글 작성 (POST /api/bills/:id/comments)
+  app.post("/api/bills/:id/comments", async (req, res) => {
+    try {
+      const { id: billId } = req.params;
+      const { content, parentId } = req.body;
+      if (!content || content.trim().length < 1) {
+        return res.status(400).json({ error: "댓글 내용을 입력해주세요" });
+      }
+      if (content.trim().length > 500) {
+        return res.status(400).json({ error: "댓글은 500자 이내로 작성해주세요" });
+      }
+
+      const userId = (req.session as any)?.userId ?? null;
+      const displayName = userId
+        ? (getOrCreateNickname(userId))
+        : generateAnonNickname();
+
+      const [inserted] = await db.insert(pollComments).values({
+        pollId: `bill:${billId}`,
+        userId: userId ? parseInt(userId) : null,
+        content: content.trim(),
+        authorType: userId ? "nickname" : "anonymous",
+        displayName,
+        isVerified: false,
+        parentId: parentId ? parseInt(parentId) : null,
+      }).returning();
+
+      res.json({
+        id: inserted.id,
+        content: inserted.content,
+        displayName: inserted.displayName,
+        authorType: inserted.authorType,
+        isVerified: inserted.isVerified,
+        parentId: inserted.parentId,
+        createdAt: inserted.createdAt,
+        isAuthor: true,
+      });
+    } catch (e: any) {
+      console.error("[bill-comment] error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 법안 뉴스 언급 업데이트 (POST /api/bills/update-media-mentions) - 뉴스 RSS에서 법안 키워드 매칭
+  app.post("/api/bills/update-media-mentions", syncGuard, async (_req, res) => {
+    try {
+      // 현재 뉴스 데이터가 캐시에 있으면 활용
+      const newsData = newsCache;
+      if (!newsData || newsData.items.length === 0) {
+        return res.json({ updated: 0, message: "뉴스 캐시가 없습니다. 먼저 /api/news 를 호출하세요." });
+      }
+
+      // 심사중인 법안 목록 가져오기
+      const bills = await db.select({
+        billId: assemblyBills.billId,
+        billName: assemblyBills.billName,
+      }).from(assemblyBills)
+        .where(notInArray(assemblyBills.result, ["가결", "부결", "폐기", "철회", "통과", "공포", "시행"]))
+        .limit(500);
+
+      let updated = 0;
+      for (const bill of bills) {
+        const keywords = bill.billName
+          .replace(/[()【】「」\[\]]/g, " ")
+          .split(/\s+/)
+          .filter(w => w.length >= 3)
+          .slice(0, 5);
+
+        const mentionCount = newsData.items.filter(item =>
+          keywords.some(kw => item.title.includes(kw))
+        ).length;
+
+        if (mentionCount > 0) {
+          await db.update(assemblyBills)
+            .set({ mediaMentionCount: mentionCount })
+            .where(eq(assemblyBills.billId, bill.billId));
+          updated++;
+        }
+      }
+
+      res.json({ updated, message: `${updated}개 법안의 미디어 언급 수 업데이트 완료` });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // 4. 기존 법안 API 호환 (GET /api/db/bills, GET /api/bills)
   const getBillsHandler = async (req: express.Request, res: express.Response) => {
     try {
@@ -1219,7 +1727,7 @@ export async function registerRoutes(
 
   app.get("/api/db/bills/:billId/votes", async (req, res) => {
     try {
-      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, req.params.billId));
+      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.billId, req.params.billId)).limit(400);
       res.json(rows);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1439,7 +1947,7 @@ export async function registerRoutes(
 
   app.get("/api/db/legislators/:id/votes", async (req, res) => {
     try {
-      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id));
+      const rows = await db.select().from(assemblyVotes).where(eq(assemblyVotes.legislatorId, req.params.id)).limit(500);
       res.json(rows);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1470,6 +1978,16 @@ export async function registerRoutes(
     try {
       const stance = await calculatePoliticianStance(req.params.id as string);
       res.json(stance);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== 의원 성향 심층 분석 =====
+  app.get("/api/members/:id/analysis", async (req, res) => {
+    try {
+      const result = await analyzeLegislator(req.params.id as string);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1563,12 +2081,49 @@ export async function registerRoutes(
     return poll;
   }
 
-  app.get("/api/polls/today", (req, res) => {
+  app.get("/api/polls/today", async (req, res) => {
     const board = (req.query.board as string) || "free";
     const poll = getTodayPoll(board);
     const voterKey = poll.id;
     const voterId = req.session.userId || req.ip || "anon";
     const hasVoted = pollVotersStore.get(voterKey)?.has(voterId) ?? false;
+
+    // Fetch top comment
+    try {
+      const allComments = await db.select().from(pollComments)
+        .where(eq(pollComments.pollId, poll.id));
+      
+      if (allComments.length > 0) {
+        const commentIds = allComments.map(c => String(c.id));
+        const likesData = await db.select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+          .from(reactions)
+          .where(and(
+            eq(reactions.targetType, 'comment'),
+            eq(reactions.type, 'like'),
+            inArray(reactions.targetId, commentIds)
+          ))
+          .groupBy(reactions.targetId);
+        
+        const likesMap = new Map(likesData.map(ld => [ld.targetId, ld.count]));
+        
+        allComments.sort((a, b) => (likesMap.get(String(b.id)) || 0) - (likesMap.get(String(a.id)) || 0));
+        
+        const topComment = allComments[0];
+        const topCommentLikes = likesMap.get(String(topComment.id)) || 0;
+        
+        return res.json({ 
+          ...poll, 
+          hasVoted, 
+          topComment: {
+            ...topComment,
+            likes: topCommentLikes
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching top comment for poll:", error);
+    }
+
     res.json({ ...poll, hasVoted });
   });
 
@@ -1756,11 +2311,49 @@ export async function registerRoutes(
         .where(eq(pollComments.pollId, pollId))
         .orderBy(pollComments.createdAt);
 
+      if (rows.length === 0) return res.json([]);
+
+      // Fetch likes for comments
+      const commentIds = rows.map(r => String(r.id));
+      const likesData = await db.select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+        .from(reactions)
+        .where(and(
+          eq(reactions.targetType, 'comment'),
+          eq(reactions.type, 'like'),
+          inArray(reactions.targetId, commentIds)
+        ))
+        .groupBy(reactions.targetId);
+
+      const likesMap = new Map(likesData.map(ld => [ld.targetId, ld.count]));
+
+      const commentsWithLikes = rows.map(r => ({
+        ...r,
+        likes: likesMap.get(String(r.id)) || 0,
+      }));
+
+      // 내 반응 정보 (로그인 시)
+      const userId = req.session.userId ? parseInt(req.session.userId, 10) : null;
+      let myReactionsMap = new Map<string, string>();
+      if (userId) {
+        const myReactions = await db.select().from(reactions)
+          .where(and(
+            eq(reactions.targetType, 'comment'),
+            eq(reactions.userId, userId),
+            inArray(reactions.targetId, commentIds)
+          ));
+        myReactions.forEach(r => myReactionsMap.set(r.targetId, r.type));
+      }
+
+      const finalComments = commentsWithLikes.map(c => ({
+        ...c,
+        myReaction: myReactionsMap.get(String(c.id)) || null,
+      }));
+
       // 중첩 구조 만들기
-      const topLevel = rows.filter(r => !r.parentId);
+      const topLevel = finalComments.filter(r => !r.parentId);
       const nested = topLevel.map(parent => ({
         ...parent,
-        replies: rows.filter(r => r.parentId === parent.id),
+        replies: finalComments.filter(r => r.parentId === parent.id),
       }));
 
       res.json(nested);
@@ -1932,6 +2525,8 @@ export async function registerRoutes(
         tagType || null,
         tagId || null,
         tagName || null,
+        result.data.attachments || [],
+        "rich",
       );
       const authorBadges = userId !== "anonymous" ? await storage.getUserBadges(userId) : [];
       res.json(sanitizePost({ ...post, authorBadges, authorName: "" }));
@@ -2001,6 +2596,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Create comment error:", error);
       res.status(500).json({ error: "댓글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  // ===== 내 활동 내역 및 투표 법안 조회 =====
+  app.get("/api/auth/my-activity", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const posts = await db.select().from(communityPosts)
+        .where(eq(communityPosts.userId, userId))
+        .orderBy(desc(communityPosts.createdAt));
+      const comments = await db.select().from(communityComments)
+        .where(eq(communityComments.userId, userId))
+        .orderBy(desc(communityComments.createdAt));
+
+      const votedBillsRaw = await db.select({
+        vote: billOpinionVotes,
+        bill: assemblyBills,
+      })
+      .from(billOpinionVotes)
+      .leftJoin(assemblyBills, eq(billOpinionVotes.billId, assemblyBills.billId))
+      .where(eq(billOpinionVotes.userId, userId))
+      .orderBy(desc(billOpinionVotes.createdAt));
+
+      const votedBills = votedBillsRaw.map(r => ({
+        ...r.vote,
+        billName: r.bill?.billName || "알 수 없는 법안",
+        committee: r.bill?.committee || "",
+        proposer: r.bill?.proposer || "",
+        result: r.bill?.result || "",
+      }));
+
+      res.json({ posts, comments, votedBills });
+    } catch (error) {
+      console.error("my-activity error:", error);
+      res.status(500).json({ error: "내 활동 내역 조회 중 오류가 발생했습니다." });
     }
   });
 
@@ -2128,47 +2758,196 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 법안 AI 설명 생성 =====
-  // 인메모리 캐시 (법안명 → 설명)
+  // ===== 법안 AI 설명 생성 (On-Demand) =====
+  // L1: 인메모리 캐시 (재시작 전까지 빠른 응답)
   const billDescCache = new Map<string, string>();
+  // 동일 법안 중복 Gemini 호출 방지용 in-flight 맵
+  const billDescInFlight = new Map<string, Promise<string>>();
+  // 동시 Gemini 호출 수 제한 (429 방어)
+  let geminiDescActive = 0;
+  const GEMINI_DESC_MAX_CONCURRENT = 3;
 
   app.post("/api/bills/describe", async (req, res) => {
     try {
-      const { billName, committee, proposer } = req.body;
+      const { billId, billName, committee, proposer } = req.body;
       if (!billName) return res.status(400).json({ error: "billName required" });
 
-      const cacheKey = billName;
+      const cacheKey = billId || billName;
+
+      // L1: 인메모리 캐시
       if (billDescCache.has(cacheKey)) {
         return res.json({ description: billDescCache.get(cacheKey) });
+      }
+
+      // L2: DB 영속 캐시 (billId가 있을 때만)
+      if (billId) {
+        const rows = await db
+          .select({ aiDescription: assemblyBills.aiDescription })
+          .from(assemblyBills)
+          .where(eq(assemblyBills.billId, billId))
+          .limit(1);
+        if (rows.length > 0 && rows[0].aiDescription) {
+          billDescCache.set(cacheKey, rows[0].aiDescription);
+          return res.json({ description: rows[0].aiDescription });
+        }
+      }
+
+      // 동일 법안에 대한 in-flight 요청이 있으면 기다렸다가 결과 재사용
+      if (billDescInFlight.has(cacheKey)) {
+        try {
+          const description = await billDescInFlight.get(cacheKey)!;
+          return res.json({ description });
+        } catch {
+          return res.status(503).json({ error: "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", analyzing: false });
+        }
+      }
+
+      // 동시 요청 수 초과 시 "분석 중" 응답 반환 (클라이언트가 재시도)
+      if (geminiDescActive >= GEMINI_DESC_MAX_CONCURRENT) {
+        return res.status(429).json({ error: "분석 요청이 많습니다. 잠시 후 다시 시도해주세요.", analyzing: true });
       }
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(503).json({ error: "AI 서비스 사용 불가" });
 
+      const generatePromise = (async () => {
+        geminiDescActive++;
+        try {
+          const { generateText } = await import("ai");
+          const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
+          const google = createGoogleGenerativeAI({ apiKey });
+
+          const context = [
+            committee ? `소관위원회: ${committee}` : "",
+            proposer ? `발의자: ${proposer}` : "",
+          ].filter(Boolean).join(", ");
+
+          const prompt = `다음 한국 국회 법안의 내용을 시민이 이해할 수 있도록 2~3문장(최대 80자)으로 설명해주세요. 설명만 출력하고 다른 말은 하지 마세요.
+법안명: ${billName}${context ? `\n추가정보: ${context}` : ""}`;
+
+          const { text } = await generateText({
+            model: google("gemini-2.0-flash"),
+            prompt,
+            maxTokens: 200,
+          });
+          return text.trim();
+        } finally {
+          geminiDescActive--;
+        }
+      })();
+
+      billDescInFlight.set(cacheKey, generatePromise);
+
+      try {
+        const description = await generatePromise;
+        billDescCache.set(cacheKey, description);
+
+        // DB에 영속 저장 (백그라운드, billId 있을 때만)
+        if (billId) {
+          db.update(assemblyBills)
+            .set({ aiDescription: description })
+            .where(eq(assemblyBills.billId, billId))
+            .catch((e: any) => console.error("[bills/describe] DB 저장 실패:", e.message));
+        }
+
+        return res.json({ description });
+      } catch (error: any) {
+        const is429 = error?.status === 429 || String(error?.message).includes("429") || String(error?.message).includes("quota");
+        if (is429) {
+          console.warn("[bills/describe] Gemini 429:", error.message);
+          return res.status(429).json({ error: "AI 분석 한도 초과. 잠시 후 다시 시도해주세요.", analyzing: false });
+        }
+        console.error("[bills/describe] error:", error);
+        return res.status(500).json({ error: error.message });
+      } finally {
+        billDescInFlight.delete(cacheKey);
+      }
+    } catch (error: any) {
+      console.error("[bills/describe] unexpected error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== 공약 AI 비교 분석 =====
+  const pledgeCompareCache = new Map<string, object>();
+
+  app.post("/api/candidates/compare-pledges", async (req, res) => {
+    try {
+      const { candidateA, candidateB } = req.body as {
+        candidateA: { name: string; party: string; pledge: string };
+        candidateB: { name: string; party: string; pledge: string };
+      };
+      if (!candidateA?.pledge || !candidateB?.pledge) {
+        return res.status(400).json({ error: "두 후보의 공약이 필요합니다" });
+      }
+
+      const cacheKey = `${candidateA.pledge}||${candidateB.pledge}`;
+      if (pledgeCompareCache.has(cacheKey)) {
+        return res.json(pledgeCompareCache.get(cacheKey));
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        // AI 없을 때 기본 응답
+        return res.json({
+          coreContrast: `${candidateA.name} 후보와 ${candidateB.name} 후보는 서로 다른 방향의 정책을 제시하고 있습니다.`,
+          candidateAHighlights: [candidateA.pledge],
+          candidateBHighlights: [candidateB.pledge],
+          voterGuide: "두 후보의 공약을 꼼꼼히 비교해 본인의 가치관에 맞는 후보를 선택하세요.",
+        });
+      }
+
       const { generateText } = await import("ai");
       const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
       const google = createGoogleGenerativeAI({ apiKey });
 
-      const context = [
-        committee ? `소관위원회: ${committee}` : "",
-        proposer ? `발의자: ${proposer}` : "",
-      ].filter(Boolean).join(", ");
+      const prompt = `당신은 대한민국 지방선거 공약을 분석하는 중립적인 정치 전문가입니다.
+두 후보의 공약을 비교 분석하고 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 절대 출력하지 마세요.
 
-      const prompt = `다음 한국 국회 법안의 내용을 시민이 이해할 수 있도록 2~3문장(최대 80자)으로 설명해주세요. 설명만 출력하고 다른 말은 하지 마세요.
-법안명: ${billName}${context ? `\n추가정보: ${context}` : ""}`;
+[${candidateA.name} / ${candidateA.party}]
+공약: ${candidateA.pledge}
+
+[${candidateB.name} / ${candidateB.party}]
+공약: ${candidateB.pledge}
+
+{
+  "coreContrast": "두 공약의 핵심 차이점을 2-3문장으로 설명 (중립적 시각 유지)",
+  "candidateAHighlights": ["A 공약의 특징 또는 예상 효과 1", "특징 2"],
+  "candidateBHighlights": ["B 공약의 특징 또는 예상 효과 1", "특징 2"],
+  "voterGuide": "시민이 선택 시 고려해야 할 핵심 기준 1-2문장"
+}`;
 
       const { text } = await generateText({
         model: google("gemini-2.0-flash"),
         prompt,
-        maxTokens: 200,
+        maxTokens: 600,
       });
 
-      const description = text.trim();
-      billDescCache.set(cacheKey, description);
-      res.json({ description });
+      let result: object;
+      try {
+        const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        result = JSON.parse(cleaned);
+      } catch {
+        result = {
+          coreContrast: text.trim(),
+          candidateAHighlights: [],
+          candidateBHighlights: [],
+          voterGuide: "",
+        };
+      }
+
+      pledgeCompareCache.set(cacheKey, result);
+      res.json(result);
     } catch (error: any) {
-      console.error("[bills/describe] error:", error);
-      res.status(500).json({ error: error.message });
+      console.error("[compare-pledges] error:", error);
+      // 네트워크 오류 등 일시적 실패 시 기본 응답 반환 (500 대신)
+      const { candidateA, candidateB } = req.body ?? {};
+      res.json({
+        coreContrast: `${candidateA?.name ?? "A후보"}와 ${candidateB?.name ?? "B후보"}는 서로 다른 방향의 정책을 제시하고 있습니다. 두 후보의 공약을 꼼꼼히 비교해보세요.`,
+        candidateAHighlights: candidateA?.pledge ? [candidateA.pledge] : [],
+        candidateBHighlights: candidateB?.pledge ? [candidateB.pledge] : [],
+        voterGuide: "AI 분석 서비스에 일시적으로 접근할 수 없습니다. 잠시 후 다시 시도해주세요.",
+      });
     }
   });
 
@@ -2195,6 +2974,19 @@ export async function registerRoutes(
       completedAt: prefetchProgress.completedAt,
     });
   });
+
+  // 예비후보자 사진 사전 로드 (2초 후 백그라운드)
+  setTimeout(() => {
+    const candidateNames = [
+      "오세훈", "정원오", "박형준", "전재수", "주호영", "김부겸",
+      "유정복", "박찬대", "강기정", "이정현", "이장우", "허태정",
+      "김두겸", "김상욱", "최민호", "이춘희", "추미애", "양향자",
+      "김영환", "노영민", "김태흠", "박수현", "김관영", "정운천",
+      "김영록", "이철우", "오중기", "박완수", "김경수", "오영훈",
+      "허향진", "김진태", "우상호",
+    ];
+    preFetchPhotos(candidateNames).catch(() => {});
+  }, 2000);
 
   // ===== 서버 시작 후 백그라운드 사전 로드 (통과된 모든 법안 표결 캐시 구축) =====
   setTimeout(async () => {
@@ -2242,12 +3034,62 @@ export async function registerRoutes(
     }
   }, 8000);
 
-  // ===== 선거 API =====
-  app.post("/api/admin/sync-nec", requireAdmin, async (_req, res) => {
+  // ===== 여론조사 API =====
+  // 크롤링 실행 (백그라운드)
+  app.post("/api/polls/crawl", syncGuard, async (_req, res) => {
+    res.json({ ok: true, message: "nesdc 여론조사 크롤링 시작" });
+    crawlNesdcPolls()
+      .then(r => console.log(`[polls/crawl] 완료: ${r.saved}건 저장`))
+      .catch(e => console.error("[polls/crawl] 실패:", e.message));
+  });
+
+  // 지역별 최신 여론조사 조회
+  app.get("/api/polls", async (req, res) => {
     try {
-      const { syncElectionCandidates } = await import("./nec-sync");
-      await syncElectionCandidates();
-      res.json({ success: true, message: "선관위 데이터 동기화 완료" });
+      const regionCode = (req.query.regionCode as string) || "";
+      const rows = await getLatestPolls(regionCode);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ===== 선거 API =====
+  app.post("/api/admin/sync-nec", syncGuard, async (_req, res) => {
+    res.json({ success: true, message: "선관위 동기화 백그라운드 시작. 서버 로그에서 진행상황 확인" });
+    import("./nec-sync")
+      .then(m => m.syncElectionCandidates())
+      .then(() => console.log("[sync-nec] 완료"))
+      .catch(e => console.error("[sync-nec] 실패:", e.message));
+  });
+
+  // 선관위 API 테스트 (개발용)
+  app.get("/api/admin/test-nec", syncGuard, async (req, res) => {
+    try {
+      const apiKey = process.env.DATA_GO_KR_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: "DATA_GO_KR_API_KEY 없음" });
+      const sgTypecode = (req.query.type as string) || "3";
+      const axios2 = (await import("axios")).default;
+
+      // 두 가지 엔드포인트 시도
+      const endpoints = [
+        { name: "PofelcNationalCandidateService/getPreCandidateList", base: "http://apis.data.go.kr/9760000/PofelcNationalCandidateService", path: "getPreCandidateList" },
+        { name: "UCandidateInfoInqireService/getPreliminayCandidateList", base: "http://apis.data.go.kr/9760000/UCandidateInfoInqireService", path: "getPreliminayCandidateList" },
+      ];
+
+      const results: any[] = [];
+      for (const ep of endpoints) {
+        try {
+          const r = await axios2.get(`${ep.base}/${ep.path}`, {
+            params: { serviceKey: apiKey, pageNo: "1", numOfRows: "5", sgId: "20260604", sgTypecode, resultType: "json" },
+            timeout: 10000,
+          });
+          results.push({ endpoint: ep.name, status: r.status, data: JSON.stringify(r.data).slice(0, 500) });
+        } catch (e: any) {
+          results.push({ endpoint: ep.name, error: e.message, response: e.response?.data ? JSON.stringify(e.response.data).slice(0, 300) : undefined });
+        }
+      }
+      res.json({ results });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -2277,6 +3119,17 @@ export async function registerRoutes(
       if (!regionCode || !electionType) {
         return res.status(400).json({ error: "regionCode, electionType 필요" });
       }
+      
+      // regionCode가 "11" 같은 코드인 경우 "서울특별시" 등으로 변환 시도
+      const REGION_CODE_MAP: Record<string, string> = {
+        "11": "서울특별시", "26": "부산광역시", "27": "대구광역시", "28": "인천광역시",
+        "29": "광주광역시", "30": "대전광역시", "31": "울산광역시", "36": "세종특별자치시",
+        "41": "경기도", "42": "강원특별자치도", "43": "충청북도", "44": "충청남도",
+        "45": "전라북도", "46": "전라남도", "47": "경상북도", "48": "경상남도", "50": "제주특별자치도"
+      };
+      
+      const mappedRegion = REGION_CODE_MAP[regionCode] || regionCode;
+
       // districtName only required if not mayor
       if (electionType !== "mayor" && !districtName) {
         return res.status(400).json({ error: "districtName 필요" });
@@ -2285,7 +3138,10 @@ export async function registerRoutes(
       const userId = req.session?.userId;
       
       let conditions = [
-        eq(electionCandidates.regionCode, regionCode),
+        or(
+          eq(electionCandidates.regionCode, mappedRegion),
+          eq(electionCandidates.regionCode, regionCode)
+        ),
         eq(electionCandidates.electionType, electionType)
       ];
       
@@ -2296,7 +3152,8 @@ export async function registerRoutes(
       const rows = await db
         .select()
         .from(electionCandidates)
-        .where(and(...conditions));
+        .where(and(...conditions))
+        .limit(200);
 
       const candidateIds = rows.map(r => r.id);
       const supportVotes = candidateIds.length > 0
@@ -2321,6 +3178,7 @@ export async function registerRoutes(
         return {
           ...c,
           pledges,
+          promises: pledges, // 프론트엔드 호환성을 위해 추가
           supportCount: supportVotes.filter(v => v.candidateId === c.id).length,
           myVote: myVoteRow?.candidateId === c.id || false,
         };
@@ -2383,7 +3241,8 @@ export async function registerRoutes(
         .select()
         .from(candidateStatements)
         .where(inArray(candidateStatements.candidateId, candidateIds))
-        .orderBy(desc(candidateStatements.occurredAt));
+        .orderBy(desc(candidateStatements.occurredAt))
+        .limit(200);
 
       const statementIds = rows.map(r => r.id);
       const factChecks = statementIds.length > 0
@@ -2522,6 +3381,244 @@ export async function registerRoutes(
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // ===== 검색 히스토리 =====
+
+  // GET /api/search-history — 최근 검색어 조회 (최대 10개)
+  app.get("/api/search-history", async (req, res) => {
+    try {
+      const userId = (req.session as any)?.userId ?? null;
+      const sessionId = req.sessionID || (req.ip ?? "anon");
+
+      let rows;
+      if (userId) {
+        rows = await db.select()
+          .from(searchHistory)
+          .where(eq(searchHistory.userId, userId))
+          .orderBy(desc(searchHistory.createdAt))
+          .limit(10);
+      } else {
+        rows = await db.select()
+          .from(searchHistory)
+          .where(eq(searchHistory.sessionId, sessionId))
+          .orderBy(desc(searchHistory.createdAt))
+          .limit(10);
+      }
+
+      // 중복 제거 (같은 query는 최신 1개만)
+      const seen = new Set<string>();
+      const unique = rows.filter(r => {
+        if (seen.has(r.query)) return false;
+        seen.add(r.query);
+        return true;
+      });
+
+      res.json(unique.map(r => ({ id: r.id, query: r.query, createdAt: r.createdAt })));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/search-history — 검색어 저장
+  app.post("/api/search-history", async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query || typeof query !== "string" || query.trim().length === 0) {
+        return res.status(400).json({ error: "검색어를 입력해주세요" });
+      }
+      const trimmed = query.trim().slice(0, 100);
+      const userId = (req.session as any)?.userId ?? null;
+      const sessionId = req.sessionID || (req.ip ?? "anon");
+
+      await db.insert(searchHistory).values({
+        userId,
+        sessionId,
+        query: trimmed,
+      });
+
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // DELETE /api/search-history — 전체 삭제
+  app.delete("/api/search-history", async (req, res) => {
+    try {
+      const userId = (req.session as any)?.userId ?? null;
+      const sessionId = req.sessionID || (req.ip ?? "anon");
+
+      if (userId) {
+        await db.delete(searchHistory).where(eq(searchHistory.userId, userId));
+      } else {
+        await db.delete(searchHistory).where(eq(searchHistory.sessionId, sessionId));
+      }
+
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // DELETE /api/search-history/:id — 개별 삭제
+  app.delete("/api/search-history/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ error: "잘못된 ID" });
+      await db.delete(searchHistory).where(eq(searchHistory.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ===== 선거 후보자 실시간 지지율 =====
+
+  // GET /api/election/support-rates/:regionCode — 지역별 후보자 지지율 집계
+  app.get("/api/election/support-rates/:regionCode", async (req, res) => {
+    try {
+      const { regionCode } = req.params;
+
+      // 해당 지역 후보자 목록
+      const candidates = await db.select()
+        .from(electionCandidates)
+        .where(eq(electionCandidates.regionCode, regionCode));
+
+      if (candidates.length === 0) {
+        return res.json({ rates: [], total: 0 });
+      }
+
+      const candidateIds = candidates.map(c => c.id);
+
+      // 후보자별 지지 투표 수 집계
+      const voteCounts = await db.select({
+        candidateId: candidateSupportVotes.candidateId,
+        count: count(),
+      })
+        .from(candidateSupportVotes)
+        .where(inArray(candidateSupportVotes.candidateId, candidateIds))
+        .groupBy(candidateSupportVotes.candidateId);
+
+      const countMap: Record<string, number> = {};
+      for (const row of voteCounts) {
+        countMap[row.candidateId] = Number(row.count);
+      }
+
+      const total = Object.values(countMap).reduce((a, b) => a + b, 0);
+
+      const rates = candidates.map(c => ({
+        candidateId: c.id,
+        name: c.name,
+        party: c.party,
+        voteCount: countMap[c.id] ?? 0,
+        rate: total > 0 ? Math.round(((countMap[c.id] ?? 0) / total) * 1000) / 10 : 0,
+      }));
+
+      // 지지율 높은 순 정렬
+      rates.sort((a, b) => b.voteCount - a.voteCount);
+
+      res.json({ rates, total });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/election/support-votes — 지지 투표 (1인 1표, 같은 선거구 기준)
+  app.post("/api/election/support-votes", async (req, res) => {
+    try {
+      const { candidateId } = req.body;
+      if (!candidateId) return res.status(400).json({ error: "후보자 ID가 필요합니다" });
+
+      const userId = (req.session as any)?.userId;
+      if (!userId) return res.status(401).json({ error: "로그인이 필요합니다" });
+
+      // 후보자 정보 조회
+      const [candidate] = await db.select()
+        .from(electionCandidates)
+        .where(eq(electionCandidates.id, candidateId))
+        .limit(1);
+
+      if (!candidate) return res.status(404).json({ error: "후보자를 찾을 수 없습니다" });
+
+      // 이미 해당 선거구에 투표했는지 확인 (districtName 기준)
+      const existing = await db.select()
+        .from(candidateSupportVotes)
+        .where(
+          and(
+            eq(candidateSupportVotes.userId, userId),
+            eq(candidateSupportVotes.districtName, candidate.districtName),
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        if (existing[0].candidateId === candidateId) {
+          // 같은 후보 → 취소
+          await db.delete(candidateSupportVotes).where(eq(candidateSupportVotes.id, existing[0].id));
+          return res.json({ success: true, action: "cancelled" });
+        } else {
+          // 다른 후보 → 변경
+          await db.update(candidateSupportVotes)
+            .set({ candidateId })
+            .where(eq(candidateSupportVotes.id, existing[0].id));
+          return res.json({ success: true, action: "changed" });
+        }
+      }
+
+      await db.insert(candidateSupportVotes).values({
+        candidateId,
+        userId,
+        districtName: candidate.districtName,
+      });
+
+      res.json({ success: true, action: "voted" });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ===== 정치인 사진 배치 URL 조회 =====
+  // GET /api/politician-photos/batch?names=홍준표,이재명,... → Wikipedia URL 맵 반환 (이미지 프록시 없음)
+  app.get("/api/politician-photos/batch", async (req, res) => {
+    const raw = req.query.names;
+    if (!raw || typeof raw !== "string") return res.json({});
+    const names = raw.split(",").map((n) => n.trim()).filter(Boolean).slice(0, 100);
+    if (!names.length) return res.json({});
+    const urls = await getBatchPhotoUrls(names);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.json(urls);
+  });
+
+  // 국회의원 공식 사진 직접 프록시 (캐시 1일)
+  app.get("/api/photo/assembly/:monaCd", async (req, res) => {
+    const { monaCd } = req.params;
+    if (!/^[A-Z0-9a-z]+$/.test(monaCd)) return res.status(400).end();
+    const url = `https://www.assembly.go.kr/static/portal/img/open_assm/${monaCd}.jpg`;
+    const result = await proxyImage(url);
+    if (!result) return res.status(404).end();
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(result.data);
+  });
+
+  // ===== 정치인 사진 프록시 =====
+  // GET /api/politician-photo?name=홍준표&monaCd=1234567 → 사진을 서버에서 프록시해 제공
+  app.get("/api/politician-photo", async (req, res) => {
+    const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
+    const monaCd = typeof req.query.monaCd === "string" ? req.query.monaCd.trim() : undefined;
+    
+    if (!name && !monaCd) return res.status(400).end();
+
+    const photoUrl = await getPoliticianPhotoUrl(name, monaCd);
+    if (!photoUrl) return res.status(404).end();
+
+    const result = await proxyImage(photoUrl);
+    if (!result) return res.status(502).end();
+
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.send(result.data);
   });
 
   return httpServer;

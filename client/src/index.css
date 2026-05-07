@@ -8,48 +8,63 @@
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
-  --background: 228 33% 98%;
-  --foreground: 230 20% 15%;
-  --border: 228 20% 90%;
+  
+  /* Lyu Unified System Light Colors */
+  --background: 240 100% 99%; /* #f9f9ff */
+  --foreground: 217 30% 12%; /* #151c27 */
   --card: 0 0% 100%;
-  --card-foreground: 228 20% 15%;
-  --card-border: 228 20% 93%;
-  --sidebar: 228 33% 98%;
-  --sidebar-foreground: 230 20% 15%;
-  --sidebar-border: 228 20% 92%;
-  --sidebar-primary: 270 85% 55%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 270 20% 94%;
-  --sidebar-accent-foreground: 230 20% 15%;
-  --sidebar-ring: 270 85% 55%;
+  --card-foreground: 217 30% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 230 20% 15%;
-  --popover-border: 228 20% 92%;
-  --primary: 270 89% 56%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 270 30% 95%;
-  --secondary-foreground: 230 20% 25%;
-  --muted: 270 15% 94%;
-  --muted-foreground: 270 10% 45%;
-  --accent: 270 25% 90%;
-  --accent-foreground: 230 20% 15%;
-  --destructive: 348 90% 55%;
+  --popover-foreground: 217 30% 12%;
+  
+  --primary: 263 70% 50%; /* #6D28D9 */
+  --primary-foreground: 0 0% 100%; /* #ffffff */
+  
+  --secondary: 27 96% 61%; /* #FB923C */
+  --secondary-foreground: 0 0% 100%; /* #ffffff */
+  
+  --muted: 226 100% 95%; /* #e7eefe (surface-container) */
+  --muted-foreground: 261 11% 30%; /* #4a4455 (on-surface-variant) */
+  
+  --accent: 25 97% 62%; /* #fd933d (secondary-container) */
+  --accent-foreground: 29 100% 21%; /* #693300 (on-secondary-container) */
+  
+  --destructive: 0 75% 42%; /* #ba1a1a */
   --destructive-foreground: 0 0% 100%;
-  --input: 270 15% 85%;
-  --ring: 270 89% 56%;
-  --chart-1: 270 89% 56%;
-  --chart-2: 154 60% 52%;
-  --chart-3: 310 75% 62%;
-  --chart-4: 38 92% 56%;
-  --chart-5: 338 80% 58%;
-  --font-sans: 'Pretendard Variable', Pretendard, 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  --border: 264 6% 50%; /* #7b7486 (outline) */
+  --input: 267 17% 80%; /* #ccc3d7 (outline-variant) */
+  --ring: 263 70% 50%;
+  
+  /* Additional Lyu System Tokens */
+  --surface-tint: 263 76% 53%; /* #7331df */
+  --surface-dim: 222 36% 87%; /* #d3daea */
+  
+  --sidebar: 240 100% 99%;
+  --sidebar-foreground: 217 30% 12%;
+  --sidebar-border: 264 6% 50%;
+  --sidebar-primary: 263 70% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 226 100% 95%;
+  --sidebar-accent-foreground: 217 30% 12%;
+  --sidebar-ring: 263 70% 50%;
+
+  --chart-1: 263 70% 50%; /* primary */
+  --chart-2: 27 96% 61%; /* accent/coral */
+  --chart-3: 322 84% 27%; /* tertiary */
+  --chart-4: 0 75% 42%; /* error */
+  --chart-5: 226 100% 95%;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-serif: 'Noto Serif KR', Georgia, serif;
   --font-mono: 'JetBrains Mono', Menlo, monospace;
-  --radius: 1rem;
+  
+  --radius: 1rem; /* 16px radius for global system */
+  
   --shadow-2xs: 0px 2px 0px 0px hsl(230 15% 15% / 0.02);
   --shadow-xs: 0px 4px 6px -1px hsl(230 15% 15% / 0.04);
-  --shadow-sm: 0 2px 8px -2px hsl(230 15% 15% / 0.06), 0 1px 3px -1px hsl(230 15% 15% / 0.04);
-  --shadow: 0 4px 12px -3px hsl(230 15% 15% / 0.08), 0 2px 6px -2px hsl(230 15% 15% / 0.06);
+  --shadow-sm: 0 2px 8px -2px hsl(230 15% 15% / 0.05), 0 1px 3px -1px hsl(230 15% 15% / 0.03);
+  --shadow: 0 4px 12px 0px hsl(0 0% 0% / 0.05); /* Soft, diffused shadow per design guidelines */
   --shadow-md: 0 10px 20px -5px hsl(230 15% 15% / 0.1), 0 4px 8px -4px hsl(230 15% 15% / 0.1);
   --shadow-lg: 0 20px 30px -8px hsl(230 15% 15% / 0.12), 0 8px 12px -6px hsl(230 15% 15% / 0.1);
   --shadow-xl: 0 30px 40px -10px hsl(230 15% 15% / 0.15), 0 12px 16px -8px hsl(230 15% 15% / 0.1);
@@ -57,33 +72,14 @@
   --tracking-normal: -0.015em;
   --spacing: 0.25rem;
 
-/* Fallback for older browsers */
+  /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 .dark {
@@ -92,40 +88,49 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 0 0% 0%;
-  --foreground: 0 0% 100%;
-  --border: 0 0% 12%;
-  --card: 0 0% 4%;
-  --card-foreground: 0 0% 100%;
-  --card-border: 0 0% 10%;
-  --sidebar: 0 0% 2%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 0 0% 10%;
-  --sidebar-primary: 270 91% 45%;
-  --sidebar-primary-foreground: 270 91% 98%;
-  --sidebar-accent: 270 8% 14%;
-  --sidebar-accent-foreground: 270 8% 98%;
-  --sidebar-ring: 270 91% 45%;
-  --popover: 0 0% 4%;
-  --popover-foreground: 0 0% 100%;
-  --popover-border: 0 0% 12%;
-  --primary: 270 91% 65%;
-  --primary-foreground: 270 91% 98%;
-  --secondary: 270 6% 20%;
-  --secondary-foreground: 270 6% 92%;
-  --muted: 270 5% 18%;
-  --muted-foreground: 270 5% 70%;
-  --accent: 270 8% 16%;
-  --accent-foreground: 270 8% 92%;
-  --destructive: 0 84% 42%;
-  --destructive-foreground: 0 84% 98%;
-  --input: 0 0% 28%;
-  --ring: 270 91% 45%;
-  --chart-1: 270 91% 65%;
-  --chart-2: 142 76% 58%;
-  --chart-3: 310 83% 70%;
-  --chart-4: 32 95% 64%;
-  --chart-5: 340 82% 68%;
+
+  /* Lyu Unified System Dark Colors */
+  --background: 217 30% 12%; /* #151c27 */
+  --foreground: 240 100% 99%; /* #f9f9ff */
+  --card: 216 18% 20%; /* #2a313d (inverse-surface) */
+  --card-foreground: 240 100% 99%;
+  --popover: 216 18% 20%;
+  --popover-foreground: 240 100% 99%;
+
+  --primary: 261 100% 86%; /* #d3bbff (inverse-primary) */
+  --primary-foreground: 265 100% 17%; /* #250059 (on-primary-fixed) */
+
+  --secondary: 25 100% 72%; /* #ffb783 (secondary-fixed-dim) */
+  --secondary-foreground: 25 100% 9%; /* #301400 (on-secondary-fixed) */
+
+  --muted: 226 22% 84%; /* #dce2f3 (surface-variant) */
+  --muted-foreground: 224 100% 96%; /* #ebf1ff (inverse-on-surface) */
+
+  --accent: 25 100% 88%; /* #ffdcc5 (secondary-fixed) */
+  --accent-foreground: 26 100% 22%; /* #713700 (on-secondary-fixed-variant) */
+
+  --destructive: 3 100% 88%; /* #ffdad6 (error-container) */
+  --destructive-foreground: 356 100% 29%; /* #93000a (on-error-container) */
+
+  --border: 267 17% 80%; /* #ccc3d7 (outline-variant) */
+  --input: 264 6% 50%; /* #7b7486 (outline) */
+  --ring: 261 100% 86%;
+
+  --sidebar: 216 18% 20%;
+  --sidebar-foreground: 240 100% 99%;
+  --sidebar-border: 267 17% 80%;
+  --sidebar-primary: 261 100% 86%;
+  --sidebar-primary-foreground: 265 100% 17%;
+  --sidebar-accent: 226 22% 84%;
+  --sidebar-accent-foreground: 240 100% 99%;
+  --sidebar-ring: 261 100% 86%;
+
+  --chart-1: 261 100% 86%;
+  --chart-2: 25 100% 72%;
+  --chart-3: 333 100% 85%;
+  --chart-4: 3 100% 88%;
+  --chart-5: 226 22% 84%;
+
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
@@ -135,33 +140,14 @@
   --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 8px 10px -1px hsl(0 0% 0% / 0.00);
   --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
 
-/* Fallback for older browsers */
+  /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 @layer base {
@@ -283,5 +269,13 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
