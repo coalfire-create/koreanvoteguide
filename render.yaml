@@ -29,9 +29,7 @@ services:
 
       # ===== DB (아래 databases 블록과 자동 연결) =====
       - key: DATABASE_URL
-        fromDatabase:
-          name: iyu-db
-          property: connectionString
+        sync: false                # Supabase 연결 문자열 직접 입력 (postgresql://...)
 
       # ===== 세션·암호 — Render가 자동 생성 =====
       - key: SESSION_SECRET
@@ -70,10 +68,4 @@ services:
       - key: ENABLE_DEV_TESTER
         value: "0"                 # mock 계정 비활성화. prod에서 절대 "1"로 두지 말 것
 
-databases:
-  - name: iyu-db
-    databaseName: iyu              # PG 내 database 이름
-    user: iyu
-    region: singapore              # web 서비스와 동일 region 필수 (latency)
-    plan: basic-256mb              # free는 90일 후 자동 삭제됨 — prod 부적합
-    postgresMajorVersion: 16
+
