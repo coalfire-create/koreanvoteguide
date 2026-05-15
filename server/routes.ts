@@ -20,6 +20,7 @@ import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
 import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
 import { callLLMText, callLLMJson, callLLMJsonOrFallback, LLMConfigError, LLMTransientError, LLMParseError } from "./utils/llm-wrapper";
+import { fetchRecentNews, type RecentNewsItem } from "./utils/news";
 import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
 import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
 import {
@@ -215,6 +216,44 @@ function groupNewsByTopic(items: NewsItem[]): NewsGroup[] {
   return groups.slice(0, 20);
 }
 
+async function fetchNaverNews(query: string): Promise<NewsItem[]> {
+  const clientId = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    console.log("[news] Naver API 키가 설정되지 않아 건너뜁니다.");
+    return [];
+  }
+
+  try {
+    const res = await axios.get("https://openapi.naver.com/v1/search/news.json", {
+      params: {
+        query,
+        display: 100,
+        sort: "date",
+      },
+      headers: {
+        "X-Naver-Client-Id": clientId,
+        "X-Naver-Client-Secret": clientSecret,
+      },
+      timeout: 5000,
+    });
+
+    const items = res.data?.items || [];
+    return items.map((item: any) => ({
+      title: item.title.replace(/<[^>]*>?/gm, "").replace(/&quot;/g, '"'),
+      link: item.originallink || item.link,
+      pubDate: new Date(item.pubDate).toISOString(),
+      source: "네이버뉴스",
+      sourceCode: "naver",
+      thumbnail: "", // 네이버 검색 API는 썸네일을 제공하지 않음
+    }));
+  } catch (err: any) {
+    console.error("[news] Naver API 오류:", err.message);
+    return [];
+  }
+}
+
 async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: NewsGroup[] }> {
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -264,6 +303,13 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
       }
     })
   );
+
+  // 네이버 뉴스 검색 통합
+  const naverNews = await fetchNaverNews("정치");
+  if (naverNews.length > 0) {
+    allItems.push(...naverNews);
+    console.log(`[news] 네이버뉴스: ${naverNews.length}건 수신`);
+  }
 
   // 최신순 정렬
   allItems.sort((a, b) => new Date(b.pubDate || 0).getTime() - new Date(a.pubDate || 0).getTime());
