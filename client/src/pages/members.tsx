@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { StoryFeed } from "@/components/StoryFeed";
 
 interface NewsItem {
   title: string;
@@ -53,6 +54,7 @@ export default function Members() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const { user } = useAuth();
   const { members, isLoading } = useAssemblyMembers();
+  const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
     if (user?.favorites) {
@@ -63,6 +65,10 @@ export default function Members() {
       setFollowedMembers(followMap);
     }
   }, [user?.favorites]);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [searchQuery, selectedParty]);
 
   const handleSearchClick = () => {};
 
@@ -116,6 +122,8 @@ export default function Members() {
     district: string;
     photo: string;
     recentBill: string;
+    recentBillDescription: string | null;
+    recentBillCommittee: string;
     billId: string;
     proposeDate: string;
   }[]>({
@@ -130,7 +138,7 @@ export default function Members() {
   });
   const newsItems = (memberNews?.items ?? []).slice(0, 6);
 
-  const visibleMembers = filtered.slice(0, 12);
+  const visibleMembers = filtered.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] font-sans text-slate-900 overflow-x-hidden">
@@ -139,11 +147,11 @@ export default function Members() {
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
             <Search 
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6320EE] transition-colors cursor-pointer" 
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6D28D9] transition-colors cursor-pointer" 
               onClick={handleSearchClick}
             />
             <input
-              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6320EE]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6D28D9]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
               placeholder="국회의원 이름으로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -176,13 +184,18 @@ export default function Members() {
               </p>
             </section>
 
+            {/* Story-style 팔로우 피드 */}
+            <div className="bg-white rounded-[2rem] border border-gray-100 py-2 -mx-4 sm:mx-0">
+              <StoryFeed />
+            </div>
+
             {/* List Section */}
             <section className="space-y-8">
-              <div className="flex items-center gap-6 border-b border-gray-100">
-                {["추천", "내 지역구", "주목받는", "신규 의원"].map((tab) => (
+              <div className="flex items-center gap-6 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+                {["추천"].map((tab) => (
                   <button
                     key={tab}
-                    className={`pb-4 text-[14px] font-bold transition-all relative ${
+                    className={`whitespace-nowrap shrink-0 pb-4 text-[14px] font-bold transition-all relative ${
                       tab === "추천" ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
                     }`}
                   >
@@ -202,35 +215,48 @@ export default function Members() {
                     const isFollowed = followedMembers[member.id];
 
                     return (
-                      <div key={member.id} className="bg-white rounded-[24px] border border-gray-100 p-8 flex flex-col items-center transition-all hover:shadow-lg group">
-                        <Link href={`/members/${member.id}`} className="w-28 h-28 rounded-full overflow-hidden mb-6 relative shadow-md hover:scale-105 transition-transform">
+                      <div 
+                        key={member.id} 
+                        className="bg-white rounded-[2rem] border border-gray-100 p-8 flex flex-col items-center transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 group relative overflow-hidden"
+                      >
+                        {/* Glassy Background Effect */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/30 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-indigo-100/40 transition-colors" />
+                        
+                        <Link href={`/members/${member.id}`} className="w-32 h-32 rounded-full overflow-hidden mb-8 relative shadow-xl border-4 border-white group-hover:scale-105 transition-transform duration-500 z-10">
                           <PoliticianPhoto
                             name={member.name}
                             photo={member.photo}
                             monaCd={member.id}
                             className="w-full h-full object-cover"
-                            avatarClassName="text-[32px] font-black bg-gray-100 text-gray-400"
+                            avatarClassName="text-[32px] font-black bg-gray-50 text-gray-200"
                           />
                         </Link>
                         
-                        <div className="text-center space-y-1 mb-6">
-                          <h3 className="text-[18px] font-black text-gray-900">{member.name}</h3>
-                          <p className="text-[12px] font-bold text-gray-400">{member.party} · {member.district}</p>
+                        <div className="text-center space-y-2 mb-8 relative z-10">
+                          <h3 className="text-[20px] font-black text-gray-900 group-hover:text-[#6D28D9] transition-colors">{member.name}</h3>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-[11px] font-black px-2 py-0.5 bg-gray-50 text-gray-500 rounded-md uppercase tracking-wider">{member.party}</span>
+                            <span className="w-1 h-1 rounded-full bg-gray-200" />
+                            <span className="text-[12px] font-bold text-gray-400">{member.district}</span>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-4 mb-8 text-[11px] font-bold text-gray-400">
+                        <div className="flex items-center gap-6 mb-8 text-[11px] font-bold text-gray-400 relative z-10 bg-gray-50/50 px-4 py-2 rounded-2xl">
                           <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-indigo-400" />
                             <span className="text-gray-900">{(Math.random() * 30).toFixed(1)}k</span>
-                            <span>팔로워</span>
+                            <span className="opacity-60">팔로워</span>
                           </div>
-                          <div className="w-1 h-1 rounded-full bg-gray-200" />
+                          <div className="w-px h-3 bg-gray-200" />
                           <div className="flex items-center gap-1.5">
-                            <span>국토교통</span>
+                            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-gray-900">활동적</span>
                           </div>
                         </div>
 
                         <button 
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.preventDefault();
                             if (!user) {
                               setShowLoginPrompt(true);
                               return;
@@ -255,13 +281,13 @@ export default function Members() {
                               console.error("Follow error:", e);
                             }
                           }}
-                          className={`w-full py-3.5 rounded-xl text-[14px] font-black transition-all ${
+                          className={`w-full py-4 rounded-[1.25rem] text-[14px] font-black transition-all relative z-10 ${
                             followedMembers[member.id] 
-                            ? 'bg-gray-100 text-gray-500' 
-                            : 'bg-[#6320EE] text-white hover:bg-[#5218D0] shadow-md shadow-[#6320EE]/10'
+                            ? 'bg-gray-100 text-gray-400 border border-gray-200' 
+                            : 'bg-[#6D28D9] text-white hover:bg-[#5B21B6] shadow-lg shadow-indigo-500/20 active:scale-95'
                           }`}
                         >
-                          {followedMembers[member.id] ? '팔로우 중' : '팔로우'}
+                          {followedMembers[member.id] ? '팔로우 중' : '팔로우 시작하기'}
                         </button>
                       </div>
                     );
@@ -269,14 +295,17 @@ export default function Members() {
                 ) : (
                   <div className="col-span-full py-20 text-center space-y-4">
                     <p className="text-slate-400 font-medium text-lg">해당 조건에 맞는 의원이 없습니다.</p>
-                    <button onClick={() => {setSelectedParty("전체"); setSearchQuery("");}} className="text-[#6320EE] font-bold hover:underline">필터 초기화</button>
+                    <button onClick={() => {setSelectedParty("전체"); setSearchQuery("");}} className="text-[#6D28D9] font-bold hover:underline">필터 초기화</button>
                   </div>
                 )}
               </div>
               
-              {filtered.length > 12 && (
+              {filtered.length > visibleCount && (
                 <div className="flex justify-center pt-8">
-                  <button className="px-10 py-3.5 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[14px] font-bold hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 group">
+                  <button 
+                    onClick={() => setVisibleCount(prev => prev + 12)}
+                    className="px-10 py-3.5 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[14px] font-bold hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 group"
+                  >
                     더 많은 의원 보기
                     <ChevronDown className="w-5 h-5 text-slate-400 group-hover:translate-y-1 transition-transform" />
                   </button>
@@ -298,7 +327,7 @@ export default function Members() {
                   <h3 className="font-bold text-gray-900 text-[15px]">국회의원 뉴스</h3>
                 </div>
                 <Link href="/news">
-                  <span className="text-[11px] font-bold text-gray-400 hover:text-[#6320EE] transition-colors cursor-pointer">더보기</span>
+                  <span className="text-[11px] font-bold text-gray-400 hover:text-[#6D28D9] transition-colors cursor-pointer">더보기</span>
                 </Link>
               </div>
 
@@ -338,7 +367,7 @@ export default function Members() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0 space-y-1">
-                        <p className="text-[13px] font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#6320EE] transition-colors">
+                        <p className="text-[13px] font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#6D28D9] transition-colors">
                           {item.title}
                         </p>
                         <div className="flex items-center gap-1.5">
@@ -351,7 +380,7 @@ export default function Members() {
                           </span>
                         </div>
                       </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-200 group-hover:text-[#6320EE] transition-colors flex-shrink-0 mt-0.5" />
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-200 group-hover:text-[#6D28D9] transition-colors flex-shrink-0 mt-0.5" />
                     </a>
                   ))}
                 </div>
@@ -436,32 +465,30 @@ export default function Members() {
                         {/* 정보 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[13px] font-bold text-gray-900 group-hover:text-[#6320EE] transition-colors">
+                            <span className="text-[13px] font-bold text-gray-900 group-hover:text-[#6D28D9] transition-colors">
                               {member.name}
                             </span>
                             <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full ${partyColor}`}>
                               {member.party?.replace("더불어민주당", "민주당").replace("국민의힘", "국힘").replace("조국혁신당", "조혁당")}
                             </span>
                           </div>
-                          <p className="text-[10px] text-gray-500 truncate">{member.reason}</p>
                           
                           <div className="flex items-center gap-2 mt-1">
-                            {member.mentionCount > 0 && (
+                            {member.primaryKeyword && (
+                              <span className="text-[10px] font-medium text-slate-500 truncate max-w-[140px]">
+                                {member.primaryKeyword}
+                              </span>
+                            )}
+                            {(member.recentNewsCount ?? member.mentionCount ?? 0) > 0 && (
                               <div className="flex items-center gap-0.5 text-blue-500 text-[9px] font-bold">
                                 <Newspaper className="w-2.5 h-2.5" />
-                                {member.mentionCount}
-                              </div>
-                            )}
-                            {member.recentBills > 0 && (
-                              <div className="flex items-center gap-0.5 text-green-600 text-[9px] font-bold">
-                                <FileText className="w-2.5 h-2.5" />
-                                {member.recentBills}
+                                {member.recentNewsCount ?? member.mentionCount}
                               </div>
                             )}
                           </div>
                         </div>
                         
-                        <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-[#6320EE] transition-colors self-center" />
+                        <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-[#6D28D9] transition-colors self-center" />
                       </Link>
                     );
                   })}
@@ -479,11 +506,8 @@ export default function Members() {
               {/* 범례 */}
               {!isTrendingLoading && trendingMembers.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between text-[9px] text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1"><Newspaper className="w-2.5 h-2.5 text-blue-300" /> 뉴스</span>
-                    <span className="flex items-center gap-1"><FileText className="w-2.5 h-2.5 text-green-300" /> 의정</span>
-                  </div>
-                  <span>30분 간격</span>
+                  <span>팔로워·조회·뉴스 가중치 합산</span>
+                  <span>실시간 DB 랭킹</span>
                 </div>
               )}
             </div>
@@ -494,8 +518,8 @@ export default function Members() {
                   <h2 className="text-lg font-extrabold text-slate-900">최근 활동 의원</h2>
                   <p className="text-[12px] font-medium text-slate-400">최근 법안을 대표발의한 의원</p>
                 </div>
-                <div className="p-2.5 bg-[#6320EE]/10 rounded-2xl">
-                   <Zap className="w-5 h-5 text-[#6320EE] fill-[#6320EE]" />
+                <div className="p-2.5 bg-[#6D28D9]/10 rounded-2xl">
+                   <Zap className="w-5 h-5 text-[#6D28D9] fill-[#6D28D9]" />
                 </div>
               </div>
               
@@ -505,8 +529,8 @@ export default function Members() {
                     <Link key={member.id} href={`/members/${member.id}`} className="block group">
                       <div className={`relative overflow-hidden rounded-[32px] p-6 transition-all duration-500 border ${
                         idx === 0 
-                        ? "bg-gradient-to-br from-[#6320EE] to-[#4F1AB8] border-transparent text-white shadow-xl shadow-[#6320EE]/20 hover:scale-[1.02]" 
-                        : "bg-white border-slate-100 text-slate-900 hover:border-[#6320EE]/30 hover:shadow-lg hover:-translate-y-1"
+                        ? "bg-gradient-to-br from-[#6D28D9] to-[#4F1AB8] border-transparent text-white shadow-xl shadow-[#6D28D9]/20 hover:scale-[1.02]" 
+                        : "bg-white border-slate-100 text-slate-900 hover:border-[#6D28D9]/30 hover:shadow-lg hover:-translate-y-1"
                       }`}>
                         {idx === 0 && (
                           <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
@@ -522,9 +546,9 @@ export default function Members() {
                               />
                             </div>
                           <div className="min-w-0 flex-1">
-                            <h4 className={`text-[17px] font-black tracking-tight ${idx === 0 ? "text-white" : "text-slate-900 group-hover:text-[#6320EE]"}`}>{member.name} 의원</h4>
+                            <h4 className={`text-[17px] font-black tracking-tight ${idx === 0 ? "text-white" : "text-slate-900 group-hover:text-[#6D28D9]"}`}>{member.name} 의원</h4>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${idx === 0 ? "bg-white/20 text-white" : "bg-[#6320EE]/10 text-[#6320EE]"}`}>
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${idx === 0 ? "bg-white/20 text-white" : "bg-[#6D28D9]/10 text-[#6D28D9]"}`}>
                                 {member.party}
                               </span>
                               <span className={`text-[11px] font-bold opacity-60 ${idx === 0 ? "text-white" : "text-slate-400"}`}>
@@ -537,12 +561,27 @@ export default function Members() {
                         <div className={`rounded-2xl p-4 border relative z-10 ${
                           idx === 0 ? "bg-white/10 border-white/10 backdrop-blur-md" : "bg-slate-50 border-slate-100/50"
                         }`}>
-                          <div className="flex items-center gap-2 mb-2 opacity-70">
+                          <div className="flex items-center gap-2 mb-2 opacity-80 flex-wrap">
                              <Star className={`w-3 h-3 ${idx === 0 ? "fill-amber-300 text-amber-300" : "fill-amber-500 text-amber-500"}`} />
-                             <p className={`text-[10px] font-bold uppercase tracking-widest ${idx === 0 ? "text-white" : "text-slate-400"}`}>Representative Proposer</p>
+                             <p className={`text-[10px] font-bold uppercase tracking-widest ${idx === 0 ? "text-white" : "text-slate-400"}`}>대표발의 법안</p>
+                             {member.recentBillCommittee && (
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                 idx === 0 ? "bg-white/15 text-white" : "bg-white text-slate-500 border border-slate-100"
+                               }`}>
+                                 {member.recentBillCommittee}
+                               </span>
+                             )}
                           </div>
-                          <p className={`text-[13px] font-bold leading-relaxed line-clamp-2 ${idx === 0 ? "text-white" : "text-slate-600"}`}>
+                          <p className={`text-[13px] font-bold leading-snug line-clamp-2 ${idx === 0 ? "text-white" : "text-slate-800"}`}>
                             {member.recentBill}
+                          </p>
+                          {/* AI 풀이 — null/공란이면 안내 문구로 폴백 */}
+                          <p className={`mt-2 text-[12px] leading-relaxed line-clamp-3 ${
+                            idx === 0 ? "text-white/80" : "text-slate-500"
+                          }`}>
+                            {member.recentBillDescription
+                              ? member.recentBillDescription
+                              : "AI 요약이 아직 준비되지 않은 법안입니다. 의원실 페이지에서 본문을 확인하세요."}
                           </p>
                         </div>
                       </div>

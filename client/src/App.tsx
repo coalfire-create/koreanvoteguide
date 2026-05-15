@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { queryClient } from "./lib/queryClient";
@@ -11,59 +11,72 @@ import { SideNav } from "@/components/side-nav";
 import { SplashScreen } from "@/components/splash-screen";
 import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
-import ElectionHome from "@/pages/election-home";
-import Members from "@/pages/members";
-import MemberDetail from "@/pages/member-detail";
-import Candidates from "@/pages/candidates";
-import BillSearch from "@/pages/bill-search";
-import Evaluation from "@/pages/evaluation";
-import Community from "@/pages/community";
-import CommunityDetail from "@/pages/community-detail";
-import CommunityWrite from "@/pages/community-write";
-import CommunityBookmarks from "@/pages/community-bookmarks";
-import AuthPage from "@/pages/auth";
-import More from "@/pages/more";
-import NewsPage from "@/pages/news";
-import Onboarding from "@/pages/onboarding";
-import CitySelect from "@/pages/city-select";
-import BillVote from "@/pages/bill-vote";
-import CandidateDetail from "@/pages/candidate-detail";
+
+// 라우트별 lazy import — 초기 번들 크기 감소 (각 페이지가 별도 chunk로 분리됨)
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Home = lazy(() => import("@/pages/home"));
+const ElectionHome = lazy(() => import("@/pages/election-home"));
+const Members = lazy(() => import("@/pages/members"));
+const MemberDetail = lazy(() => import("@/pages/member-detail"));
+const Candidates = lazy(() => import("@/pages/candidates"));
+const BillSearch = lazy(() => import("@/pages/bill-search"));
+const Evaluation = lazy(() => import("@/pages/evaluation"));
+const Community = lazy(() => import("@/pages/community"));
+const CommunityDetail = lazy(() => import("@/pages/community-detail"));
+const CommunityWrite = lazy(() => import("@/pages/community-write"));
+const CommunityBookmarks = lazy(() => import("@/pages/community-bookmarks"));
+const AuthPage = lazy(() => import("@/pages/auth"));
+const More = lazy(() => import("@/pages/more"));
+const NewsPage = lazy(() => import("@/pages/news"));
+const Onboarding = lazy(() => import("@/pages/onboarding"));
+const CitySelect = lazy(() => import("@/pages/city-select"));
+const BillVote = lazy(() => import("@/pages/bill-vote"));
+const CandidateDetail = lazy(() => import("@/pages/candidate-detail"));
+
+function RouteSpinner() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="로딩 중">
+      <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function HomeWithRedirect() {
   const [, setLocation] = useLocation();
   const hasRegion = typeof window !== "undefined" && (localStorage.getItem("userRegions") || localStorage.getItem("userRegion"));
 
-  if (!hasRegion) {
-    setTimeout(() => setLocation("/city-select"), 0);
-    return null;
-  }
+  useEffect(() => {
+    if (!hasRegion) setLocation("/city-select");
+  }, [hasRegion, setLocation]);
+
+  if (!hasRegion) return null;
   return isElectionMode() ? <ElectionHome /> : <Home />;
 }
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={HomeWithRedirect} />
-      <Route path="/members" component={Members} />
-      <Route path="/members/:id" component={MemberDetail} />
-      <Route path="/candidates" component={Candidates} />
-      <Route path="/candidates/:id" component={CandidateDetail} />
-      <Route path="/bills" component={BillSearch} />
-      <Route path="/bills/:id/vote" component={BillVote} />
-      <Route path="/evaluation" component={Evaluation} />
-      <Route path="/community" component={Community} />
-      <Route path="/community/write" component={CommunityWrite} />
-      <Route path="/community/bookmarks" component={CommunityBookmarks} />
-      <Route path="/community/:id" component={CommunityDetail} />
-      <Route path="/login" component={AuthPage} />
-      <Route path="/onboarding" component={Onboarding} />
-      <Route path="/city-select" component={CitySelect} />
-      <Route path="/news" component={NewsPage} />
-      <Route path="/more" component={More} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<RouteSpinner />}>
+      <Switch>
+        <Route path="/" component={HomeWithRedirect} />
+        <Route path="/members" component={Members} />
+        <Route path="/members/:id" component={MemberDetail} />
+        <Route path="/candidates" component={Candidates} />
+        <Route path="/candidates/:id" component={CandidateDetail} />
+        <Route path="/bills" component={BillSearch} />
+        <Route path="/bills/:id/vote" component={BillVote} />
+        <Route path="/evaluation" component={Evaluation} />
+        <Route path="/community" component={Community} />
+        <Route path="/community/write" component={CommunityWrite} />
+        <Route path="/community/bookmarks" component={CommunityBookmarks} />
+        <Route path="/community/:id" component={CommunityDetail} />
+        <Route path="/login" component={AuthPage} />
+        <Route path="/onboarding" component={Onboarding} />
+        <Route path="/city-select" component={CitySelect} />
+        <Route path="/news" component={NewsPage} />
+        <Route path="/more" component={More} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

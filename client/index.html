@@ -2,19 +2,39 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+    <meta name="theme-color" content="#6D28D9" />
+    <meta name="format-detection" content="telephone=no" />
     <title>이유 - 데이터 기반 정치인 평가 플랫폼</title>
     <meta name="description" content="투표에 이유를 갖는다. 국회의원 투표 기록, 출석률, 법안 발의 현황을 객관적으로 분석하여 유권자의 합리적 투표를 돕는 시민 투명성 플랫폼" />
+    <meta name="robots" content="index,follow" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="이유" />
     <meta property="og:title" content="이유 - 데이터 기반 정치인 평가 플랫폼" />
-    <meta property="og:description" content="데이터 기반 정치인 평가 플랫폼. 국회의원의 입법 활동과 투표 기록을 객관적으로 분석합니다." />
+    <meta property="og:description" content="국회의원 표결·법안·뉴스를 한 곳에서. 데이터로 투표에 이유를 더합니다." />
+    <meta property="og:image" content="/og-cover.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="이유 - 데이터 기반 정치인 평가 플랫폼" />
+    <meta name="twitter:description" content="국회의원 표결·법안·뉴스를 한 곳에서. 데이터로 투표에 이유를 더합니다." />
+    <meta name="twitter:image" content="/og-cover.png" />
+
+    <link rel="canonical" href="https://your-domain.example.com/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
+    <a href="#root" class="sr-only focus:not-sr-only">본문으로 건너뛰기</a>
     <div id="root"></div>
+    <noscript>이 서비스를 이용하려면 JavaScript를 활성화해주세요.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

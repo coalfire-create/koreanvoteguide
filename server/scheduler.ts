@@ -1,8 +1,8 @@
 import cron from "node-cron";
 import axios from "axios";
 import { db } from "./db";
-import { assemblyDataCache, schedulerStatus } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { assemblyDataCache, schedulerStatus, verificationCodes, searchHistory, users } from "@shared/schema";
+import { eq, lt, and, isNotNull, sql } from "drizzle-orm";
 import { log } from "./index";
 
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
@@ -159,6 +159,31 @@ export async function fetchAssemblyData(): Promise<{ success: boolean; message: 
   }
 }
 
+// 만료 인증번호·오래된 검색기록·30일 지난 탈퇴 회원 행 정리.
+// 개인정보 최소 보관 원칙(개인정보보호법 §21).
+async function cleanupExpiredRows(): Promise<void> {
+  try {
+    const now = new Date();
+    const deletedCodes = await db
+      .delete(verificationCodes)
+      .where(lt(verificationCodes.expiresAt, now));
+    void deletedCodes;
+
+    // 검색기록은 30일 retention
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    await db.delete(searchHistory).where(lt(searchHistory.createdAt, thirtyDaysAgo));
+
+    // 탈퇴 후 30일 지난 회원 행 완전 삭제
+    await db
+      .delete(users)
+      .where(and(isNotNull((users as any).deletedAt), lt((users as any).deletedAt, thirtyDaysAgo)));
+
+    log("만료 인증번호/검색기록/탈퇴회원 정리 완료", "cleanup");
+  } catch (err: any) {
+    log(`정리 작업 오류: ${err.message}`, "cleanup");
+  }
+}
+
 export function startScheduler(): void {
   log("데이터 수집 스케줄러 시작 (매 1시간마다 실행)", "scheduler");
 
@@ -170,4 +195,14 @@ export function startScheduler(): void {
     log("정기 데이터 수집 실행 중...", "scheduler");
     await fetchAssemblyData();
   });
+
+  // 매일 03:30 KST 만료 row 정리
+  cron.schedule("30 3 * * *", () => {
+    cleanupExpiredRows();
+  });
+
+  // 시작 1분 뒤 1회 즉시 실행
+  setTimeout(() => cleanupExpiredRows(), 60 * 1000);
+
+  void sql;
 }

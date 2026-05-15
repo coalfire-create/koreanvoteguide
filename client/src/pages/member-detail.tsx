@@ -4,12 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, BarChart3, CheckCircle2, FileText, ExternalLink, Users, Share2, MessageSquare, MessageCircle, Send, Trophy, GraduationCap, Landmark, AlertTriangle, Briefcase, Globe, Mail, Phone, Building2, User } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Mic, CalendarDays, Newspaper, Info, Loader2, TrendingUp, BarChart3, CheckCircle2, FileText, ExternalLink, Users, Share2, MessageSquare, MessageCircle, Send, Trophy, GraduationCap, Landmark, AlertTriangle, Briefcase, Globe, Mail, Phone, Building2, User, Sparkles, Zap, Target, ThumbsUp, Heart, HeartOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
-import { useAssemblyMembers, useMemberDetail, useMemberAlumni } from "@/lib/api-data";
+import { useAssemblyMembers, useMemberDetail, useMemberAlumni, useLegislatorAnalysis } from "@/lib/api-data";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -242,6 +242,7 @@ export default function MemberDetail() {
 
   // 선관위 22대 총선 상세 데이터 (재산/학력/전과/경력)
   const { detail, isLoading: isDetailLoading } = useMemberDetail(id);
+  const { analysis, isLoading: isAnalysisLoading } = useLegislatorAnalysis(id);
   const { alumni, university, isLoading: isAlumniLoading } = useMemberAlumni(id);
 
   const { user } = useAuth();
@@ -257,6 +258,41 @@ export default function MemberDetail() {
     queryFn: () => fetch(`/api/community/posts?legislatorId=${id}`).then((r) => r.json()),
     enabled: !!id,
   });
+
+  // ===== 팔로우 상태 =====
+  const followsQuery = useQuery<{ follows: { id: string }[] }>({
+    queryKey: ["/api/users/me/follows"],
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
+  const isFollowing = !!followsQuery.data?.follows?.some((f) => f.id === id);
+
+  const followMutation = useMutation({
+    mutationFn: async (action: "follow" | "unfollow") => {
+      const method = action === "follow" ? "POST" : "DELETE";
+      const res = await apiRequest(method, `/api/users/me/follows/${id}`);
+      return res.json();
+    },
+    onSuccess: (_, action) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/follows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/feed"] });
+      toast({
+        title: action === "follow" ? "팔로우했습니다" : "언팔로우했습니다",
+        description: action === "follow" ? "관심 의원 피드에서 활동을 확인하세요" : undefined,
+      });
+    },
+    onError: () => {
+      toast({ title: "오류", description: "처리 중 문제가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const handleToggleFollow = () => {
+    if (!user) {
+      toast({ title: "로그인이 필요해요", description: "관심 의원을 팔로우하려면 로그인하세요.", variant: "destructive" });
+      return;
+    }
+    followMutation.mutate(isFollowing ? "unfollow" : "follow");
+  };
 
   const quickReactMutation = useMutation({
     mutationFn: async ({ postId, type }: { postId: string; type: "like" | "dislike" }) => {
@@ -360,6 +396,27 @@ export default function MemberDetail() {
     staleTime: 60 * 60 * 1000,
   });
 
+  // ── 프리미엄 AI 프로필 분석 ──────────────────────────────────
+  interface AiOrientation { economy: number; government: number }
+  interface AiInterest { field: string; percentage: number }
+  interface AiCrucialBill { billName: string; reason: string }
+  interface AiProfile {
+    summary: string;
+    orientation: AiOrientation;
+    topInterests: AiInterest[];
+    crucialBills: AiCrucialBill[];
+  }
+
+  const aiProfileQuery = useQuery<AiProfile>({
+    queryKey: ["/api/members/analyze-profile", id],
+    queryFn: () =>
+      fetch(`/api/members/analyze-profile?monaCd=${id}`)
+        .then(r => { if (!r.ok) throw new Error("분석 불가"); return r.json(); }),
+    enabled: !!id,
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: false,
+  });
+
   const allVotes = voteHistoryQuery.data?.votes ?? [];
   const voteStats = {
     찬성: allVotes.filter(v => v.voteResult === "찬성").length,
@@ -457,15 +514,36 @@ export default function MemberDetail() {
           </Button>
         </Link>
         
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleMemberShare}
-          className="rounded-full shadow-sm hover:shadow-md hover:text-primary border-primary/20 bg-primary/5 transition-all text-primary font-bold px-4"
-        >
-          <Share2 className="w-4 h-4 mr-2" />
-          공유하기
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleToggleFollow}
+            disabled={followMutation.isPending}
+            className={`rounded-full font-bold px-5 shadow-sm transition-all ${
+              isFollowing
+                ? "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                : "bg-gradient-to-r from-[#6D28D9] to-indigo-500 text-white hover:shadow-md hover:from-[#5B21B6] hover:to-indigo-600"
+            }`}
+          >
+            {followMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : isFollowing ? (
+              <HeartOff className="w-4 h-4 mr-1.5" />
+            ) : (
+              <Heart className="w-4 h-4 mr-1.5" />
+            )}
+            {isFollowing ? "팔로잉" : "팔로우"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMemberShare}
+            className="rounded-full shadow-sm hover:shadow-md hover:text-primary border-primary/20 bg-primary/5 transition-all text-primary font-bold px-4"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            공유하기
+          </Button>
+        </div>
       </div>
 
       <div className="relative mb-12">
@@ -512,6 +590,339 @@ export default function MemberDetail() {
 
 
         </div>
+      </div>
+      
+      {/* ===== 프리미엄 AI 프로필 분석 섹션 ===== */}
+      <div className="mb-10">
+        <Card className="border-none shadow-xl overflow-hidden bg-gradient-to-br from-[#6D28D9]/[0.04] via-background to-indigo-500/[0.02]">
+          <div className="h-1 w-full bg-gradient-to-r from-[#6D28D9] via-indigo-400 to-purple-400" />
+          <CardContent className="p-8">
+            {/* 헤더 */}
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                  프리미엄 AI 프로필 분석
+                  <Badge variant="outline" className="bg-[#6D28D9]/5 text-[#6D28D9] border-[#6D28D9]/20 text-[10px] py-0 px-2 font-bold h-5">
+                    Groq · LLaMA3
+                  </Badge>
+                </h2>
+                <p className="text-xs font-bold text-muted-foreground">실제 표결 기록을 Groq AI가 실시간 분석</p>
+              </div>
+            </div>
+
+            {aiProfileQuery.isLoading && (
+              <div className="space-y-5 py-2">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#6D28D9]" />
+                  표결 기록을 AI가 분석하고 있습니다...
+                </div>
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="h-28 rounded-2xl" />
+                  <Skeleton className="h-28 rounded-2xl" />
+                </div>
+              </div>
+            )}
+
+            {aiProfileQuery.isError && (
+              <div className="py-8 text-center text-sm text-muted-foreground space-y-2">
+                <Info className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                <p>표결 데이터가 충분하지 않아 분석할 수 없습니다.</p>
+              </div>
+            )}
+
+            {aiProfileQuery.data && (
+              <div className="space-y-8">
+                {/* AI 성향 요약 */}
+                <div className="bg-white rounded-3xl p-5 border border-[#6D28D9]/10 shadow-sm">
+                  <p className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest mb-2">AI 성향 요약</p>
+                  <p className="text-[15px] font-bold text-gray-800 leading-relaxed">
+                    "{aiProfileQuery.data.summary}"
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* 정치 성향 2축 */}
+                  <div className="space-y-6">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                      <Zap className="w-3 h-3" /> 정치 성향 2축
+                    </p>
+
+                    {/* 경제 성향 축 */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-blue-500">친노동 · 시장개입</span>
+                        <span className="text-orange-500">친기업 · 규제완화</span>
+                      </div>
+                      <div className="relative h-4 bg-gradient-to-r from-blue-100 to-orange-100 rounded-full overflow-visible">
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#6D28D9] rounded-full shadow-md transition-all duration-1000"
+                          style={{ left: `calc(${(aiProfileQuery.data.orientation.economy / 10) * 100}% - 10px)` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] text-muted-foreground font-medium">
+                        <span>0</span>
+                        <span className="font-black text-[#6D28D9]">경제 성향: {aiProfileQuery.data.orientation.economy}/10</span>
+                        <span>10</span>
+                      </div>
+                    </div>
+
+                    {/* 정부 역할 축 */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-emerald-500">큰정부 · 복지확대</span>
+                        <span className="text-red-400">작은정부 · 감세</span>
+                      </div>
+                      <div className="relative h-4 bg-gradient-to-r from-emerald-100 to-red-100 rounded-full overflow-visible">
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#6D28D9] rounded-full shadow-md transition-all duration-1000"
+                          style={{ left: `calc(${(aiProfileQuery.data.orientation.government / 10) * 100}% - 10px)` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] text-muted-foreground font-medium">
+                        <span>0</span>
+                        <span className="font-black text-[#6D28D9]">정부 역할: {aiProfileQuery.data.orientation.government}/10</span>
+                        <span>10</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 관심 분야 TOP 3 */}
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                      <BarChart3 className="w-3 h-3" /> 입법 관심 분야 TOP 3
+                    </p>
+                    <div className="space-y-3">
+                      {aiProfileQuery.data.topInterests.map((item, idx) => (
+                        <div key={item.field} className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                idx === 0
+                                  ? "bg-[#6D28D9] text-white"
+                                  : idx === 1
+                                  ? "bg-[#6D28D9]/20 text-[#6D28D9]"
+                                  : "bg-gray-100 text-gray-500"
+                              }`}>
+                                {idx + 1}위
+                              </span>
+                              <span className="text-[13px] font-bold text-gray-800">{item.field}</span>
+                            </div>
+                            <span className="text-[13px] font-black text-[#6D28D9]">{item.percentage}%</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-1000 ${
+                                idx === 0 ? "bg-[#6D28D9]" : idx === 1 ? "bg-indigo-300" : "bg-gray-300"
+                              }`}
+                              style={{ width: `${item.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 결정적 법안 3선 */}
+                <div className="pt-6 border-t border-dashed border-[#6D28D9]/10">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                    <FileText className="w-3 h-3" /> 성향 파악 결정적 법안 TOP 3
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {aiProfileQuery.data.crucialBills.map((bill, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-gradient-to-br from-[#6D28D9]/[0.03] to-indigo-50/50 rounded-2xl p-4 border border-[#6D28D9]/10"
+                      >
+                        <div className={`text-[9px] font-black px-2 py-0.5 rounded-full w-fit mb-2 ${
+                          idx === 0 ? "bg-[#6D28D9] text-white" : "bg-[#6D28D9]/10 text-[#6D28D9]"
+                        }`}>
+                          결정적 법안 {idx + 1}
+                        </div>
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug mb-2 line-clamp-2">
+                          {bill.billName}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{bill.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-muted-foreground text-center italic">
+                  * Groq AI(LLaMA3-70B)가 실제 표결 기록을 기반으로 중립적으로 분석한 결과입니다
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ===== AI 의원 성향 분석 섹션 ===== */}
+      <div className="mb-12">
+        <Card className="border-none shadow-xl bg-gradient-to-br from-primary/[0.03] via-background to-primary/[0.01] overflow-hidden">
+          <div className="h-1.5 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
+          <CardContent className="p-8">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                  AI 입법·표결 성향 분석
+                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] py-0 px-2 font-bold h-5">beta</Badge>
+                </h2>
+                <p className="text-xs font-bold text-muted-foreground">실제 법안 투표 기록을 분석한 정치적 정체성</p>
+              </div>
+            </div>
+
+            {isAnalysisLoading ? (
+              <div className="space-y-4 py-4">
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Skeleton className="h-24 w-full rounded-2xl" />
+                  <Skeleton className="h-24 w-full rounded-2xl" />
+                </div>
+              </div>
+            ) : analysis && analysis.meaningfulVotesCount > 0 ? (
+              <div className="space-y-10">
+                {/* 1. 요약 텍스트 */}
+                <div className="bg-white rounded-3xl p-6 border border-primary/5 shadow-sm relative group">
+                  <div className="absolute -top-3 -left-2 px-3 py-1 bg-primary text-white text-[10px] font-black rounded-lg shadow-md transform -rotate-2">
+                    CHARACTER SUMMARY
+                  </div>
+                  <p className="text-lg font-bold leading-relaxed text-foreground/90">
+                    "{analysis.summaryText}"
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  {/* 2. 가치 지향성 (경제/정부) */}
+                  <div className="space-y-8">
+                    <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase flex items-center gap-2">
+                      <Landmark className="w-3.5 h-3.5" /> 정치적 가치 지향성
+                    </h3>
+                    {analysis.valueAxes.map((axis) => (
+                      <div key={axis.id} className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-black text-foreground">{axis.label}</span>
+                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                            {axis.description}
+                          </span>
+                        </div>
+                        <div className="relative pt-2">
+                          {/* 축 배경 */}
+                          <div className="h-1.5 w-full rounded-full bg-muted/40 relative">
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-4 bg-muted-foreground/30 z-0" />
+                          </div>
+                          {/* 스코어 마커 */}
+                          <div 
+                            className="absolute top-0 transition-all duration-1000 ease-out"
+                            style={{ left: `${((axis.score + 1) / 2) * 100}%` }}
+                          >
+                            <div className="w-4 h-4 -ml-2 rounded-full bg-primary border-4 border-white shadow-lg ring-4 ring-primary/10" />
+                          </div>
+                          {/* 라벨 */}
+                          <div className="flex justify-between mt-3">
+                            <div className="flex flex-col items-start">
+                              <span className="text-[10px] font-bold text-muted-foreground leading-none">{axis.leftLabel}</span>
+                              <span className="text-[9px] text-muted-foreground/60 mt-1">-1.0</span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-bold text-muted-foreground leading-none">{axis.rightLabel}</span>
+                              <span className="text-[9px] text-muted-foreground/60 mt-1">+1.0</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 3. 주요 관심 분야 (Top Categories) */}
+                  <div className="space-y-6">
+                    <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase flex items-center gap-2">
+                      <Target className="w-3.5 h-3.5" /> 입법 집중 분야 (TOP 3)
+                    </h3>
+                    <div className="space-y-4">
+                      {analysis.topCategories.map((cat, idx) => (
+                        <div key={cat.category} className="group">
+                          <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
+                              <span className="text-sm font-bold">{cat.category}</span>
+                            </div>
+                            <span className="text-xs font-black text-primary">{cat.percentage}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-1000 delay-${idx * 200} ${idx === 0 ? 'bg-primary' : 'bg-primary/40'}`}
+                              style={{ width: `${cat.percentage}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1.5 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            총 {cat.billCount}건의 관련 법안 표결에 참여했습니다.
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. 분석에 영향을 준 주요 법안 */}
+                <div className="pt-6 border-t border-dashed border-primary/10">
+                  <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase mb-4 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5" /> 분석 결정적 법안 (TOP 3)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {analysis.keyBills.map((bill) => (
+                      <div 
+                        key={bill.billId} 
+                        className="bg-muted/20 hover:bg-muted/40 transition-colors p-4 rounded-2xl border border-muted/30 cursor-help group"
+                        onClick={() => setSelectedBill({ billId: bill.billId, billName: bill.billName, vote: bill.vote })}
+                      >
+                        <Badge variant="outline" className="mb-2 bg-white text-[9px] font-bold py-0 h-4 border-muted">
+                          {bill.category}
+                        </Badge>
+                        <h4 className="text-xs font-bold leading-snug line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                          {bill.billName}
+                        </h4>
+                        <div className="flex justify-between items-center mt-auto">
+                          <div className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                            bill.vote === "찬성" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {bill.vote}
+                          </div>
+                          <div className="text-[9px] font-bold text-muted-foreground">
+                            영향력 {Math.round(bill.impactScore * 100)}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-10 text-center">
+                <Info className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground font-medium">분석을 위한 유효 표결 데이터가 부족합니다.</p>
+              </div>
+            )}
+            
+            <div className="mt-8 pt-6 border-t border-primary/5 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold">
+                <Loader2 className="w-3 h-3" />
+                분석 데이터 업데이트: {analysis?.analyzedAt ? new Date(analysis.analyzedAt).toLocaleDateString() : '-'}
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-relaxed max-w-md text-center md:text-right">
+                ※ 위 분석은 국회 공공데이터의 법안 제목 및 위원회 정보를 기반으로 한 자동 알고리즘의 결과입니다. 
+                의원의 실제 정치적 신념과 100% 일치하지 않을 수 있으니 참고용으로만 활용해 주시기 바랍니다.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -587,8 +998,6 @@ export default function MemberDetail() {
           </CardContent>
         </Card>
       </div>
-
-      
 
       <Tabs defaultValue="info" className="mb-12">
         <TabsList className="w-full justify-start h-auto p-1.5 bg-muted/20 rounded-2xl mb-8 gap-2 overflow-x-auto flex-nowrap scrollbar-hide">
@@ -1353,7 +1762,7 @@ export default function MemberDetail() {
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-all"
                     >
-                      ❤️ <span>{post.likes ?? 0}</span>
+                      <ThumbsUp className="w-4 h-4" /> <span>{post.likes ?? 0}</span>
                     </button>
                     <button 
                       onClick={() => setSelectedPostId(post.id)}

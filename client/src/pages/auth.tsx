@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
@@ -6,12 +6,26 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown } from "lucide-react";
+import { KakaoLoginButton } from "@/components/KakaoLoginButton";
 
 export default function AuthPage() {
   const { user } = useAuth();
   const [, nav] = useLocation();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  // Kakao 1차, 기존 이메일 로그인은 보조. RegisterForm은 deprecated — 노출하지 않음.
+  const [showLegacyLogin, setShowLegacyLogin] = useState(false);
+
+  // Kakao 콜백에서 에러로 돌아왔을 경우 ?error= 파라미터 토스트.
+  const { toast } = useToast();
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const err = url.searchParams.get("error");
+    if (err) {
+      toast({ title: "로그인 실패", description: err, variant: "destructive" });
+      url.searchParams.delete("error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [toast]);
 
   if (user) {
     nav("/");
@@ -50,7 +64,7 @@ export default function AuthPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-white mb-8 px-2"
+          className="text-white mb-8 px-2 flex flex-col items-center text-center"
         >
           <motion.div 
             whileHover={{ scale: 1.05, rotate: 2 }}
@@ -70,51 +84,46 @@ export default function AuthPage() {
           transition={{ delay: 0.1 }}
           className="bg-card rounded-[2rem] p-6 shadow-2xl shadow-primary/10 border border-border/50 flex-1 flex flex-col mb-10"
         >
-          {/* 탭 컨트롤러 (iOS Segmented Control 스타일) */}
-          <div className="flex p-1 bg-slate-100/80 rounded-2xl mb-8 relative z-10">
-            <button
-              onClick={() => setActiveTab("login")}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 relative z-20 ${activeTab === "login" ? "text-primary" : "text-slate-500 hover:text-slate-700"}`}
-            >
-              로그인
-            </button>
-            <button
-              onClick={() => setActiveTab("register")}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 relative z-20 ${activeTab === "register" ? "text-primary" : "text-slate-500 hover:text-slate-700"}`}
-            >
-              회원가입
-            </button>
-            <div 
-              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-xl shadow-sm transition-transform duration-300 ease-spring z-10`}
-              style={{ transform: activeTab === "login" ? "translateX(0)" : "translateX(calc(100% + 4px))" }}
-            />
+          {/* ===== Kakao Login (메인 경로) ===== */}
+          <div className="flex flex-col gap-3 mb-2">
+            <p className="text-center text-[13px] font-semibold text-slate-500 mb-2">
+              회원가입 없이 카카오로 바로 시작하세요
+            </p>
+            <KakaoLoginButton />
+            <p className="text-center text-[11px] text-slate-400 leading-relaxed">
+              카카오 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
+            </p>
           </div>
 
-          <div className="relative flex-1">
-            <AnimatePresence mode="wait">
-              {activeTab === "login" ? (
-                <motion.div 
-                  key="login"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <LoginForm />
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="register"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RegisterForm />
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* 구분선 — 다른 로그인 방법 */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-[11px] font-bold text-slate-400">또는</span>
+            <div className="h-px flex-1 bg-slate-200" />
           </div>
+
+          {/* ===== 이메일 로그인 (보조) — 기존 사용자 호환용 ===== */}
+          {!showLegacyLogin ? (
+            <button
+              type="button"
+              onClick={() => setShowLegacyLogin(true)}
+              className="flex items-center justify-center gap-1.5 text-[13px] font-bold text-slate-500 hover:text-primary transition-colors py-2"
+            >
+              이메일/아이디로 로그인
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          ) : (
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <LoginForm />
+              </motion.div>
+            </AnimatePresence>
+          )}
         </motion.div>
       </div>
     </div>
@@ -142,9 +151,18 @@ function LoginForm() {
       toast({ title: "로그인 성공", description: "환영합니다!" });
       navigate("/");
     } catch (err: any) {
-      const msg = err.message?.includes("401")
-        ? "아이디 또는 비밀번호가 올바르지 않습니다"
-        : "로그인 중 오류가 발생했습니다";
+      const raw = String(err?.message || "");
+      let msg = "로그인 중 오류가 발생했습니다";
+      const match = raw.match(/^\d+:\s*(.+)$/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[1]);
+          if (parsed?.error) msg = parsed.error;
+        } catch {
+          msg = match[1];
+        }
+      }
+      if (raw.includes("401")) msg = "아이디 또는 비밀번호가 올바르지 않습니다";
       toast({ title: "로그인 실패", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -213,11 +231,41 @@ function RegisterForm() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
+  const [birthYear, setBirthYear] = useState("");
+  const [agreeTos, setAgreeTos] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0); // 초 단위, 180초(=3분)에서 카운트다운
   const [demoCode, setDemoCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 3분 카운트다운. isCodeSent && !isVerified 일 때만 동작.
+  useEffect(() => {
+    if (!isCodeSent || isVerified || timeLeft <= 0) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => Math.max(0, t - 1));
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isCodeSent, isVerified, timeLeft]);
+
+  const formatTime = (s: number) => {
+    const mm = Math.floor(s / 60).toString().padStart(1, "0");
+    const ss = (s % 60).toString().padStart(2, "0");
+    return `${mm}:${ss}`;
+  };
 
   const handleSendCode = async () => {
     if (!phone) {
@@ -232,11 +280,19 @@ function RegisterForm() {
 
     setSendingCode(true);
     try {
-      const res = await apiRequest("POST", "/api/auth/send-code", { phone });
+      const res = await apiRequest("POST", "/api/auth/send-sms", { phone });
       const data = await res.json();
-      setCodeSent(true);
-      setDemoCode(data.demoCode);
-      toast({ title: "인증번호 발송", description: `데모 인증번호: ${data.demoCode}` });
+      setIsCodeSent(true);
+      setIsVerified(false);
+      setVerificationCode("");
+      setTimeLeft(data.ttlSeconds ?? 180);
+      setDemoCode(data.demoCode ?? "");
+      toast({
+        title: "인증번호 발송",
+        description: data.demoCode
+          ? `(개발용) 인증번호: ${data.demoCode}`
+          : "휴대폰으로 발송된 인증번호를 입력하세요",
+      });
     } catch {
       toast({ title: "발송 실패", description: "오류가 발생했습니다", variant: "destructive" });
     } finally {
@@ -244,24 +300,81 @@ function RegisterForm() {
     }
   };
 
+  const handleVerifyCode = async () => {
+    if (!/^\d{6}$/.test(verificationCode)) {
+      toast({ title: "입력 오류", description: "6자리 인증번호를 입력하세요", variant: "destructive" });
+      return;
+    }
+    if (timeLeft <= 0) {
+      toast({ title: "인증번호 만료", description: "인증번호를 다시 발송받아 주세요", variant: "destructive" });
+      return;
+    }
+    setVerifyingCode(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/verify-sms", { phone, code: verificationCode });
+      const data = await res.json();
+      if (data.success) {
+        setIsVerified(true);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        toast({ title: "인증되었습니다", description: "휴대폰 인증이 완료되었어요" });
+      } else {
+        toast({ title: "인증 실패", description: data.error || "인증번호가 올바르지 않습니다", variant: "destructive" });
+      }
+    } catch (err: any) {
+      const raw = String(err?.message || "");
+      const match = raw.match(/^\d+:\s*(.+)$/);
+      let detail = match?.[1] || "인증번호가 올바르지 않거나 만료되었습니다";
+      try {
+        const parsed = JSON.parse(detail);
+        if (parsed?.error) detail = parsed.error;
+      } catch {}
+      toast({ title: "인증 실패", description: detail, variant: "destructive" });
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !username || !password || !phone || !verificationCode) {
+    if (!isVerified) {
+      toast({ title: "휴대폰 인증 필요", description: "휴대폰 번호 인증을 먼저 완료해주세요", variant: "destructive" });
+      return;
+    }
+    if (!name || !username || !password || !phone || !verificationCode || !birthYear) {
       toast({ title: "입력 오류", description: "모든 항목을 입력해주세요", variant: "destructive" });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: "입력 오류", description: "비밀번호는 6자 이상이어야 합니다", variant: "destructive" });
+    if (password.length < 10 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      toast({ title: "입력 오류", description: "비밀번호는 영문+숫자 포함 10자 이상이어야 합니다", variant: "destructive" });
+      return;
+    }
+    const birthYearNum = parseInt(birthYear, 10);
+    if (!Number.isFinite(birthYearNum) || birthYearNum < 1900 || new Date().getFullYear() - birthYearNum < 14) {
+      toast({ title: "입력 오류", description: "만 14세 이상만 가입할 수 있습니다", variant: "destructive" });
+      return;
+    }
+    if (!agreeTos || !agreePrivacy) {
+      toast({ title: "약관 동의 필요", description: "이용약관과 개인정보처리방침에 동의해주세요", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     try {
-      await register({ username, password, name, phone, verificationCode });
+      await register({ username, password, name, phone, verificationCode, birthYear: birthYearNum, agreeTos, agreePrivacy });
       toast({ title: "가입 완료", description: "환영합니다!" });
       navigate("/");
     } catch (err: any) {
-      toast({ title: "가입 실패", description: "정보를 다시 확인해주세요", variant: "destructive" });
+      const raw = String(err?.message || "");
+      const match = raw.match(/^\d+:\s*(.+)$/);
+      let detail = match?.[1] || raw || "정보를 다시 확인해주세요";
+      try {
+        const parsed = JSON.parse(detail);
+        if (parsed?.error) detail = parsed.error;
+      } catch {}
+      toast({ title: "가입 실패", description: detail, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -296,7 +409,7 @@ function RegisterForm() {
         <div className="relative">
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder="6자 이상 입력"
+            placeholder="영문+숫자 포함 10자 이상"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full h-12 pr-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm"
@@ -319,50 +432,117 @@ function RegisterForm() {
             placeholder="010-1234-5678"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            disabled={codeSent}
-            className="w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm flex-1"
+            disabled={isCodeSent || isVerified}
+            className={`w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm flex-1 ${isVerified ? 'bg-green-50 border-green-200 text-green-700' : ''}`}
           />
           <Button
             type="button"
-            variant={codeSent ? "outline" : "default"}
+            variant={isCodeSent ? "outline" : "default"}
             onClick={handleSendCode}
-            disabled={sendingCode || codeSent}
-            className={`h-12 rounded-xl font-bold px-4 shrink-0 shadow-sm ${codeSent ? 'text-green-600 border-green-200 bg-green-50' : ''}`}
+            disabled={sendingCode || isVerified}
+            className={`h-12 rounded-xl font-bold px-4 shrink-0 shadow-sm ${isVerified ? 'text-green-600 border-green-200 bg-green-50' : ''}`}
           >
-            {sendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : codeSent ? <CheckCircle2 className="w-5 h-5 mx-2" /> : "인증받기"}
+            {sendingCode
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : isVerified
+                ? <CheckCircle2 className="w-5 h-5 mx-2" />
+                : isCodeSent
+                  ? "재발송"
+                  : "인증받기"}
           </Button>
         </div>
+        {isVerified && (
+          <p className="flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 pl-1 pt-1">
+            <ShieldCheck className="w-4 h-4" />
+            인증되었습니다
+          </p>
+        )}
       </div>
 
       <AnimatePresence>
-        {codeSent && (
-          <motion.div 
+        {isCodeSent && !isVerified && (
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             className="space-y-1 overflow-hidden"
           >
-            <label className="text-[12px] font-bold text-slate-700 pl-1">인증번호</label>
-            <Input
-              type="text"
-              placeholder="6자리 인증번호"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              maxLength={6}
-              className="w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm tracking-widest text-center text-lg font-bold text-primary"
-            />
+            <div className="flex items-center justify-between pl-1 pr-1">
+              <label className="text-[12px] font-bold text-slate-700">인증번호</label>
+              <span className={`text-[12px] font-bold tabular-nums ${timeLeft <= 30 ? 'text-rose-500' : 'text-slate-400'}`}>
+                {timeLeft > 0 ? formatTime(timeLeft) : "만료됨 — 재발송 필요"}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="6자리 인증번호"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                disabled={timeLeft <= 0}
+                className="flex-1 h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm tracking-widest text-center text-lg font-bold text-primary"
+              />
+              <Button
+                type="button"
+                onClick={handleVerifyCode}
+                disabled={verifyingCode || timeLeft <= 0 || verificationCode.length !== 6}
+                className="h-12 rounded-xl font-bold px-4 shrink-0 shadow-sm"
+              >
+                {verifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "확인"}
+              </Button>
+            </div>
             {demoCode && (
               <p className="text-[11px] font-medium text-amber-500 text-center mt-1">
-                (데모 발송) 화면 인증번호: {demoCode}
+                (개발용) 인증번호: {demoCode}
               </p>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
+      <div className="space-y-1">
+        <label className="text-[12px] font-bold text-slate-700 pl-1">출생연도 (만 14세 이상)</label>
+        <Input
+          type="number"
+          inputMode="numeric"
+          placeholder="예: 2000"
+          value={birthYear}
+          onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          className="w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm"
+        />
+      </div>
+
+      <div className="space-y-2 pt-1">
+        <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agreeTos}
+            onChange={(e) => setAgreeTos(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-primary"
+          />
+          <span>
+            <a href="/legal/terms" target="_blank" rel="noreferrer" className="underline text-primary font-semibold">이용약관</a>에 동의합니다 (필수)
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agreePrivacy}
+            onChange={(e) => setAgreePrivacy(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-primary"
+          />
+          <span>
+            <a href="/legal/privacy" target="_blank" rel="noreferrer" className="underline text-primary font-semibold">개인정보처리방침</a>에 동의합니다 (필수)
+          </span>
+        </label>
+      </div>
+
       <div className="pt-2">
         <Button 
           type="submit" 
-          disabled={loading || !codeSent} 
+          disabled={loading || !isVerified} 
           className="w-full h-14 rounded-xl font-bold text-[16px] shadow-lg shadow-primary/30 mt-2"
         >
           {loading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}

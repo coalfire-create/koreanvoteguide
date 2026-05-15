@@ -42,7 +42,7 @@ function transformDbMembers(raw: any[]): AssemblyMember[] {
     name: row.name || "",
     party: row.party || "",
     district: row.district || "비례대표",
-    photo: row.photoUrl || (row.monaCd ? `/api/photo/assembly/${row.monaCd}` : "") || "",
+    photo: row.photoUrl || "",
     electedYear: row.electedYear || new Date().getFullYear(),
     committee: row.committee || "",
     votingRecords: [],
@@ -263,8 +263,60 @@ export function useMemberDetail(monaCd: string | undefined) {
   };
 }
 
+export interface LegislatorAnalysisResult {
+  legislatorId: string;
+  analyzedAt: string;
+  totalVotesConsidered: number;
+  meaningfulVotesCount: number;
+  topCategories: {
+    category: string;
+    percentage: number;
+    billCount: number;
+    weightedCount: number;
+  }[];
+  valueAxes: {
+    id: "economy" | "government";
+    label: string;
+    score: number;
+    leftLabel: string;
+    rightLabel: string;
+    description: string;
+  }[];
+  summaryText: string;
+  keyBills: {
+    billId: string;
+    billName: string;
+    committee: string;
+    controversyWeight: number;
+    vote: "찬성" | "반대";
+    category: string;
+    impactScore: number;
+    date: string;
+  }[];
+  confidence: "high" | "medium" | "low";
+}
+
+export function useLegislatorAnalysis(monaCd: string | undefined) {
+  const query = useQuery<LegislatorAnalysisResult>({
+    queryKey: ["/api/members", monaCd, "analysis"],
+    queryFn: () =>
+      fetch(`/api/members/${monaCd}/analysis`).then((r) => {
+        if (!r.ok) throw new Error("분석 정보를 불러올 수 없습니다.");
+        return r.json();
+      }),
+    enabled: !!monaCd,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  return {
+    analysis: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
 export function useMemberAlumni(monaCd: string | undefined) {
-  const query = useQuery<any[]>({
+  const query = useQuery<{ alumni: any[]; university: string | null }>({
     queryKey: ["/api/legislators", monaCd, "alumni"],
     queryFn: () =>
       fetch(`/api/legislators/${monaCd}/alumni`).then((r) => {
@@ -303,7 +355,7 @@ export function useSchedulerStatus() {
   };
 }
 
-// ===== 인기 법안 (viewCount + mediaMentionCount 기반) =====
+// ===== 인기 법안 (Hot Score: viewCount + voteCount + newsMentionCount 기반) =====
 export function usePopularBill() {
   const query = useQuery<any[]>({
     queryKey: ["/api/bills/hot"],
@@ -318,7 +370,7 @@ export function usePopularBill() {
   };
 }
 
-// ===== 인기 법안 Top 5 (뉴스 크롤링 기반 심사중인 법안) =====
+// ===== 인기 법안 Top 5 (Hot Score DB 컬럼 기반 — 실시간 스크래핑 없음) =====
 export function useHotBills() {
   const query = useQuery<any[]>({
     queryKey: ["/api/bills/hot"],

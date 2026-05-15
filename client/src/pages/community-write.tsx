@@ -17,10 +17,10 @@ import { PostEditor } from "@/components/PostEditor";
 
 // Board configs
 const BOARD_CONFIGS = {
-  free: { label: "자유게시판", icon: Globe, showTag: false },
-  legislators: { label: "국회의원 게시판", icon: User, showTag: true, tagType: "legislator" as const },
+  free: { label: "자유 게시판", icon: Globe, showTag: false },
+  candidate: { label: "선거 게시판", icon: PenSquare, showTag: true, tagType: "candidate" as const },
+  legislators: { label: "의원 게시판", icon: User, showTag: true, tagType: "legislator" as const },
   bills: { label: "법안 게시판", icon: FileText, showTag: true, tagType: "bill" as const },
-  candidate: { label: "후보자 게시판", icon: PenSquare, showTag: true, tagType: "candidate" as const },
 } as const;
 
 type BoardType = keyof typeof BOARD_CONFIGS;
@@ -37,16 +37,23 @@ function TagSearch({ tagType, selectedTag, onSelect }: {
 
   // Fetch legislators or bills
   const { data: legislators } = useQuery<any[]>({
-    queryKey: ["/api/db/legislators"],
-    queryFn: () => fetch("/api/db/legislators").then(r => r.json()),
+    queryKey: ["/api/members"],
+    queryFn: () => fetch("/api/members").then(r => r.json()).then(res => res.data || []),
     enabled: tagType === "legislator",
     staleTime: 30 * 60 * 1000,
   });
 
   const { data: bills } = useQuery<any[]>({
-    queryKey: ["/api/db/bills"],
-    queryFn: () => fetch("/api/db/bills").then(r => r.json()),
+    queryKey: ["/api/bills"],
+    queryFn: () => fetch("/api/bills").then(r => r.json()).then(res => res.data || []),
     enabled: tagType === "bill",
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const { data: electionCandidates } = useQuery<any[]>({
+    queryKey: ["/api/election/all"],
+    queryFn: () => fetch("/api/election/all").then(r => r.json()),
+    enabled: tagType === "candidate",
     staleTime: 30 * 60 * 1000,
   });
 
@@ -54,7 +61,7 @@ function TagSearch({ tagType, selectedTag, onSelect }: {
     ? (legislators || []).map(l => ({ id: l.monaCd, name: `${l.name} (${l.party})`, rawName: l.name }))
     : tagType === "bill"
     ? (bills || []).map(b => ({ id: b.billId, name: b.billName, rawName: b.billName }))
-    : []; // candidate tags are usually pre-filled from detail pages
+    : (electionCandidates || []).map(c => ({ id: c.id, name: `${c.name} (${c.party} / ${c.districtName})`, rawName: c.name }));
 
   const filtered = query.trim()
     ? items.filter(item => item.name.includes(query) || item.rawName.includes(query)).slice(0, 8)
@@ -79,7 +86,11 @@ function TagSearch({ tagType, selectedTag, onSelect }: {
         <input
           ref={inputRef}
           type="text"
-          placeholder={tagType === "legislator" ? "국회의원 이름을 검색하세요..." : "법안 이름을 검색하세요..."}
+          placeholder={
+            tagType === "legislator" ? "국회의원 이름을 검색하세요..." : 
+            tagType === "bill" ? "법안 이름을 검색하세요..." :
+            "후보자 이름을 검색하세요..."
+          }
           className="w-full h-11 pl-10 pr-4 text-[14px] rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
           value={query}
           onChange={(e) => { setQuery(e.target.value); setShowResults(true); }}
@@ -94,7 +105,9 @@ function TagSearch({ tagType, selectedTag, onSelect }: {
               className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
               onClick={() => { onSelect({ id: item.id, name: item.rawName }); setQuery(""); setShowResults(false); }}
             >
-              {tagType === "legislator" ? <User className="w-3.5 h-3.5 inline mr-2 text-indigo-500" /> : <FileText className="w-3.5 h-3.5 inline mr-2 text-emerald-500" />}
+              {tagType === "legislator" ? <User className="w-3.5 h-3.5 inline mr-2 text-indigo-500" /> : 
+               tagType === "bill" ? <FileText className="w-3.5 h-3.5 inline mr-2 text-emerald-500" /> :
+               <Tag className="w-3.5 h-3.5 inline mr-2 text-primary" />}
               {item.name}
             </button>
           )) : (
@@ -124,8 +137,8 @@ export default function CommunityWrite() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [boardType, setBoardType] = useState<BoardType>(boardFromQuery as BoardType);
   const [category, setCategory] = useState("자유");
-  const [authorType, setAuthorType] = useState<"anonymous" | "nickname" | "realname">(
-    (user as any)?.realNameVerified ? "anonymous" : (user as any)?.nickname ? "nickname" : "anonymous"
+  const [authorType, setAuthorType] = useState<"anonymous" | "nickname">(
+    (user as any)?.nickname ? "nickname" : "anonymous"
   );
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
@@ -143,8 +156,6 @@ export default function CommunityWrite() {
     }
   }, [tagTypeFromQuery]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const isRealNameVerified = (user as any)?.realNameVerified === true;
   const boardConfig = BOARD_CONFIGS[boardType];
 
   async function handleThumbnailUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -241,14 +252,17 @@ export default function CommunityWrite() {
             <Label className="text-sm font-black text-slate-700 ml-1">게시판 선택</Label>
             <Tabs value={boardType} onValueChange={(v) => { setBoardType(v as BoardType); setSelectedTag(null); }} className="w-full">
               <TabsList className="w-full h-12 p-1 bg-slate-100 rounded-xl">
-                <TabsTrigger value="free" className="flex-1 h-full rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all gap-1.5 text-[12px]">
-                  <Globe className="w-4 h-4" /> 자유
+                <TabsTrigger value="free" className="flex-1 h-full rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all gap-1.5 text-[12px]">
+                  자유
+                </TabsTrigger>
+                <TabsTrigger value="candidate" className="flex-1 h-full rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all gap-1.5 text-[12px]">
+                  선거
                 </TabsTrigger>
                 <TabsTrigger value="legislators" className="flex-1 h-full rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm transition-all gap-1.5 text-[12px]">
-                  <User className="w-4 h-4" /> 국회의원
+                  의원
                 </TabsTrigger>
                 <TabsTrigger value="bills" className="flex-1 h-full rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-sm transition-all gap-1.5 text-[12px]">
-                  <FileText className="w-4 h-4" /> 법안
+                  법안
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -259,11 +273,14 @@ export default function CommunityWrite() {
             <div className="space-y-3">
               <Label className="text-sm font-black text-slate-700 ml-1 flex items-center gap-1.5">
                 <Tag className="w-4 h-4 text-primary" />
-                {boardType === "legislators" ? "국회의원 태그" : "법안 태그"}
+                {boardType === "legislators" ? "의원 태그" : 
+                 boardType === "bills" ? "법안 태그" : "후보자 태그"}
                 <span className="text-[10px] font-medium text-red-500 ml-1">필수</span>
               </Label>
               <p className="text-[11px] text-slate-400 ml-1 -mt-1">
-                {boardType === "legislators" ? "이 글이 어떤 국회의원에 대한 글인지 태그해주세요." : "이 글이 어떤 법안에 대한 글인지 태그해주세요."}
+                {boardType === "legislators" ? "이 글이 어떤 의원에 대한 글인지 태그해주세요." : 
+                 boardType === "bills" ? "이 글이 어떤 법안에 대한 글인지 태그해주세요." : 
+                 "이 글이 어떤 후보자에 대한 글인지 태그해주세요."}
               </p>
               <TagSearch
                 tagType={(BOARD_CONFIGS[boardType] as any).tagType}
@@ -282,10 +299,10 @@ export default function CommunityWrite() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                  <SelectItem value="자유" className="rounded-lg font-medium cursor-pointer">💬 자유로운 소통</SelectItem>
-                  <SelectItem value="토론" className="rounded-lg font-medium cursor-pointer">⚔️ 진지한 토론</SelectItem>
-                  <SelectItem value="정보공유" className="rounded-lg font-medium cursor-pointer">📢 유익한 정보</SelectItem>
-                  <SelectItem value="질문" className="rounded-lg font-medium cursor-pointer">❓ 궁금한 점</SelectItem>
+                  <SelectItem value="자유" className="rounded-lg font-medium cursor-pointer">자유로운 소통</SelectItem>
+                  <SelectItem value="토론" className="rounded-lg font-medium cursor-pointer">진지한 토론</SelectItem>
+                  <SelectItem value="정보공유" className="rounded-lg font-medium cursor-pointer">유익한 정보</SelectItem>
+                  <SelectItem value="질문" className="rounded-lg font-medium cursor-pointer">궁금한 점</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -310,31 +327,16 @@ export default function CommunityWrite() {
                   </Link>
                 </div>
               ) : (
-                isRealNameVerified ? (
-                  ["anonymous", "nickname", "realname"].map((type) => (
-                    <label key={type} className="flex items-center gap-3 cursor-pointer">
-                      <input type="radio" name="write-authorType" value={type} checked={authorType === type} onChange={() => setAuthorType(type as any)} className="accent-primary" />
-                      <span className="text-sm font-medium text-slate-700">
-                        {type === "anonymous" && "익명으로 올리기"}
-                        {type === "nickname" && `닉네임으로 올리기 ${ (user as any).nickname ? `(${(user as any).nickname})` : "— 닉네임 미설정"}`}
-                        {type === "realname" && (
-                          <span className="flex items-center gap-1">실명인증으로 올리기<span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">실명</span></span>
-                        )}
-                      </span>
-                    </label>
-                  ))
-                ) : (
-                  <>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="radio" name="write-authorType" value="anonymous" checked={authorType === "anonymous"} onChange={() => setAuthorType("anonymous")} className="accent-primary" />
-                      <span className="text-sm font-medium text-slate-700">익명으로 올리기</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="radio" name="write-authorType" value="nickname" checked={authorType === "nickname"} onChange={() => setAuthorType("nickname")} className="accent-primary" disabled={!(user as any).nickname} />
-                      <span className={`text-sm font-medium ${ !(user as any).nickname ? "text-slate-300" : "text-slate-700" }`}>닉네임으로 올리기 {(user as any).nickname ? `(${(user as any).nickname})` : "— 마이페이지에서 닉네임 설정"}</span>
-                    </label>
-                  </>
-                )
+                <>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="write-authorType" value="anonymous" checked={authorType === "anonymous"} onChange={() => setAuthorType("anonymous")} className="accent-primary" />
+                    <span className="text-sm font-medium text-slate-700">익명으로 올리기</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="write-authorType" value="nickname" checked={authorType === "nickname"} onChange={() => setAuthorType("nickname")} className="accent-primary" disabled={!(user as any).nickname} />
+                    <span className={`text-sm font-medium ${ !(user as any).nickname ? "text-slate-300" : "text-slate-700" }`}>닉네임으로 올리기 {(user as any).nickname ? `(${(user as any).nickname})` : "— 마이페이지에서 닉네임 설정"}</span>
+                  </label>
+                </>
               )}
             </div>
           </div>

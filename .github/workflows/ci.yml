@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --no-audit --no-fund
+      - name: TypeScript check
+        run: npm run check
+      - name: Unit tests
+        run: npm test --if-present
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # 빌드 시 환경변수가 필요한 경우 GitHub Secrets에서 주입
+          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST || 'postgres://placeholder' }}
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm audit --audit-level=high || true
+      - name: Check for committed secrets
+        run: |
+          if git ls-files | grep -E '^\.env$|cookies\.txt|secrets?\.(json|yaml)$' | grep -v example; then
+            echo "::error::시크릿 의심 파일이 커밋되었습니다"
+            exit 1
+          fi

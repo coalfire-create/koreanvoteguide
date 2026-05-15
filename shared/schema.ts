@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, boolean, timestamp, jsonb, uniqueIndex, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, boolean, timestamp, jsonb, uniqueIndex, index, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8,19 +8,73 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
+  // 전화번호 평문 — 가급적 phoneHash로 lookup하고 평문은 본인 노출 시에만
   phone: text("phone").notNull(),
+  // HMAC-SHA256(PHONE_PEPPER, phone) — 중복 가입 검사용. 평문 노출 위험 없음.
+  phoneHash: text("phone_hash"),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   voteVerified: boolean("vote_verified").default(false).notNull(),
+  // ⚠️ realNameVerified는 PASS/NICE 등 KISA 지정 본인확인기관 통과 시에만 true로 설정해야 함
   realNameVerified: boolean("real_name_verified").default(false).notNull(),
   realName: text("real_name"),
+  // 본인확인기관 식별자 — pass/nice/kmc 등. null이면 자체 인증(법적 "실명인증" 아님)
+  realNameProvider: text("real_name_provider"),
+  // 출생연도 — 만 14세 미만 가입 차단용 (개인정보보호법 §22-2 법정대리인 동의 회피)
+  birthYear: integer("birth_year"),
+  // ===== 본인확인기관(PASS/NICE/PortOne 등) 콜백으로 수신하는 인적사항 =====
+  // birthDate: 본인확인 API가 돌려주는 정확한 생년월일 (YYYYMMDD 8자리 문자열).
+  // 통계용 — birthYear와 별개로 보관해 만나이 갱신/생일 기반 분석 가능.
+  birthDate: text("birth_date"),
+  // gender: "M" | "F" — 본인확인 API 응답값을 그대로 저장. ENUM 대신 text로 두어 외부값 호환.
+  gender: text("gender"),
+  // ageGroup: 10대=10, 20대=20, ... 60대 이상=60. 가입 시점 계산값을 캐시(주기적으로 재계산).
+  ageGroup: integer("age_group"),
+  // ci(Connecting Information): 본인확인기관이 부여하는 고유 식별값. 한 사람이 여러 계정 만드는 것 방지.
+  // 평문 그대로 저장하지 말고 향후 SHA-256/HMAC 해시로 마이그레이션 권장. 현 단계는 구조만 잡아둠.
+  ci: text("ci"),
+  // ===== Kakao OAuth (메인 로그인 수단) =====
+  // kakaoId: Kakao 사용자 고유 ID(숫자). 같은 사용자 재로그인 시 lookup 키.
+  kakaoId: text("kakao_id"),
+  // email: Kakao account_email scope에서 받은 이메일. 사용자 동의 시에만 채워짐.
+  email: text("email"),
+  // profileImageUrl: Kakao 프로필 이미지. 카카오톡 프로필 변경시 자동 반영되지 않음 — 로그인 때마다 갱신.
+  profileImageUrl: text("profile_image_url"),
   nickname: text("nickname"),
   nicknameUpdatedAt: timestamp("nickname_updated_at"),
-  badges: jsonb("badges").default([]).notNull(), // e.g. ["vote_verified","active","veteran"]
+  badges: jsonb("badges").default([]).notNull(),
   postCount: integer("post_count").default(0).notNull(),
-  favorites: jsonb("favorites").default([]).notNull(), // favorite member IDs or gallery keys
-  favoriteRegions: jsonb("favorite_regions").default([]).notNull(), // multiple favorite regions array
+  favorites: jsonb("favorites").default([]).notNull(),
+  favoriteRegions: jsonb("favorite_regions").default([]).notNull(),
+  // 약관/개인정보처리방침 동의 시점
+  tosAcceptedAt: timestamp("tos_accepted_at"),
+  privacyAcceptedAt: timestamp("privacy_accepted_at"),
+  // 회원 탈퇴 시각 — soft delete. 데이터 비식별화 후 30일 보존.
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  phoneHashIdx: uniqueIndex("users_phone_hash_uniq").on(table.phoneHash),
+  // 본인확인 CI는 1인 1계정 보장용. NULL은 인덱스 대상에서 자연 제외되므로 미인증 사용자 공존 가능.
+  ciUniqIdx: uniqueIndex("users_ci_uniq").on(table.ci),
+  // Kakao 사용자 재로그인용 lookup 키. NULL은 비-Kakao 계정.
+  kakaoIdUniq: uniqueIndex("users_kakao_id_uniq").on(table.kakaoId),
+  ageGroupIdx: index("users_age_group_idx").on(table.ageGroup),
+}));
+
+// ===== 의원 팔로우 (Story 피드 & 개인화 타임라인) =====
+// politicianId는 국회의원의 monaCd 또는 후보자 ID. 외부 데이터까지 포괄하려고 FK 대신 text.
+export const userFollows = pgTable("user_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  politicianId: text("politician_id").notNull(),
+  politicianType: text("politician_type").default("member").notNull(), // "member" | "candidate"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userPoliticianUniq: uniqueIndex("user_follows_user_politician_uniq").on(table.userId, table.politicianId),
+  userIdx: index("user_follows_user_idx").on(table.userId),
+  politicianIdx: index("user_follows_politician_idx").on(table.politicianId),
+}));
+
+export type UserFollow = typeof userFollows.$inferSelect;
 
 export const verificationCodes = pgTable("verification_codes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -38,12 +92,27 @@ export const insertUserSchema = createInsertSchema(users).pick({
   phone: true,
 });
 
+const CURRENT_YEAR = new Date().getFullYear();
 export const registerSchema = z.object({
-  username: z.string().min(3, "아이디는 3자 이상이어야 합니다"),
-  password: z.string().min(6, "비밀번호는 6자 이상이어야 합니다"),
-  name: z.string().min(2, "이름은 2자 이상이어야 합니다"),
+  username: z.string().min(3, "아이디는 3자 이상이어야 합니다").max(32),
+  password: z
+    .string()
+    .min(10, "비밀번호는 10자 이상이어야 합니다")
+    .max(128)
+    .regex(/[A-Za-z]/, "영문을 포함해야 합니다")
+    .regex(/[0-9]/, "숫자를 포함해야 합니다"),
+  name: z.string().min(2, "이름은 2자 이상이어야 합니다").max(20),
   phone: z.string().regex(/^01[016789]-?\d{3,4}-?\d{4}$/, "올바른 휴대폰 번호를 입력하세요"),
   verificationCode: z.string().length(6, "인증번호 6자리를 입력하세요"),
+  // 만 14세 미만 가입 차단(개인정보보호법 §22-2)
+  birthYear: z
+    .number()
+    .int()
+    .min(1900)
+    .max(CURRENT_YEAR)
+    .refine((y) => CURRENT_YEAR - y >= 14, "만 14세 이상만 가입할 수 있습니다"),
+  agreeTos: z.boolean().refine((v) => v === true, "이용약관에 동의해야 합니다"),
+  agreePrivacy: z.boolean().refine((v) => v === true, "개인정보처리방침에 동의해야 합니다"),
 });
 
 export const loginSchema = z.object({
@@ -172,30 +241,39 @@ export interface Bill {
 export const communityPosts = pgTable("community_posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  legislatorId: varchar("legislator_id"), // Added for member specific posts
+  legislatorId: varchar("legislator_id"),
   title: text("title").notNull(),
   content: text("content").notNull(),
   anonNickname: text("anon_nickname").notNull(),
-  boardType: text("board_type").default("open").notNull(), // 'open' | 'members'
-  category: text("category").default("자유").notNull(),   // '자유' | '토론' | '정보공유' | '질문'
+  boardType: text("board_type").default("open").notNull(),
+  category: text("category").default("자유").notNull(),
   showRealName: boolean("show_real_name").default(false).notNull(),
-  authorType: text("author_type").default("anonymous").notNull(), // 'anonymous' | 'nickname' | 'realname'
-  displayName: text("display_name"),  // 게시 시점의 닉네임 또는 실명 스냅샷
-  isVerified: boolean("is_verified").default(false).notNull(), // 실명인증 배지용
+  authorType: text("author_type").default("anonymous").notNull(),
+  displayName: text("display_name"),
+  isVerified: boolean("is_verified").default(false).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
   reportCount: integer("report_count").default(0).notNull(),
   likes: integer("likes").default(0).notNull(),
   dislikes: integer("dislikes").default(0).notNull(),
   agreeCount: integer("agree_count").default(0).notNull(),
   disagreeCount: integer("disagree_count").default(0).notNull(),
-  contentType: text("content_type").default("text").notNull(),  // 'text' | 'rich'
-  attachments: jsonb("attachments"),  // [{ type: 'image'|'video'|'youtube'|'poll', url?, pollId? }]
-  thumbnailUrl: text("thumbnail_url"),  // 게시글 대표 이미지 (제목 옆 미리보기)
-  tagType: text("tag_type"),            // 'legislator' | 'bill' | null
-  tagId: text("tag_id"),                // 태그된 국회의원 monaCd 또는 법안 billId
-  tagName: text("tag_name"),            // 태그된 국회의원 이름 또는 법안 이름 (스냅샷)
+  contentType: text("content_type").default("text").notNull(),
+  attachments: jsonb("attachments"),
+  thumbnailUrl: text("thumbnail_url"),
+  tagType: text("tag_type"),
+  tagId: text("tag_id"),
+  tagName: text("tag_name"),
+  // 모더레이션 — 신고로 임시조치된 글은 hiddenAt 설정 후 24시간 내 관리자 검토
+  hiddenAt: timestamp("hidden_at"),
+  // soft delete
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  boardCreatedIdx: index("posts_board_created_idx").on(table.boardType, table.createdAt),
+  tagIdx: index("posts_tag_idx").on(table.tagType, table.tagId),
+  userIdx: index("posts_user_idx").on(table.userId),
+  createdIdx: index("posts_created_idx").on(table.createdAt),
+}));
 
 export const communityBookmarks = pgTable("community_bookmarks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -212,11 +290,16 @@ export const communityComments = pgTable("community_comments", {
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
   anonNickname: text("anon_nickname").notNull(),
-  authorType: text("author_type").default("anonymous").notNull(), // 'anonymous' | 'nickname' | 'realname'
+  authorType: text("author_type").default("anonymous").notNull(),
   displayName: text("display_name"),
   isVerified: boolean("is_verified").default(false).notNull(),
+  hiddenAt: timestamp("hidden_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  postIdx: index("comments_post_idx").on(table.postId, table.createdAt),
+  userIdx: index("comments_user_idx").on(table.userId),
+}));
 
 export const communityReactions = pgTable("community_reactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -352,6 +435,10 @@ export const legislators = pgTable("legislators", {
   propertyStock: integer("property_stock"),
   propertyDebt: integer("property_debt"),
   propertyDetailSyncedAt: timestamp("property_detail_synced_at"),
+  // 트렌딩 점수 산정용 (Trending Score = follower*20 + profileView*1 + recentNews*5)
+  followerCount: integer("follower_count").default(0).notNull(),
+  profileViewCount: integer("profile_view_count").default(0).notNull(),
+  recentNewsCount: integer("recent_news_count").default(0).notNull(),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 });
 
@@ -372,6 +459,8 @@ export const assemblyBills = pgTable("assembly_bills", {
   welfareScore: real("welfare_score"),
   justiceScore: real("justice_score"),
   viewCount: integer("view_count").default(0).notNull(),
+  voteCount: integer("vote_count").default(0).notNull(),
+  newsMentionCount: integer("news_mention_count").default(0).notNull(),
   coProposerCount: integer("co_proposer_count").default(0).notNull(),
   mediaMentionCount: integer("media_mention_count").default(0).notNull(),
   category: text("category").default("일반").notNull(),
@@ -391,6 +480,8 @@ export const assemblyVotes = pgTable("assembly_votes", {
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
 }, (table) => ({
   billLegislatorUniq: uniqueIndex("bill_legislator_uniq").on(table.billId, table.legislatorId),
+  legislatorIdx: index("votes_legislator_idx").on(table.legislatorId),
+  billIdx: index("votes_bill_idx").on(table.billId),
 }));
 
 export type Legislator = typeof legislators.$inferSelect;
@@ -401,21 +492,32 @@ export type AssemblyVote = typeof assemblyVotes.$inferSelect;
 export const electionCandidates = pgTable("election_candidates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   electionType: text("election_type").notNull(),   // mayor | district | metro-council 등
-  regionCode: text("region_code").notNull(),        // 시/도 코드
+  regionCode: text("region_code").notNull(),        // 시/도 코드 (raw sdName 사본)
   districtName: text("district_name").notNull(),    // 선거구명 (예: 마포구)
   name: text("name").notNull(),
+  hanjaName: text("hanja_name"),                    // 한자 성명 (API: hanjaName)
   party: text("party").notNull(),
   photo: text("photo"),
-  age: integer("age"),
-  job: text("job"),                                 // 현직
-  career: text("career"),                           // 주요 경력 (JSON 문자열)
+  age: integer("age"),                              // 만 나이 (birthday 기반 계산)
+  job: text("job"),                                 // 현직 (API: job)
+  career: text("career"),                           // career1 + career2 결합 (백워드 호환)
+  career1: text("career1"),                         // 주요 경력 1 (API: career1)
+  career2: text("career2"),                         // 주요 경력 2 (API: career2)
   pledges: jsonb("pledges").default([]),            // 공약 목록
-  edu: text("edu"),                                  // 학력
-  criminal: text("criminal"),                       // 전과기록
-  status: text("status").notNull().default("예비후보"), // 예비후보 | 후보자
-  birthday: text("birthday"),                       // 생년월일
-  gender: text("gender"),                           // 성별
-  sourceId: text("source_id"),                      // 선관위 API 후보 ID
+  edu: text("edu"),                                  // 학력 (API: edu)
+  criminal: text("criminal"),                       // 전과기록 (legacy text 필드, 호환 유지)
+  criminalRecords: jsonb("criminal_records").default([]).notNull(), // 전과기록 (신규 JSONB; 선관위 API 미제공으로 기본 [])
+  status: text("status").notNull().default("예비후보"), // 라이프사이클 라벨: 예비후보 | 후보자
+  candidateStatus: text("candidate_status"),        // API 등록 상태: 등록 | 사퇴 | 등록무효 등
+  birthday: text("birthday"),                       // 생년월일 YYYYMMDD (API: birthday)
+  gender: text("gender"),                           // 성별 (API: gender)
+  sdName: text("sd_name"),                          // 시/도명 원본 (API: sdName)
+  sggName: text("sgg_name"),                        // 선거구명 원본 (API: sggName)
+  wiwName: text("wiw_name"),                        // 구/시/군명 원본 (API: wiwName)
+  // NOTE: source_id UNIQUE 제약은 push 시 자동 적용하면 drizzle-kit이 기존 데이터 truncate를 제안함.
+  // 별도 SQL로 dedup 후 수동 적용 예정. 코드 상 upsert는 source_id 기준으로 동작.
+  sourceId: text("source_id"),                      // 선관위 API 후보 ID (huboid) — Deep Sync upsert 키
+  matchKey: text("match_key"),                      // 이름_생년월일_선거구 조합 (외부 CSV 매칭용)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -487,15 +589,20 @@ export type Reaction = typeof reactions.$inferSelect;
 export const pollComments = pgTable("poll_comments", {
   id: serial("id").primaryKey(),
   pollId: text("poll_id").notNull(),
-  userId: integer("user_id"),                  // null = 비로그인
+  // users.id가 varchar(UUID)이므로 integer가 아니라 varchar여야 한다.
+  // 이전 integer 정의 때문에 parseInt(uuid)=NaN → PG insert 실패 = 댓글 500. 반드시 db:push 필요.
+  userId: varchar("user_id"),                   // null = 비로그인
   content: text("content").notNull(),
   authorType: text("author_type").default("anonymous").notNull(),
   displayName: text("display_name"),
   isVerified: boolean("is_verified").default(false).notNull(),
-  parentId: integer("parent_id"),              // 대댓글
+  parentId: integer("parent_id"),               // 대댓글 (parent의 serial id 참조)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  pollIdx: index("poll_comments_poll_idx").on(table.pollId, table.createdAt),
+  userIdx: index("poll_comments_user_idx").on(table.userId),
+}));
 
 export type PollComment = typeof pollComments.$inferSelect;
 
@@ -586,3 +693,12 @@ export const searchHistory = pgTable("search_history", {
 });
 
 export type SearchHistory = typeof searchHistory.$inferSelect;
+
+// ===== 정치인 사진 URL DB 캐시 (서버 재시작 후에도 유지) =====
+export const politicianPhotoCache = pgTable("politician_photo_cache", {
+  name: text("name").primaryKey(),   // 정치인 이름 (키)
+  photoUrl: text("photo_url"),       // null이면 사진 없음 확인된 것
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+});
+
+export type PoliticianPhotoCache = typeof politicianPhotoCache.$inferSelect;

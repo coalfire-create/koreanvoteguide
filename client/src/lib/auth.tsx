@@ -11,17 +11,31 @@ interface AuthUser {
   realName?: string | null;
   nickname?: string | null;
   nicknameUpdatedAt?: string | null;
+  // 본인확인 콜백으로 채워지는 demographic 정보
+  ageGroup?: number | null;   // 10/20/30/40/50/60 — 60대 이상은 60으로 캡
+  gender?: "M" | "F" | null;
   badges: string[];
   postCount: number;
   favorites: string[];
   favoriteRegions: { code: string; name: string }[];
 }
 
+interface RegisterPayload {
+  username: string;
+  password: string;
+  name: string;
+  phone: string;
+  verificationCode: string;
+  birthYear: number;
+  agreeTos: boolean;
+  agreePrivacy: boolean;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (data: { username: string; password: string; name: string; phone: string; verificationCode: string }) => Promise<void>;
+  register: (data: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -47,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (data: { username: string; password: string; name: string; phone: string; verificationCode: string }) => {
+    mutationFn: async (data: RegisterPayload) => {
       const res = await apiRequest("POST", "/api/auth/register", data);
       return res.json();
     },
@@ -69,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loginMutation.mutateAsync({ username, password });
   }, [loginMutation]);
 
-  const register = useCallback(async (data: { username: string; password: string; name: string; phone: string; verificationCode: string }) => {
+  const register = useCallback(async (data: RegisterPayload) => {
     await registerMutation.mutateAsync(data);
   }, [registerMutation]);
 

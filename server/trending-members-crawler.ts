@@ -1,7 +1,7 @@
 /**
  * 최근 주목받는 의원 크롤러
  * 1. 국내 주요 언론사 RSS에서 의원 이름 언급 빈도를 분석 (오직 뉴스 기준)
- * 2. LLM(Gemini)을 활용해 동일 주제 뉴스 집중도에 따른 가산점(Topic Boost) 부여
+ * 2. LLM(Groq/LLaMA3)을 활용해 동일 주제 뉴스 집중도에 따른 가산점(Topic Boost) 부여
  * 3. 뉴스 헤드라인을 바탕으로 주목받는 핵심 이유 텍스트 생성
  */
 
@@ -10,8 +10,7 @@ import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import { db } from "./db";
 import { legislators } from "@shared/schema";
-import { generateText } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { callLLMJsonOrFallback } from "./utils/llm-wrapper";
 
 // ===== 캐시 (30분) =====
 interface TrendingMember {
@@ -153,58 +152,49 @@ async function getMemberInfoFromDB(): Promise<Map<string, any>> {
 }
 
 /**
- * AI(Gemini)를 활용한 의원별 헤드라인 주제 집중도 분석 및 이유 생성
+ * AI(Groq/LLaMA3)를 활용한 의원별 헤드라인 주제 집중도 분석 및 이유 생성
  */
-async function analyzeTrendingWithAI(members: any[]): Promise<any[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("[trending] GEMINI_API_KEY가 없습니다. 기본 점수와 이유를 사용합니다.");
-    return members.map(m => ({ ...m, topicBoost: 0, reason: "주요 뉴스에 다수 언급됨" }));
+interface TrendingAIItem {
+  name: string;
+  topicBoost: number;
+  reason: string;
+}
+
+async function analyzeTrendingWithAI(members: any[]): Promise<TrendingAIItem[]> {
+  const fallback: TrendingAIItem[] = members.map((m) => ({
+    name: m.name,
+    topicBoost: 0,
+    reason: "주요 뉴스에 다수 언급됨",
+  }));
+
+  if (!process.env.GROQ_API_KEY) {
+    console.warn("[trending] GROQ_API_KEY가 없습니다. 기본 점수와 이유를 사용합니다.");
+    return fallback;
   }
 
-  const googleAI = createGoogleGenerativeAI({ apiKey });
+  const membersText = members
+    .map((m) => `의원: ${m.name}\n헤드라인:\n${m.headlines.map((h: string) => `- ${h}`).join("\n")}`)
+    .join("\n\n");
 
-  const promptStr = `
-당신은 한국 정치 뉴스를 분석하는 AI입니다.
-아래는 최근 뉴스에서 언급된 국회의원들과 그들을 언급한 뉴스 기사의 헤드라인 목록입니다.
+  const result = await callLLMJsonOrFallback<{ members: TrendingAIItem[] }>(
+    {
+      system:
+        "당신은 한국 정치 뉴스를 분석하는 AI입니다. " +
+        "반드시 아래 JSON 스키마만 출력하세요.\n" +
+        '{"members":[{"name":"의원이름","topicBoost":0~5정수,"reason":"20자이내요약"}]}',
+      user:
+        "아래 의원들의 헤드라인을 분석하세요.\n" +
+        "topicBoost: 동일 이슈 집중도 0-5점 (분산이면 0)\n" +
+        "reason: 뉴스에 오르내리는 핵심 이유 20자 이내\n\n" +
+        membersText,
+      temperature: 0.3,
+      maxTokens: 1024,
+      label: "trending/analyze",
+    },
+    { members: fallback }
+  );
 
-${members.map(m => `의원: ${m.name}\n헤드라인:\n${m.headlines.map((h: string) => `- ${h}`).join("\n")}`).join("\n\n")}
-
-각 의원에 대해 다음을 분석하여 JSON 배열 형태로 반환해주세요. 반드시 마크다운(backticks 등) 없이 순수 JSON 배열만 반환해야 합니다.
-
-1. name: 의원 이름
-2. topicBoost: 의원의 헤드라인들이 "동일한 특정 이슈(사건/주제)"에 집중되어 있는지 평가하세요. 
-   - 똑같은 주제의 뉴스로만 집중적으로 언급되었다면 1점에서 최대 5점 사이의 가산점(topicBoost)을 부여하세요. (집중도가 높고 중요한 이슈일수록 높은 점수)
-   - 여러 가지 잡다한 주제로 분산되어 있다면 0점을 부여하세요.
-3. reason: 이 의원이 왜 뉴스에 오르내리고 있는지 핵심 이유를 **20자 내외의 한국어**로 요약하세요. (예: "당대표 출마 공식 선언", "돈봉투 의혹 검찰 소환", "채상병 특검법 관련 주요 발언")
-
-응답 예시 형식:
-[
-  { "name": "홍길동", "topicBoost": 4, "reason": "전당대회 당대표 출마 선언" }
-]
-`;
-
-  try {
-    const { text } = await generateText({
-      model: googleAI("gemini-2.0-flash"),
-      prompt: promptStr,
-      maxRetries: 2,
-    });
-
-    let jsonStr = text.trim();
-    if (jsonStr.startsWith("\`\`\`json")) {
-      jsonStr = jsonStr.replace(/^\`\`\`json\n/, "").replace(/\n\`\`\`$/, "");
-    }
-    if (jsonStr.startsWith("\`\`\`")) {
-      jsonStr = jsonStr.replace(/^\`\`\`\n?/, "").replace(/\n?\`\`\`$/, "");
-    }
-
-    const parsed = JSON.parse(jsonStr);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error("[trending] AI 분석 오류:", error);
-    return members.map(m => ({ ...m, topicBoost: 0, reason: "주요 뉴스에 다수 언급됨" }));
-  }
+  return Array.isArray(result?.members) ? result.members : fallback;
 }
 
 /**

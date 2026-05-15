@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { POLITICIAN_PHOTOS } from "@/lib/politician-photos";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export interface PoliticianPhotoProps {
   name: string;
@@ -16,41 +17,63 @@ export function PoliticianPhoto({
   name, photo, resolvedUrl, monaCd, size,
   className, avatarClassName, lazy = true,
 }: PoliticianPhotoProps) {
+  const [srcIndex, setSrcIndex] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
 
-  // Source priority: explicit prop > batch-resolved > hardcoded Wikipedia map > dynamic API fallback
-  const hardcoded = POLITICIAN_PHOTOS[name] ?? null;
-  const assemblyProxy = monaCd && /^\d+$/.test(monaCd) ? `/api/photo/assembly/${monaCd}` : null;
-  const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}`;
-  const src = imgError ? null : (photo || resolvedUrl || hardcoded || assemblyProxy || dynamicFallback);
+  // Source priority: hardcoded override > explicit prop > batch-resolved > server-side fallback.
+  // 하드코딩이 가장 우선 — DB(legislators.photoUrl)에 잘못된 사진이 들어가도(동명이인 등) 손으로 박은 정답이 이김.
+  // 하드코딩에 없는 이름은 자연스럽게 기존 우선순위(photo prop → resolvedUrl → server fallback)로 fall through.
+  const sources = useMemo(() => {
+    const hardcoded = POLITICIAN_PHOTOS[name] ?? null;
+    const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}`;
+    return [hardcoded, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
+  }, [photo, resolvedUrl, name, monaCd]);
 
+  const src = srcIndex < sources.length ? sources[srcIndex] : null;
   const sizeStyle = size ? { width: size, height: size } : undefined;
 
+  const handleLoad = () => setImgLoaded(true);
+  const handleError = () => {
+    setImgLoaded(false);
+    setSrcIndex((prev) => prev + 1);
+  };
+
   return (
-    <div className="relative w-full h-full" style={sizeStyle}>
-      {/* Avatar: always visible as base layer — no network request needed */}
+    <div className="relative w-full h-full overflow-hidden group" style={sizeStyle}>
+      {/* Layer 1 — Avatar: always visible as the bottom fallback */}
       <div
-        className={`absolute inset-0 flex items-center justify-center select-none ${
-          avatarClassName ?? "bg-gray-200 text-gray-500 font-black text-xl"
+        className={`absolute inset-0 flex items-center justify-center select-none bg-gradient-to-br from-gray-100 to-gray-200 ${
+          avatarClassName ?? "text-gray-400 font-black text-xl"
         }`}
       >
-        {name.charAt(0)}
+        <span className="opacity-40">{name.charAt(0)}</span>
       </div>
 
-      {/* Photo: loads lazily, fades in over the avatar once ready */}
+      {/* Layer 2 — Skeleton: shimmer while the photo is in-flight */}
+      {src && !imgLoaded && (
+        <Skeleton className="absolute inset-0 w-full h-full rounded-none" />
+      )}
+
+      {/* Layer 3 — Photo: fades in smoothly once loaded; on error tries next source */}
       {src && (
-        <img
-          src={src}
-          alt={name}
-          loading={lazy ? "lazy" : "eager"}
-          decoding="async"
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgError(true)}
-          className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300 ${
-            imgLoaded ? "opacity-100" : "opacity-0"
-          } ${className ?? ""}`}
-        />
+        <>
+          <img
+            key={src}
+            src={src}
+            alt={name}
+            loading={lazy ? "lazy" : "eager"}
+            decoding="async"
+            onLoad={handleLoad}
+            onError={handleError}
+            className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out group-hover:scale-110 ${
+              imgLoaded ? "opacity-100" : "opacity-0"
+            } ${className ?? ""}`}
+          />
+          {/* Layer 4 — Gradient Overlay for depth */}
+          {imgLoaded && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none opacity-60 transition-opacity group-hover:opacity-40" />
+          )}
+        </>
       )}
     </div>
   );

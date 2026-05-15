@@ -14,11 +14,24 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { analyzeLegislator } from "./legislator-analysis";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments } from "@shared/schema";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
 import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
+import { callLLMText, callLLMJson, callLLMJsonOrFallback, LLMConfigError, LLMTransientError, LLMParseError } from "./utils/llm-wrapper";
+import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
+import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
+import {
+  loadKakaoConfig,
+  buildAuthorizeUrl,
+  exchangeCodeForToken,
+  fetchKakaoProfile,
+  mapKakaoAgeRange,
+  mapKakaoGender,
+  mapKakaoBirthYear,
+} from "./utils/kakao-oauth";
+import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
 import { eq, desc, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
 import axios from "axios";
@@ -329,9 +342,21 @@ async function comparePasswords(supplied: string, stored: string): Promise<boole
   return timingSafeEqual(Buffer.from(hashed, "hex"), buf);
 }
 
+// 전화번호 lookup용 HMAC. 평문 phone은 그대로 두되, 중복 검사·재로그인 식별은 hash로.
+// PHONE_PEPPER는 한 번 정하면 절대 변경 금지 (변경하면 기존 hash 모두 무효).
+export function hashPhone(phone: string): string {
+  const pepper = process.env.PHONE_PEPPER || "";
+  if (!pepper && isProduction) {
+    throw new Error("프로덕션에서는 PHONE_PEPPER 환경변수가 반드시 필요합니다.");
+  }
+  return crypto.createHmac("sha256", pepper || "dev-pepper").update(phone).digest("hex");
+}
+
 declare module "express-session" {
   interface SessionData {
     userId: string;
+    // Kakao OAuth CSRF 방지용 state 토큰. authorize 단계에서 set, callback에서 검증·삭제.
+    kakaoOAuthState?: string;
   }
 }
 
@@ -346,8 +371,9 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "로그인이 필요합니다" });
   }
-  const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").filter(Boolean);
-  if (adminIds.length > 0 && !adminIds.includes(req.session.userId)) {
+  const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  // Fail-closed: ADMIN_USER_IDS가 비어있으면 모든 사용자를 거부 (이전 fail-open 버그 제거)
+  if (adminIds.length === 0 || !adminIds.includes(req.session.userId)) {
     return res.status(403).json({ error: "관리자 권한이 필요합니다" });
   }
   next();
@@ -370,17 +396,18 @@ export async function registerRoutes(
         checkPeriod: 86400000 // 하루 (ms 단위)
       });
 
-  if (isProduction && !process.env.SESSION_SECRET) {
-    throw new Error("프로덕션 환경에서는 SESSION_SECRET 환경변수가 반드시 필요합니다.");
+  if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
+    throw new Error("프로덕션 환경에서는 SESSION_SECRET(32자 이상) 환경변수가 반드시 필요합니다.");
   }
 
   app.use(
     session({
       store: sessionStore,
+      // 개발에서는 fallback이 있어도 무방하지만, 프로덕션은 위 가드로 차단됨
       secret: process.env.SESSION_SECRET || "vote-with-reason-dev-secret-key",
       resave: false,
       saveUninitialized: false,
-      name: "kvg.sid", // 기본 'connect.sid' 대신 고유한 이름
+      name: "kvg.sid",
       cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
@@ -393,7 +420,11 @@ export async function registerRoutes(
   // 일반 API에 rate limit 적용
   app.use("/api/", apiLimiter);
 
-  app.post("/api/auth/send-code", sendCodeLimiter, async (req, res) => {
+  // ===== SMS OTP 인증 =====
+  // 1) 발송: /api/auth/send-sms (신규 이름) + /api/auth/send-code (기존 호환)
+  // 2) 검증: /api/auth/verify-sms (read-only, mark used는 register에서)
+  // dev 환경에서는 콘솔에 [MOCK SMS] 출력만 하고, 응답에 demoCode 포함.
+  const sendSmsHandler = async (req: Request, res: Response) => {
     try {
       const result = phoneVerificationSchema.safeParse(req.body);
       if (!result.success) {
@@ -408,24 +439,65 @@ export async function registerRoutes(
 
       await storage.createVerificationCode(normalizedPhone, code, expiresAt);
 
-      // 프로덕션에서는 실제 SMS 발송 필요 (현재는 개발용 콘솔 출력)
-      if (!isProduction) {
-        console.log(`[dev] 인증번호 (${normalizedPhone}): ${code}`);
+      // 운영에서는 SMS_PROVIDER(NHN Cloud, Aligo, NAVER Cloud SENS 등) 어댑터 연동 필요.
+      // 자체 SMS는 "단순 가입 인증"용이며 "본인확인"으로 인정되지 않는다.
+      const provider = process.env.SMS_PROVIDER?.toLowerCase();
+      if (isProduction) {
+        if (!provider) {
+          // 어댑터 미연동 시 프로덕션에서는 실패로 명시 — 사용자가 영영 코드를 못 받는 상황 방지
+          return res.status(503).json({
+            error: "SMS 발송 서비스가 설정되지 않았습니다. 잠시 후 다시 시도해주세요.",
+          });
+        }
+        // TODO: 어댑터별 SDK 호출 — 현 시점에서는 미구현
+        console.warn(`[sms] provider=${provider} 미구현 — 코드를 발송하지 않음`);
+      } else {
+        console.log(`[MOCK SMS] To: ${normalizedPhone}, Code: ${code} (expires in 3 min)`);
       }
 
       const response: Record<string, any> = {
         success: true,
         message: "인증번호가 발송되었습니다",
+        expiresAt: expiresAt.toISOString(),
+        ttlSeconds: 180,
       };
-      // 개발 환경에서만 코드 응답에 포함 (프로덕션 보안)
       if (!isProduction) {
         response.demoCode = code;
       }
-
       res.json(response);
     } catch (error) {
       console.error("Send code error:", error);
       res.status(500).json({ error: "인증번호 발송 중 오류가 발생했습니다" });
+    }
+  };
+
+  app.post("/api/auth/send-sms", sendCodeLimiter, sendSmsHandler);
+  app.post("/api/auth/send-code", sendCodeLimiter, sendSmsHandler);
+
+  // 검증 — register 전에 코드만 미리 확인. mark used는 하지 않으므로 register에서 한 번 더 검증/소비.
+  app.post("/api/auth/verify-sms", sendCodeLimiter, async (req, res) => {
+    try {
+      const { phone, code } = req.body ?? {};
+      if (typeof phone !== "string" || typeof code !== "string") {
+        return res.status(400).json({ success: false, error: "휴대폰 번호와 인증번호를 입력하세요." });
+      }
+      const phoneCheck = phoneVerificationSchema.safeParse({ phone });
+      if (!phoneCheck.success) {
+        return res.status(400).json({ success: false, error: "올바른 휴대폰 번호를 입력하세요." });
+      }
+      if (!/^\d{6}$/.test(code)) {
+        return res.status(400).json({ success: false, error: "6자리 숫자 인증번호를 입력하세요." });
+      }
+      const normalizedPhone = phone.replace(/-/g, "");
+      const record = await storage.getVerificationCode(normalizedPhone, code);
+      if (!record) {
+        return res.status(400).json({ success: false, error: "인증번호가 올바르지 않거나 만료되었습니다." });
+      }
+      // 의도적으로 mark used 하지 않음 — register 호출 시 동일 코드를 한 번 더 검증/소비.
+      res.json({ success: true, message: "인증되었습니다." });
+    } catch (error) {
+      console.error("verify-sms error:", error);
+      res.status(500).json({ success: false, error: "인증 처리 중 오류가 발생했습니다." });
     }
   });
 
@@ -437,15 +509,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: firstError });
       }
 
-      const { username, password, name, phone, verificationCode } = result.data;
+      const { username, password, name, phone, verificationCode, birthYear } = result.data;
       const normalizedPhone = phone.replace(/-/g, "");
+      const phoneHash = hashPhone(normalizedPhone);
 
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ error: "이미 사용 중인 아이디입니다" });
       }
 
-      const existingPhone = await storage.getUserByPhone(normalizedPhone);
+      const existingPhone = await storage.getUserByPhoneHash(phoneHash);
       if (existingPhone) {
         return res.status(400).json({ error: "이미 등록된 전화번호입니다" });
       }
@@ -463,6 +536,10 @@ export async function registerRoutes(
         password: hashedPassword,
         name,
         phone: normalizedPhone,
+        phoneHash,
+        birthYear,
+        tosAcceptedAt: new Date(),
+        privacyAcceptedAt: new Date(),
       });
 
       req.session.userId = user.id;
@@ -485,9 +562,15 @@ export async function registerRoutes(
       }
 
       const { username, password } = result.data;
-      
-      // Mock account for testing
-      if (username === "tester" && password === "test1234") {
+
+      // ⚠️ 개발 전용 mock 계정 — 프로덕션에서는 절대 활성화 금지.
+      // 활성화하려면 ENABLE_DEV_TESTER=1 환경변수를 명시적으로 설정해야 한다.
+      if (
+        !isProduction &&
+        process.env.ENABLE_DEV_TESTER === "1" &&
+        username === "tester" &&
+        password === "test1234"
+      ) {
         req.session.userId = "mock-tester-id";
         return res.json({
           success: true,
@@ -498,6 +581,10 @@ export async function registerRoutes(
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ error: "아이디 또는 비밀번호가 올바르지 않습니다" });
+      }
+
+      if ((user as any).deletedAt) {
+        return res.status(403).json({ error: "탈퇴한 계정입니다" });
       }
 
       const valid = await comparePasswords(password, user.password);
@@ -518,7 +605,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    if (req.session.userId === "mock-tester-id") {
+    if (!isProduction && req.session.userId === "mock-tester-id") {
       return res.json({
         user: {
           id: "mock-tester-id",
@@ -548,6 +635,9 @@ export async function registerRoutes(
         realNameVerified: user.realNameVerified,
         realName: user.realName,
         nickname: user.nickname,
+        // 본인확인 콜백(POST /api/auth/verify-identity)에서 채워지는 demographic 정보
+        ageGroup: user.ageGroup,
+        gender: user.gender,
         badges,
         postCount: user.postCount,
         favorites: user.favorites,
@@ -628,30 +718,145 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 실명인증 =====
+  // ===== 실명인증 (PASS/NICE 등 KISA 지정 본인확인기관 콜백 전용) =====
+  // ⚠️ 자체 입력으로 "실명인증"을 부여하는 것은 정보통신망법 §23-2 위반 소지.
+  // 이 라우트는 본인확인기관에서 받은 검증된 토큰(공개키 서명 등)을 검증한 뒤에만 verify를 호출하도록 닫혀있다.
   app.post("/api/auth/verify-realname", requireAuth, async (req, res) => {
     try {
-      const { realName } = req.body;
-      if (!realName || typeof realName !== "string" || realName.trim().length < 2) {
-        return res.status(400).json({ error: "실명을 올바르게 입력해주세요 (2자 이상)" });
+      const { provider, providerToken } = req.body as { provider?: string; providerToken?: string };
+      const allowedProviders = new Set(["pass", "nice", "kmc"]);
+      if (!provider || !allowedProviders.has(provider) || !providerToken) {
+        return res.status(400).json({
+          error: "본인확인기관(PASS/NICE/KMC) 토큰이 필요합니다. 자체 입력으로는 실명인증할 수 없습니다.",
+        });
       }
-      const user = await storage.getUser(req.session.userId!);
-      if (!user) return res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
-      if (user.realNameVerified) {
-        return res.json({ success: true, alreadyVerified: true, message: "이미 실명인증이 완료되었습니다" });
-      }
-      const updated = await storage.verifyRealName(req.session.userId!, realName.trim());
-      const badges = await storage.getUserBadges(updated.id);
-      res.json({
-        success: true,
-        message: "실명인증이 완료되었습니다! ✅",
-        badges,
-        realNameVerified: true,
-        realName: updated.realName,
+
+      // TODO: provider별 서명·토큰 검증 어댑터 연동 필요.
+      // 환경변수 SMS_PROVIDER / KMC_API_KEY 등을 통해 SDK 호출 → 응답에서 실명/CI/DI 회수.
+      // 현 시점에서는 검증된 통합 없이는 어떠한 사용자도 실명인증을 받을 수 없다.
+      return res.status(501).json({
+        error: "실명인증 연동이 아직 활성화되지 않았습니다. 운영자에게 문의하세요.",
+        provider,
       });
     } catch (error) {
       console.error("Verify realname error:", error);
       res.status(500).json({ error: "실명인증 중 오류가 발생했습니다" });
+    }
+  });
+
+  // ===== 본인확인 콜백 (PortOne / PASS / Toss 등 인증 성공 후 인적사항 수신) =====
+  // 호출 흐름: 클라이언트 위젯이 본인확인기관 인증을 띄움 → 성공 시 콜백/리다이렉트가 이 라우트에
+  // {name, birthDate, gender, ci}를 POST. 운영에서는 본인확인기관 응답을 서버측에서 한 번 더 검증해야 함
+  // (impUid·txId 등으로 PortOne API 재조회). 본 구현은 스키마/저장 로직 골격 단계.
+  app.post("/api/auth/verify-identity", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { name, birthDate, gender, ci } = (req.body ?? {}) as {
+        name?: string;
+        birthDate?: string;
+        gender?: string;
+        ci?: string;
+      };
+
+      if (!name || typeof name !== "string" || name.trim().length < 2) {
+        return res.status(400).json({ error: "본인확인 응답에 실명이 없습니다." });
+      }
+      if (!ci || typeof ci !== "string" || ci.trim().length < 8) {
+        return res.status(400).json({ error: "본인확인 CI 값이 누락되었습니다." });
+      }
+
+      const parsedBirth = parseBirthDate(birthDate);
+      if (!parsedBirth) {
+        return res.status(400).json({ error: "올바른 생년월일(YYYYMMDD)이 필요합니다." });
+      }
+
+      const normalizedGender = normalizeGender(gender);
+      if (!normalizedGender) {
+        return res.status(400).json({ error: "성별 값이 올바르지 않습니다." });
+      }
+
+      const ageGroup = calculateAgeGroup(birthDate);
+      if (ageGroup === null) {
+        return res.status(400).json({ error: "연령대 계산에 실패했습니다." });
+      }
+
+      // ===== CI 유일성 보장: 같은 CI가 다른 계정에 이미 연결되어 있으면 거부 =====
+      // 1인 1계정 제약 — 본인확인기관 CI는 동일인 식별값이므로 이미 사용 중이면 중복 가입 시도.
+      const normalizedBirth = `${parsedBirth.year}${String(parsedBirth.month).padStart(2, "0")}${String(parsedBirth.day).padStart(2, "0")}`;
+      const trimmedCi = ci.trim();
+
+      const [existingCi] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.ci, trimmedCi))
+        .limit(1);
+      if (existingCi && existingCi.id !== userId) {
+        return res.status(409).json({
+          error: "이미 다른 계정에 연결된 본인확인 정보입니다. 기존 계정으로 로그인해주세요.",
+        });
+      }
+
+      // ===== 사용자 레코드 업데이트 =====
+      // realNameVerified를 true로 끌어올리는 건 본인확인기관 콜백 처리에서만 허용 (CLAUDE.md 정책).
+      const updated = await db
+        .update(users)
+        .set({
+          realName: name.trim(),
+          realNameVerified: true,
+          realNameProvider: (req.body?.provider as string | undefined)?.toLowerCase() ?? null,
+          birthDate: normalizedBirth,
+          birthYear: parsedBirth.year,
+          gender: normalizedGender,
+          ageGroup,
+          ci: trimmedCi,
+        })
+        .where(eq(users.id, userId))
+        .returning({
+          id: users.id,
+          birthDate: users.birthDate,
+          gender: users.gender,
+          ageGroup: users.ageGroup,
+          realNameVerified: users.realNameVerified,
+        });
+
+      if (updated.length === 0) {
+        return res.status(404).json({ error: "사용자를 찾을 수 없습니다." });
+      }
+
+      console.log(`[verify-identity] user=${userId} ageGroup=${ageGroup} gender=${normalizedGender}`);
+
+      res.json({
+        success: true,
+        user: updated[0],
+      });
+    } catch (error: any) {
+      // Drizzle/PG: CI unique violation은 23505로 도착. 동시 요청 경합 케이스.
+      if (error?.code === "23505") {
+        return res.status(409).json({
+          error: "이미 다른 계정에 연결된 본인확인 정보입니다.",
+        });
+      }
+      console.error("verify-identity error:", error);
+      res.status(500).json({ error: "본인확인 처리 중 오류가 발생했습니다." });
+    }
+  });
+
+  // ===== 회원 탈퇴 =====
+  app.delete("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      await storage.withdrawUser(userId);
+      req.session.destroy(() => {
+        res.clearCookie("kvg.sid", {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: isProduction ? "strict" : "lax",
+        });
+        res.json({ success: true, message: "탈퇴가 완료되었습니다" });
+      });
+    } catch (error) {
+      console.error("Withdraw error:", error);
+      res.status(500).json({ error: "탈퇴 처리 중 오류가 발생했습니다" });
     }
   });
 
@@ -694,8 +899,136 @@ export async function registerRoutes(
       if (err) {
         return res.status(500).json({ error: "로그아웃 중 오류가 발생했습니다" });
       }
+      res.clearCookie("kvg.sid", {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "strict" : "lax",
+      });
       res.json({ success: true });
     });
+  });
+
+  // ===== Kakao OAuth (메인 로그인 경로) =====
+  // 흐름:
+  //   1) FE에서 /api/auth/kakao 로 이동 → CSRF state 생성·세션 저장 → Kakao 인증창 redirect
+  //   2) 사용자 동의 후 Kakao가 /api/auth/kakao/callback?code=...&state=... 로 redirect
+  //   3) state 검증 → code↔access_token 교환 → /v2/user/me 로 프로필 조회
+  //   4) kakaoId로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
+  //   5) req.session.userId 세팅 → 홈으로 redirect
+  app.get("/api/auth/kakao", authLimiter, (req, res) => {
+    const config = loadKakaoConfig();
+    if (!config) {
+      return res.status(503).json({
+        error: "Kakao 로그인이 설정되지 않았습니다. (KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI 환경변수 필요)",
+      });
+    }
+    // CSRF — 랜덤 state를 세션에 저장하고 callback에서 일치 확인
+    const state = crypto.randomBytes(16).toString("hex");
+    req.session.kakaoOAuthState = state;
+    const url = buildAuthorizeUrl(config, state);
+    res.redirect(url);
+  });
+
+  app.get("/api/auth/kakao/callback", authLimiter, async (req, res) => {
+    const config = loadKakaoConfig();
+    if (!config) {
+      return res.status(503).send("Kakao 로그인이 설정되지 않았습니다.");
+    }
+
+    const { code, state, error: kakaoError } = req.query as Record<string, string | undefined>;
+    if (kakaoError) {
+      // 사용자가 동의 거부 등 → 로그인 페이지로 돌려보냄
+      console.warn(`[kakao] callback error: ${kakaoError}`);
+      return res.redirect(`/login?error=${encodeURIComponent(kakaoError)}`);
+    }
+
+    if (!code || typeof code !== "string") {
+      return res.status(400).send("Kakao 인증 코드가 누락되었습니다.");
+    }
+    const expectedState = req.session.kakaoOAuthState;
+    if (!expectedState || expectedState !== state) {
+      // CSRF 의심 또는 세션 만료
+      return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
+    }
+    // state는 1회용
+    req.session.kakaoOAuthState = undefined;
+
+    try {
+      // 1) code → access_token
+      const tokenRes = await exchangeCodeForToken(config, code);
+      // 2) /v2/user/me
+      const profile = await fetchKakaoProfile(tokenRes.access_token);
+
+      const kakaoIdStr = String(profile.id);
+      const account = profile.kakao_account ?? {};
+      const profileNickname = account.profile?.nickname ?? profile.properties?.nickname ?? `kakao_${kakaoIdStr.slice(-6)}`;
+      const profileImage = account.profile?.profile_image_url ?? profile.properties?.profile_image ?? null;
+      const email = account.email ?? null;
+      const ageGroup = mapKakaoAgeRange(account.age_range);
+      const gender = mapKakaoGender(account.gender);
+      const birthYear = mapKakaoBirthYear(account.birthyear);
+
+      // 3) 사용자 upsert — kakaoId로 lookup
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.kakaoId, kakaoIdStr))
+        .limit(1);
+
+      let userId: string;
+      if (existing) {
+        // 기존 Kakao 사용자 — 최신 정보로 갱신
+        userId = existing.id;
+        await db
+          .update(users)
+          .set({
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            ageGroup: ageGroup ?? undefined,
+            gender: gender ?? undefined,
+            birthYear: birthYear ?? undefined,
+            realNameVerified: true,
+            realNameProvider: "kakao",
+          })
+          .where(eq(users.id, existing.id));
+      } else {
+        // 신규 Kakao 사용자 — username은 kakao_<id>로 고정 (충돌 가능성 없음)
+        const username = `kakao_${kakaoIdStr}`;
+        // phone/password는 NOT NULL 컬럼이라 빈 문자열로 표시 (스키마 변경 회피)
+        const [created] = await db
+          .insert(users)
+          .values({
+            username,
+            password: "",
+            phone: "",
+            phoneHash: null,
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            kakaoId: kakaoIdStr,
+            ageGroup: ageGroup ?? undefined,
+            gender: gender ?? undefined,
+            birthYear: birthYear ?? undefined,
+            realNameVerified: true,
+            realNameProvider: "kakao",
+            phoneVerified: false, // Kakao는 phone 인증 아님
+            tosAcceptedAt: new Date(),
+            privacyAcceptedAt: new Date(),
+          })
+          .returning({ id: users.id });
+        userId = created.id;
+      }
+
+      req.session.userId = userId;
+      console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
+
+      // 신규/기존 무관하게 홈으로
+      res.redirect("/");
+    } catch (error: any) {
+      console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
+      res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
+    }
   });
 
   app.get("/api/candidates/:id/rating", async (req, res) => {
@@ -826,15 +1159,25 @@ export async function registerRoutes(
 
       // 2. 대표발의자 추출 및 법안 정보 매핑
       // PROPOSER 형식: "홍길동(국민의힘/洪吉童) 외 10인"
-      const proposerMap = new Map<string, { billName: string; billId: string; proposeDate: string }>();
+      type BillMeta = {
+        billName: string;
+        billId: string;
+        proposeDate: string;
+        aiDescription: string | null;
+        committee: string;
+      };
+      const proposerMap = new Map<string, BillMeta>();
       recentBills.forEach(bill => {
         if (bill.proposer) {
           const primaryProposer = bill.proposer.split('(')[0].split(',')[0].trim();
           if (primaryProposer && !proposerMap.has(primaryProposer)) {
-            proposerMap.set(primaryProposer, { 
-              billName: bill.billName, 
-              billId: bill.billId, 
-              proposeDate: bill.proposeDate 
+            proposerMap.set(primaryProposer, {
+              billName: bill.billName,
+              billId: bill.billId,
+              proposeDate: bill.proposeDate,
+              // aiDescription: 법안 본문을 AI가 평이하게 풀어쓴 요약. null이면 UI에서 폴백 처리.
+              aiDescription: bill.aiDescription ?? null,
+              committee: bill.committee ?? "",
             });
           }
         }
@@ -857,8 +1200,10 @@ export async function registerRoutes(
           district: member.district,
           photo: member.photoUrl,
           recentBill: bill?.billName,
+          recentBillDescription: bill?.aiDescription ?? null,
+          recentBillCommittee: bill?.committee ?? "",
           billId: bill?.billId,
-          proposeDate: bill?.proposeDate
+          proposeDate: bill?.proposeDate,
         };
       });
 
@@ -872,10 +1217,39 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 뉴스+국회API 기반 최근 주목받는 의원 (크롤링) =====
+  // ===== 최근 주목받는 의원 (Trending Score 기반 DB 랭킹) =====
+  // Trending Score = follower_count*20 + profile_view_count*1 + recent_news_count*5
+  // TODO: Cron으로 follower_count / profile_view_count / recent_news_count를 주기적으로 갱신할 것.
+  //       지금은 컬럼만 정의돼 있고 기록만 들어오면 즉시 랭킹에 반영된다.
   app.get("/api/trending-members", async (_req, res) => {
     try {
-      const data = await getTrendingMembersWithCache();
+      const trendingScore = dsql`(${legislators.followerCount} * 20 + ${legislators.profileViewCount} * 1 + ${legislators.recentNewsCount} * 5)`;
+
+      const rows = await db.select({
+        id: legislators.monaCd,
+        name: legislators.name,
+        party: legislators.party,
+        district: legislators.district,
+        photo: legislators.photoUrl,
+        committee: legislators.committee,
+        followerCount: legislators.followerCount,
+        profileViewCount: legislators.profileViewCount,
+        recentNewsCount: legislators.recentNewsCount,
+        score: trendingScore,
+      })
+        .from(legislators)
+        .orderBy(desc(trendingScore), desc(legislators.syncedAt))
+        .limit(5);
+
+      // primary keyword: 위원회 > 정당 fallback
+      const data = rows.map((r) => ({
+        ...r,
+        primaryKeyword: (r.committee && r.committee.trim()) || r.party,
+        // 기존 위젯 호환 필드
+        mentionCount: r.recentNewsCount,
+        recentBills: 0,
+      }));
+
       res.json({ success: true, data, cachedAt: new Date().toISOString() });
     } catch (err: any) {
       console.error("[trending-members] 오류:", err.message);
@@ -883,7 +1257,7 @@ export async function registerRoutes(
     }
   });
 
-  // 관리자용: 캐시 수동 갱신
+  // 관리자용: 캐시 수동 갱신 (legacy 크롤러 캐시 유지 — 다른 진단/디버그용)
   app.post("/api/trending-members/refresh", requireAdmin, async (_req, res) => {
     try {
       clearTrendingMembersCache();
@@ -981,7 +1355,7 @@ export async function registerRoutes(
         const totalCount = parseInt(serviceData?.[0]?.head?.[0]?.list_total_count) || 0;
         if (allRows.length >= totalCount || pageRows.length < PAGE_SIZE) break;
         pIndex++;
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 500));
       }
       if (allRows.length > 0) {
         return res.json({ source: "api", data: allRows });
@@ -1228,137 +1602,165 @@ export async function registerRoutes(
 
   const viewCountCache = new Map<string, number>();
 
-  // 1. 핫한 법안 (GET /api/bills/hot) - 뉴스 언급 기반 심사중인 법안 우선
+  // 0. 오늘 발의된 법안 수 (GET /api/bills/today-count)
+  // propose_date는 YYYY-MM-DD 텍스트라 KST 기준 오늘 날짜로 동등 비교한다.
+  app.get("/api/bills/today-count", async (_req, res) => {
+    try {
+      const todayKST = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+      const rows = await db.select({ count: count() })
+        .from(assemblyBills)
+        .where(eq(assemblyBills.proposeDate, todayKST));
+      res.json({ date: todayKST, count: rows[0]?.count ?? 0 });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 1. 핫한 법안 (GET /api/bills/hot)
+  // ═══════════════════════════════════════════════════════════════════════
+  // Trending Score Algorithm:
+  //   engagement = (view_count * 1) + (vote_count * 5) + (media_mention_count * 10)
+  //   political  = co_proposer_count * 2
+  //   comments   = bill_comment_count * 3
+  //   recencyPenalty = days_since_proposal * 0.5
+  //   trendingScore  = engagement + political + comments - recencyPenalty
+  //
+  // Cold Start: 모든 engagement가 0이면 hot-topic 키워드 필터링 후 최신순으로 폴백.
+  // ═══════════════════════════════════════════════════════════════════════
   app.get("/api/bills/hot", async (_req, res) => {
     try {
-      // 뉴스 캐시가 없거나 만료됐으면 자동으로 불러오기
-      if (!newsCache || Date.now() - newsCache.cachedAt >= NEWS_CACHE_TTL) {
-        try {
-          const result = await fetchKoreanPoliticsNews();
-          newsCache = { ...result, cachedAt: Date.now() };
-        } catch (e) {
-          console.error("[bills/hot] 뉴스 자동 로드 실패:", e);
-        }
-      }
-
-      if (newsCache && newsCache.items.length > 0) {
-        // 심사중인 법안 최대 200개 가져오기
-        const reviewingBills = await db.select().from(assemblyBills)
-          .where(notInArray(assemblyBills.result, ["가결", "부결", "폐기", "철회", "통과", "공포", "시행"]))
-          .orderBy(desc(assemblyBills.proposeDate))
-          .limit(200);
-
-        if (reviewingBills.length > 0) {
-          // 각 법안에 대해 뉴스 언급 횟수 계산
-          const billsWithScore = reviewingBills.map(bill => {
-            const keywords = bill.billName
-              .replace(/법|개정안|일부개정|전부개정|제정안|[()【】「」\[\]·]/g, " ")
-              .split(/\s+/)
-              .filter(w => w.length >= 3)
-              .slice(0, 6);
-
-            const mentionCount = newsCache!.items.filter(item =>
-              keywords.some(kw => item.title.includes(kw))
-            ).length;
-
-            const score = (bill.viewCount ?? 0) * 1
-              + (bill.coProposerCount ?? 0) * 2
-              + mentionCount * 10;
-
-            return { ...bill, _liveScore: score, _mentionCount: mentionCount };
-          });
-
-          // 스코어 높은 순으로 정렬
-          billsWithScore.sort((a, b) => b._liveScore - a._liveScore);
-          const top5 = billsWithScore.slice(0, 5);
-
-          // mediaMentionCount 업데이트 (백그라운드)
-          Promise.all(
-            top5
-              .filter(b => b._mentionCount > 0)
-              .map(b =>
-                db.update(assemblyBills)
-                  .set({ mediaMentionCount: b._mentionCount })
-                  .where(eq(assemblyBills.billId, b.billId))
-              )
-          ).catch(e => console.error("[bills/hot] mention update failed:", e.message));
-
-          // 법안명이 없는 경우 국회 API에서 단건 조회
-          const billsWithNames = await Promise.all(top5.map(async (bill) => {
-            if (bill.billName && bill.billName.trim() !== "") return bill;
-            try {
-              const apiKey = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
-              if (!apiKey) return bill;
-              const resp = await axios.get("https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn", {
-                params: { Key: apiKey, Type: "json", AGE: "22", BILL_ID: bill.billId, pIndex: 1, pSize: 1 },
-                timeout: 5000,
-              });
-              const serviceData = resp.data?.nzmimeepazxkubdpn;
-              const row = serviceData?.[1]?.row?.[0];
-              if (row?.BILL_NAME || row?.BILL_NM) {
-                const billName = row.BILL_NAME || row.BILL_NM;
-                const committee = row.COMMITTEE_NM || row.COMMITTEE || bill.committee || "";
-                const proposer = row.PROPOSER || row.RST_PROPOSER || bill.proposer || "";
-                // DB 업데이트 (백그라운드)
-                db.update(assemblyBills)
-                  .set({ billName, committee, proposer })
-                  .where(eq(assemblyBills.billId, bill.billId))
-                  .catch(() => {});
-                return { ...bill, billName, committee, proposer };
-              }
-            } catch (e: any) {
-              console.error(`[bills/hot] billName fetch failed for ${bill.billId}:`, e.message);
-            }
-            return bill;
-          }));
-
-          return res.json(billsWithNames);
-
-        }
-      }
-
-      // 뉴스 캐시 없거나 법안 DB 없을 때: 기존 로직 (30일 이내 viewCount+mediaMentionCount 기준)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const dateStr = thirtyDaysAgo.toISOString().slice(0, 10);
-
-      const rows = await db.select()
-        .from(assemblyBills)
-        .where(
-          and(
-            dsql`${assemblyBills.proposeDate} >= ${dateStr}`,
-            notInArray(assemblyBills.result, ["폐기", "부결", "철회"])
+      // ── 1. Trending Score SQL 식 ──
+      const trendingScore = dsql<number>`(
+        COALESCE(${assemblyBills.viewCount}, 0) * 1
+        + COALESCE(${assemblyBills.voteCount}, 0) * 5
+        + COALESCE(${assemblyBills.mediaMentionCount}, 0) * 10
+        + COALESCE(${assemblyBills.coProposerCount}, 0) * 2
+        - GREATEST(
+            EXTRACT(EPOCH FROM (NOW() - TO_TIMESTAMP(
+              NULLIF(${assemblyBills.proposeDate}, ''), 'YYYY-MM-DD'
+            ))) / 86400.0 * 0.5,
+            0
           )
-        )
-        // Score = viewCount*1 + coProposerCount*2 + mediaMentionCount*10
-        .orderBy(desc(dsql`(${assemblyBills.viewCount} * 1 + ${assemblyBills.coProposerCount} * 2 + ${assemblyBills.mediaMentionCount} * 10)`), desc(assemblyBills.proposeDate))
-        .limit(5);
+      )`.as("trending_score");
 
-      // 법안명 없는 경우 국회 API에서 보충
-      const rowsWithNames = await Promise.all(rows.map(async (bill) => {
-        if (bill.billName && bill.billName.trim() !== "") return bill;
-        try {
-          const apiKey = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
-          if (!apiKey) return bill;
-          const resp = await axios.get("https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn", {
-            params: { Key: apiKey, Type: "json", AGE: "22", BILL_ID: bill.billId, pIndex: 1, pSize: 1 },
-            timeout: 5000,
-          });
-          const serviceData = resp.data?.nzmimeepazxkubdpn;
-          const row = serviceData?.[1]?.row?.[0];
-          if (row?.BILL_NAME || row?.BILL_NM) {
-            const billName = row.BILL_NAME || row.BILL_NM;
-            const committee = row.COMMITTEE_NM || row.COMMITTEE || bill.committee || "";
-            const proposer = row.PROPOSER || row.RST_PROPOSER || bill.proposer || "";
-            db.update(assemblyBills)
-              .set({ billName, committee, proposer })
-              .where(eq(assemblyBills.billId, bill.billId))
-              .catch(() => {});
-            return { ...bill, billName, committee, proposer };
-          }
-        } catch {}
-        return bill;
-      }));
+      // ── 2. 심사 중인 법안만 대상 (이미 종결된 법안 제외) ──
+      const excludedStatuses = ["가결", "부결", "폐기", "철회", "통과", "공포", "시행"];
+
+      const rows = await db
+        .select({
+          billId: assemblyBills.billId,
+          billNo: assemblyBills.billNo,
+          billName: assemblyBills.billName,
+          proposer: assemblyBills.proposer,
+          proposeDate: assemblyBills.proposeDate,
+          result: assemblyBills.result,
+          committee: assemblyBills.committee,
+          yesCount: assemblyBills.yesCount,
+          noCount: assemblyBills.noCount,
+          abstainCount: assemblyBills.abstainCount,
+          viewCount: assemblyBills.viewCount,
+          voteCount: assemblyBills.voteCount,
+          newsMentionCount: assemblyBills.newsMentionCount,
+          coProposerCount: assemblyBills.coProposerCount,
+          mediaMentionCount: assemblyBills.mediaMentionCount,
+          category: assemblyBills.category,
+          aiDescription: assemblyBills.aiDescription,
+          trendingScore,
+        })
+        .from(assemblyBills)
+        .where(notInArray(assemblyBills.result, excludedStatuses))
+        .orderBy(desc(trendingScore), desc(assemblyBills.proposeDate))
+        .limit(10);
+
+      // ── 3. Cold-start 감지: 모든 engagement 지표가 0인지 확인 ──
+      const allZero = rows.every(
+        (b) =>
+          (b.viewCount ?? 0) === 0 &&
+          (b.voteCount ?? 0) === 0 &&
+          (b.mediaMentionCount ?? 0) === 0 &&
+          (b.coProposerCount ?? 0) === 0
+      );
+
+      let finalRows: any[] = rows;
+
+      if (allZero) {
+        // Cold Start Fallback: 국민 관심 키워드로 필터링 후 최신순
+        const hotKeywords = [
+          "부동산", "세금", "청년", "지원금", "처벌", "성범죄", "학대",
+          "임금", "노동", "의료", "건강보험", "연금", "교육", "주거",
+          "디지털", "AI", "반도체", "기후", "에너지", "안전", "군사",
+          "국방", "외교", "통일", "재난", "소방", "경찰", "검찰",
+        ];
+        const keywordConditions = hotKeywords.map((kw) =>
+          ilike(assemblyBills.billName, `%${kw}%`)
+        );
+
+        const coldStartRows = await db
+          .select()
+          .from(assemblyBills)
+          .where(
+            and(
+              notInArray(assemblyBills.result, excludedStatuses),
+              or(...keywordConditions)
+            )
+          )
+          .orderBy(desc(assemblyBills.proposeDate))
+          .limit(10);
+
+        // 키워드 매칭이 하나도 없으면 최종 폴백: 그냥 최신순
+        finalRows =
+          coldStartRows.length > 0
+            ? coldStartRows.map((b) => ({ ...b, trendingScore: 0 }))
+            : await db
+                .select()
+                .from(assemblyBills)
+                .where(notInArray(assemblyBills.result, excludedStatuses))
+                .orderBy(desc(assemblyBills.proposeDate))
+                .limit(10)
+                .then((r) => r.map((b) => ({ ...b, trendingScore: 0 })));
+      }
+
+      // ── 4. 법안명 누락 보충 (국회 단건 조회) ──
+      const rowsWithNames = await Promise.all(
+        finalRows.map(async (bill: any) => {
+          if (bill.billName && bill.billName.trim() !== "") return bill;
+          try {
+            const apiKey =
+              process.env.OPEN_ASSEMBLY_API_KEY ||
+              process.env.ASSEMBLY_API_KEY;
+            if (!apiKey) return bill;
+            const resp = await axios.get(
+              "https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn",
+              {
+                params: {
+                  Key: apiKey,
+                  Type: "json",
+                  AGE: "22",
+                  BILL_ID: bill.billId,
+                  pIndex: 1,
+                  pSize: 1,
+                },
+                timeout: 5000,
+              }
+            );
+            const serviceData = resp.data?.nzmimeepazxkubdpn;
+            const row = serviceData?.[1]?.row?.[0];
+            if (row?.BILL_NAME || row?.BILL_NM) {
+              const billName = row.BILL_NAME || row.BILL_NM;
+              const committee =
+                row.COMMITTEE_NM || row.COMMITTEE || bill.committee || "";
+              const proposer =
+                row.PROPOSER || row.RST_PROPOSER || bill.proposer || "";
+              db.update(assemblyBills)
+                .set({ billName, committee, proposer })
+                .where(eq(assemblyBills.billId, bill.billId))
+                .catch(() => {});
+              return { ...bill, billName, committee, proposer };
+            }
+          } catch {}
+          return bill;
+        })
+      );
 
       res.json(rowsWithNames);
     } catch (e: any) {
@@ -1482,16 +1884,20 @@ export async function registerRoutes(
       if (existing.length > 0) {
         // 같은 의견이면 취소, 다른 의견이면 변경
         if (existing[0].opinion === opinion) {
-          // 취소
           await db.delete(billOpinionVotes).where(eq(billOpinionVotes.id, existing[0].id));
+          await db.update(assemblyBills)
+            .set({ voteCount: dsql`GREATEST(${assemblyBills.voteCount} - 1, 0)` })
+            .where(eq(assemblyBills.billId, billId));
         } else {
-          // 변경
           await db.update(billOpinionVotes)
             .set({ opinion })
             .where(eq(billOpinionVotes.id, existing[0].id));
         }
       } else {
         await db.insert(billOpinionVotes).values({ billId, userId, sessionId, opinion });
+        await db.update(assemblyBills)
+          .set({ voteCount: dsql`${assemblyBills.voteCount} + 1` })
+          .where(eq(assemblyBills.billId, billId));
       }
 
       // 최신 집계 반환
@@ -1556,58 +1962,74 @@ export async function registerRoutes(
     }
   });
 
-  // 법안 댓글 목록 조회 (GET /api/bills/:id/comments)
+  // 법안 댓글 목록 조회 (GET /api/bills/:id/comments) — 최신순, 작성자 닉네임/이름 포함
   app.get("/api/bills/:id/comments", async (req, res) => {
     try {
       const { id: billId } = req.params;
-      const sessionId = req.sessionID || (req.ip ?? "anon");
       const userId = (req.session as any)?.userId ?? null;
 
-      const comments = await db.select().from(pollComments)
+      const rows = await db
+        .select({
+          id: pollComments.id,
+          userId: pollComments.userId,
+          content: pollComments.content,
+          authorType: pollComments.authorType,
+          storedDisplayName: pollComments.displayName,
+          isVerified: pollComments.isVerified,
+          parentId: pollComments.parentId,
+          createdAt: pollComments.createdAt,
+          userNickname: users.nickname,
+          userName: users.name,
+        })
+        .from(pollComments)
+        .leftJoin(users, eq(pollComments.userId, users.id))
         .where(eq(pollComments.pollId, `bill:${billId}`))
         .orderBy(desc(pollComments.createdAt))
         .limit(100);
 
-      res.json(comments.map(c => ({
+      res.json(rows.map(c => ({
         id: c.id,
         content: c.content,
-        displayName: c.displayName || c.authorType || "익명의 유권자",
+        displayName: c.userNickname || c.userName || c.storedDisplayName || "익명의 유권자",
         authorType: c.authorType,
         isVerified: c.isVerified,
         parentId: c.parentId,
         createdAt: c.createdAt,
-        isAuthor: userId ? String(c.userId) === String(userId) : false,
+        isAuthor: userId ? c.userId === userId : false,
       })));
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[bill-comment GET] error:", e.message);
+      res.status(500).json({ error: "댓글 조회 중 오류가 발생했습니다" });
     }
   });
 
-  // 법안 댓글 작성 (POST /api/bills/:id/comments)
-  app.post("/api/bills/:id/comments", async (req, res) => {
+  // 법안 댓글 작성 (POST /api/bills/:id/comments) — 로그인 필수
+  app.post("/api/bills/:id/comments", requireAuth, async (req, res) => {
     try {
       const { id: billId } = req.params;
       const { content, parentId } = req.body;
-      if (!content || content.trim().length < 1) {
+      const raw = typeof content === "string" ? content.trim() : "";
+      if (raw.length < 1) {
         return res.status(400).json({ error: "댓글 내용을 입력해주세요" });
       }
-      if (content.trim().length > 500) {
+      if (raw.length > 500) {
         return res.status(400).json({ error: "댓글은 500자 이내로 작성해주세요" });
       }
+      const safe = sanitizeText(raw, 500);
 
-      const userId = (req.session as any)?.userId ?? null;
-      const displayName = userId
-        ? (getOrCreateNickname(userId))
-        : generateAnonNickname();
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      const displayName = user?.nickname || user?.name || getOrCreateNickname(userId);
+      const parsedParent = typeof parentId === "number" ? parentId : (typeof parentId === "string" && /^\d+$/.test(parentId) ? Number(parentId) : null);
 
       const [inserted] = await db.insert(pollComments).values({
         pollId: `bill:${billId}`,
-        userId: userId ? parseInt(userId) : null,
-        content: content.trim(),
-        authorType: userId ? "nickname" : "anonymous",
+        userId,
+        content: safe,
+        authorType: user?.nickname ? "nickname" : "realname",
         displayName,
-        isVerified: false,
-        parentId: parentId ? parseInt(parentId) : null,
+        isVerified: !!user?.realNameVerified,
+        parentId: parsedParent,
       }).returning();
 
       res.json({
@@ -1622,11 +2044,13 @@ export async function registerRoutes(
       });
     } catch (e: any) {
       console.error("[bill-comment] error:", e.message);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: "댓글 작성 중 오류가 발생했습니다" });
     }
   });
 
   // 법안 뉴스 언급 업데이트 (POST /api/bills/update-media-mentions) - 뉴스 RSS에서 법안 키워드 매칭
+  // TODO: 이 엔드포인트를 호출하는 백그라운드 Cron 작업(예: 30분마다 RSS 풀링)을 추가해 news_mention_count를 주기적으로 갱신할 것.
+  //       현재는 수동/스케줄러에서만 갱신되므로 신규 뉴스 노출이 즉시 Hot Score에 반영되지 않는다.
   app.post("/api/bills/update-media-mentions", syncGuard, async (_req, res) => {
     try {
       // 현재 뉴스 데이터가 캐시에 있으면 활용
@@ -1657,7 +2081,7 @@ export async function registerRoutes(
 
         if (mentionCount > 0) {
           await db.update(assemblyBills)
-            .set({ mediaMentionCount: mentionCount })
+            .set({ mediaMentionCount: mentionCount, newsMentionCount: mentionCount })
             .where(eq(assemblyBills.billId, bill.billId));
           updated++;
         }
@@ -1890,6 +2314,7 @@ export async function registerRoutes(
       const allBills: any[] = [];
       let pIndex = 1;
       const PAGE_SIZE = 100;
+      let billTotalPages = 0;  // 첫 페이지 응답에서만 결정 (API 불일치 방지)
 
       while (true) {
         const response = await axios.get(`${API_BASE}/naitfmbillpropase`, {
@@ -1908,17 +2333,26 @@ export async function registerRoutes(
 
         const head = serviceData[0]?.head;
         const result = head?.[1]?.RESULT;
+        // INFO-200(데이터 없음) 포함한 모든 비정상 코드 → 탈출
         if (result?.CODE && result.CODE !== "INFO-000") break;
 
         const totalCount = parseInt(head?.[0]?.list_total_count) || 0;
         const rows = serviceData[1]?.row;
         const pageRows = Array.isArray(rows) ? rows : [];
+
+        // 0건 즉시 탈출 (무한 루프 방지)
+        if (totalCount === 0 || pageRows.length === 0) break;
+
         allBills.push(...pageRows);
 
-        const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-        if (pIndex >= totalPages || pageRows.length === 0) break;
+        // totalPages는 첫 페이지 응답 기준으로만 산출 (이후 API 값 무시)
+        if (pIndex === 1) {
+          billTotalPages = Math.ceil(totalCount / PAGE_SIZE);
+        }
+
+        if (pIndex >= billTotalPages) break;  // 마지막 페이지 도달 → 탈출
         pIndex++;
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 500));  // 500ms 딜레이
       }
 
       // 대표발의만 필터링 (DB 연결 실패 시 fallback)
@@ -1993,6 +2427,89 @@ export async function registerRoutes(
     }
   });
 
+  // ===== 의원 종합 정보 (기본정보 + 표결/발의 카운트 + 최근 표결 샘플) =====
+  // AI 분석에 필요한 데이터가 DB에 충분히 있는지 한눈에 확인하기 위한 통합 엔드포인트.
+  // 클라이언트는 이 라우트 하나로 카운트/스냅샷을 가져오고, 본격 분석은
+  // /api/members/analyze-profile, /api/legislators/:id/proposed-bills 로 호출한다.
+  app.get("/api/members/:id/full", async (req, res) => {
+    try {
+      const monaCd = req.params.id;
+
+      const [member] = await db
+        .select()
+        .from(legislators)
+        .where(eq(legislators.monaCd, monaCd))
+        .limit(1);
+      if (!member) return res.status(404).json({ error: "의원을 찾을 수 없습니다" });
+
+      // 표결: 최근 20건 샘플 + 카운트
+      const [voteAgg] = await db
+        .select({ c: dsql<number>`count(*)::int` })
+        .from(assemblyVotes)
+        .where(eq(assemblyVotes.legislatorId, monaCd));
+
+      const recentVotes = await db
+        .select({
+          billId: assemblyVotes.billId,
+          billName: assemblyBills.billName,
+          committee: assemblyBills.committee,
+          voteResult: assemblyVotes.voteResult,
+          proposeDate: assemblyBills.proposeDate,
+        })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(eq(assemblyVotes.legislatorId, monaCd))
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(20);
+
+      // 발의 법안: DB(assembly_bills.proposer)에서 의원 이름이 RST_PROPOSER로 시작하는 건 카운트
+      const proposedRows = await db
+        .select({
+          billId: assemblyBills.billId,
+          billName: assemblyBills.billName,
+          proposeDate: assemblyBills.proposeDate,
+          result: assemblyBills.result,
+          committee: assemblyBills.committee,
+        })
+        .from(assemblyBills)
+        .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`)
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(20);
+
+      const [{ c: proposedCount }] = await db
+        .select({ c: dsql<number>`count(*)::int` })
+        .from(assemblyBills)
+        .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`);
+
+      // in-memory 표결 인덱스 (DB가 비어있어도 분석 가능한 폴백)
+      const indexedVotes = legislatorVotesIndex.get(monaCd) ?? [];
+
+      res.json({
+        member: {
+          monaCd: member.monaCd,
+          name: member.name,
+          party: member.party,
+          district: member.district,
+          committee: member.committee,
+          photoUrl: member.photoUrl,
+          email: member.email,
+          birthDate: member.birthDate,
+        },
+        counts: {
+          dbVotes: voteAgg?.c ?? 0,
+          memoryVotes: indexedVotes.length,
+          proposedBills: proposedCount ?? 0,
+        },
+        recentVotes,
+        proposedBills: proposedRows,
+        aiReady: (voteAgg?.c ?? 0) + indexedVotes.length >= 3,
+      });
+    } catch (error: any) {
+      console.error("[members/:id/full] error:", error);
+      res.status(500).json({ error: error.message ?? "조회 실패" });
+    }
+  });
+
   function sanitizePost(post: any) {
     const { userId, ...safe } = post;
     return {
@@ -2031,33 +2548,31 @@ export async function registerRoutes(
   const dailyPollsStore = new Map<string, DailyPoll>();
   const pollVotersStore = new Map<string, Set<string>>(); // pollId -> Set of userId/IP
 
-  const POLL_BANK: Record<string, { question: string; options: PollOption[] }[]> = {
+  const POLL_BANK: Record<string, { question: string; options: { id: number; label: string }[] }[]> = {
     legislators: [
-      { question: "국회의원 세비 삭감에 동의하십니까?", options: [{id:1,label:"강력 찬성"},{id:2,label:"조건부 찬성"},{id:3,label:"반대"},{id:4,label:"잘 모르겠다"}] },
-      { question: "국회의원 무노동 무임금 법안 도입, 어떻게 생각하십니까?", options: [{id:1,label:"즉시 도입해야"},{id:2,label:"단계적 도입"},{id:3,label:"반대"},{id:4,label:"더 검토 필요"}] },
-      { question: "국회의원 4선 이상 연임 제한제, 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"},{id:3,label:"조건부 찬성"},{id:4,label:"의견 없음"}] },
-      { question: "현 국회의 여야 협치 수준이 충분하다고 생각하십니까?", options: [{id:1,label:"충분하다"},{id:2,label:"부족하다"},{id:3,label:"매우 부족하다"},{id:4,label:"모르겠다"}] },
-      { question: "국회의원 청렴도 공개 의무화에 동의하십니까?", options: [{id:1,label:"전적으로 동의"},{id:2,label:"부분 동의"},{id:3,label:"반대"},{id:4,label:"잘 모름"}] },
-      { question: "국회의원 의정활동 실적 공개 제도 확대가 필요하다고 생각하십니까?", options: [{id:1,label:"매우 필요"},{id:2,label:"필요"},{id:3,label:"불필요"},{id:4,label:"현 수준 충분"}] },
-      { question: "국회의원 자녀 특혜 채용, 처벌 강화가 필요하다고 생각하십니까?", options: [{id:1,label:"강력 처벌"},{id:2,label:"현 수준 유지"},{id:3,label:"제도 개선 먼저"},{id:4,label:"모르겠다"}] },
+      { question: "국회의원 특권 폐지 법안에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "국회의원 3선 제한 제도 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "국회의원 청렴도 공개 의무화에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "국회의원 의정활동 실적 공개 제도 확대에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
     ],
     bills: [
-      { question: "기본소득 법안 도입에 동의하십니까?", options: [{id:1,label:"전면 도입"},{id:2,label:"시범 도입 후 확대"},{id:3,label:"반대"},{id:4,label:"더 검토 필요"}] },
-      { question: "의대 정원 확대 법안, 어떻게 생각하십니까?", options: [{id:1,label:"적극 찬성"},{id:2,label:"조건부 찬성"},{id:3,label:"반대"},{id:4,label:"의견 없음"}] },
-      { question: "주 4일제 근무 법안, 도입해야 하나요?", options: [{id:1,label:"즉시 도입"},{id:2,label:"단계적 도입"},{id:3,label:"반대"},{id:4,label:"업종별 검토 필요"}] },
-      { question: "부동산 양도세 강화 법안, 어떻게 생각하십니까?", options: [{id:1,label:"더 강화해야"},{id:2,label:"현 수준 유지"},{id:3,label:"완화해야"},{id:4,label:"잘 모르겠다"}] },
-      { question: "플랫폼 노동자 보호법에 동의하십니까?", options: [{id:1,label:"강력 지지"},{id:2,label:"부분 지지"},{id:3,label:"반대"},{id:4,label:"더 논의 필요"}] },
-      { question: "최저임금 1만 5천원 인상안, 적절하다고 생각하십니까?", options: [{id:1,label:"적절하다"},{id:2,label:"더 올려야"},{id:3,label:"너무 높다"},{id:4,label:"의견 없음"}] },
-      { question: "공매도 전면 금지 법안, 어떻게 생각하십니까?", options: [{id:1,label:"영구 금지해야"},{id:2,label:"제한적 허용"},{id:3,label:"전면 재개해야"},{id:4,label:"잘 모름"}] },
+      { question: "기본소득 법안 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "의대 정원 확대 법안에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "주 4일제 근무 법안 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "부동산 양도세 강화 법안에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "플랫폼 노동자 보호법 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
     ],
     free: [
-      { question: "요즘 정치에 관심을 가지게 된 주된 이유는?", options: [{id:1,label:"경제·물가 불안"},{id:2,label:"정치 불신"},{id:3,label:"선거·투표"},{id:4,label:"SNS 영향"}] },
-      { question: "현 정부의 경제 정책, 어떻게 평가하십니까?", options: [{id:1,label:"잘하고 있다"},{id:2,label:"보통이다"},{id:3,label:"못하고 있다"},{id:4,label:"관심 없다"}] },
-      { question: "다음 선거에서 투표할 의향이 있으십니까?", options: [{id:1,label:"반드시 한다"},{id:2,label:"아마 할 것"},{id:3,label:"미정"},{id:4,label:"안 할 것"}] },
-      { question: "가장 시급하게 해결해야 할 사회 문제는?", options: [{id:1,label:"부동산·주거"},{id:2,label:"청년 일자리"},{id:3,label:"저출생·고령화"},{id:4,label:"교육 불평등"}] },
-      { question: "지금 한국 민주주의, 어떻게 평가하십니까?", options: [{id:1,label:"잘 작동하고 있다"},{id:2,label:"보통"},{id:3,label:"위기 상황"},{id:4,label:"이미 무너졌다"}] },
-      { question: "정치인을 신뢰하십니까?", options: [{id:1,label:"신뢰한다"},{id:2,label:"일부 신뢰"},{id:3,label:"불신한다"},{id:4,label:"관심 없다"}] },
-      { question: "국민 청원 제도가 효과적이라고 생각하십니까?", options: [{id:1,label:"매우 효과적"},{id:2,label:"어느 정도"},{id:3,label:"비효과적"},{id:4,label:"모르겠다"}] },
+      { question: "정부의 현 경제 정책 방향에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "청년 주거 지원 확대 정책에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "대중교통 요금 인상안에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "정치인의 SNS 활동 확대에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+    ],
+    candidate: [
+      { question: "후보자의 전과 기록 공개 강화에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "지방의원 유급 보좌관제 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "정당 공천제 폐지에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
+      { question: "청년 후보 공천 할당제 도입에 찬성하십니까?", options: [{id:1,label:"찬성"},{id:2,label:"반대"}] },
     ],
   };
 
@@ -2258,41 +2773,49 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 투표 댓글 API =====
-  app.post("/api/poll-comments", async (req, res) => {
+  // ===== 투표 댓글 API ===== (로그인 필수)
+  app.post("/api/poll-comments", requireAuth, async (req, res) => {
     try {
-      const { pollId, content, authorType, displayName, parentId } = req.body;
-      if (!pollId || !content || typeof content !== "string" || content.trim().length === 0) {
+      const { pollId, content, authorType, parentId } = req.body;
+      const raw = typeof content === "string" ? content.trim() : "";
+      if (!pollId || raw.length === 0) {
         return res.status(400).json({ error: "pollId와 content 필수" });
       }
+      if (raw.length > 500) {
+        return res.status(400).json({ error: "댓글은 500자 이내로 작성해주세요" });
+      }
+      const safe = sanitizeText(raw, 500);
 
-      const userId = req.session.userId ? parseInt(req.session.userId, 10) || null : null;
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
       let resolvedAuthorType = "anonymous";
-      let resolvedDisplayName: string | null = "익명";
+      let resolvedDisplayName: string | null = user?.nickname || user?.name || "익명";
       let resolvedIsVerified = false;
 
-      if (userId && req.session.userId) {
-        const user = await storage.getUser(req.session.userId);
-        if (user) {
-          if (authorType === "realname" && user.realNameVerified && user.realName) {
-            resolvedAuthorType = "realname";
-            resolvedDisplayName = user.realName;
-            resolvedIsVerified = true;
-          } else if (authorType === "nickname" && user.nickname) {
-            resolvedAuthorType = "nickname";
-            resolvedDisplayName = user.nickname;
-          }
+      if (user) {
+        if (authorType === "realname" && user.realNameVerified && user.realName) {
+          resolvedAuthorType = "realname";
+          resolvedDisplayName = user.realName;
+          resolvedIsVerified = true;
+        } else if (user.nickname) {
+          resolvedAuthorType = "nickname";
+          resolvedDisplayName = user.nickname;
+        } else {
+          resolvedAuthorType = "nickname";
+          resolvedDisplayName = user.name;
         }
       }
 
+      const parsedParent = typeof parentId === "number" ? parentId : (typeof parentId === "string" && /^\d+$/.test(parentId) ? Number(parentId) : null);
+
       const [comment] = await db.insert(pollComments).values({
-        pollId: pollId,
+        pollId,
         userId,
-        content: content.trim(),
+        content: safe,
         authorType: resolvedAuthorType,
         displayName: resolvedDisplayName,
         isVerified: resolvedIsVerified,
-        parentId: parentId ? Number(parentId) : null,
+        parentId: parsedParent,
       }).returning();
 
       res.json(comment);
@@ -2331,14 +2854,15 @@ export async function registerRoutes(
         likes: likesMap.get(String(r.id)) || 0,
       }));
 
-      // 내 반응 정보 (로그인 시)
-      const userId = req.session.userId ? parseInt(req.session.userId, 10) : null;
+      // 내 반응 정보 (로그인 시) — reactions.userId는 integer라 UUID이면 매칭 불가, 안전하게 스킵
+      const rawUserId = req.session.userId;
+      const numericUserId = rawUserId && /^\d+$/.test(rawUserId) ? Number(rawUserId) : null;
       let myReactionsMap = new Map<string, string>();
-      if (userId) {
+      if (numericUserId !== null) {
         const myReactions = await db.select().from(reactions)
           .where(and(
             eq(reactions.targetType, 'comment'),
-            eq(reactions.userId, userId),
+            eq(reactions.userId, numericUserId),
             inArray(reactions.targetId, commentIds)
           ));
         myReactions.forEach(r => myReactionsMap.set(r.targetId, r.type));
@@ -2364,28 +2888,102 @@ export async function registerRoutes(
   });
 
   // ===== 파일 업로드 API =====
+  // ⚠️ 디스크 저장은 컨테이너 재배포 시 휘발됨. 운영에서는 Supabase Storage / S3 / R2 등 외부 객체 저장소로 옮길 것.
+  const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+  const ALLOWED_IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
   const storageMap = multer.diskStorage({
-    destination: (req, file, cb) => {
+    destination: (_req, _file, cb) => {
       const uploadPath = path.resolve(process.cwd(), "server/static/uploads");
       cb(null, uploadPath);
     },
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      const randomName = crypto.randomBytes(16).toString("hex") + ext;
-      cb(null, randomName);
+    filename: (_req, file, cb) => {
+      // 확장자는 mimetype에서 유도 (originalname의 공격자 조작 차단)
+      const ext = file.mimetype === "image/png" ? ".png"
+        : file.mimetype === "image/webp" ? ".webp"
+        : file.mimetype === "image/gif" ? ".gif"
+        : ".jpg";
+      cb(null, crypto.randomBytes(16).toString("hex") + ext);
     },
   });
-  const upload = multer({ storage: storageMap, limits: { fileSize: 10 * 1024 * 1024 } });
-
-  app.post("/api/upload", requireAuth, upload.single("file"), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: "파일이 업로드되지 않았습니다." });
-    }
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url });
+  const upload = multer({
+    storage: storageMap,
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    fileFilter: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (ALLOWED_IMAGE_MIME.has(file.mimetype) && ALLOWED_IMAGE_EXT.has(ext)) {
+        return cb(null, true);
+      }
+      cb(new Error("이미지(jpg/png/webp/gif)만 업로드할 수 있습니다."));
+    },
   });
 
+  app.post(
+    "/api/upload",
+    requireAuth,
+    (req, res, next) => {
+      upload.single("file")(req, res, (err: any) => {
+        if (err) {
+          return res.status(400).json({ error: err.message || "업로드 실패" });
+        }
+        next();
+      });
+    },
+    (req, res) => {
+      if (!req.file) {
+        return res.status(400).json({ error: "파일이 업로드되지 않았습니다." });
+      }
+      res.json({ url: `/uploads/${req.file.filename}` });
+    }
+  );
+
   // ===== 커뮤니티 게시글 =====
+
+  // 가장 활발한 토론 — 댓글 수 기준 가장 많이 달린 단일 게시글
+  // ?tagType=bill 로 법안 태그 게시글로 좁힐 수 있다.
+  app.get("/api/community/hot-discussion", async (req, res) => {
+    try {
+      const { tagType } = req.query as Record<string, string>;
+      const conditions = [
+        notInArray(communityPosts.boardType, ["members"]),
+      ];
+      if (tagType) conditions.push(eq(communityPosts.tagType, tagType));
+
+      const commentAgg = db.$with("comment_agg").as(
+        db
+          .select({
+            postId: communityComments.postId,
+            commentCount: dsql<number>`count(*)::int`.as("comment_count"),
+          })
+          .from(communityComments)
+          .groupBy(communityComments.postId)
+      );
+
+      const rows = await db
+        .with(commentAgg)
+        .select({
+          id: communityPosts.id,
+          title: communityPosts.title,
+          tagType: communityPosts.tagType,
+          tagId: communityPosts.tagId,
+          tagName: communityPosts.tagName,
+          boardType: communityPosts.boardType,
+          createdAt: communityPosts.createdAt,
+          commentCount: dsql<number>`COALESCE(${commentAgg.commentCount}, 0)`,
+        })
+        .from(communityPosts)
+        .leftJoin(commentAgg, eq(commentAgg.postId, communityPosts.id))
+        .where(and(...conditions))
+        .orderBy(desc(dsql`COALESCE(${commentAgg.commentCount}, 0)`), desc(communityPosts.createdAt))
+        .limit(1);
+
+      res.json(rows[0] ?? null);
+    } catch (e: any) {
+      console.error("[hot-discussion] error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/community/posts", async (req, res) => {
 
     try {
@@ -2469,6 +3067,9 @@ export async function registerRoutes(
       if (boardType === "bills" && !tagId) {
         return res.status(400).json({ error: "법안을 태그해야 합니다." });
       }
+      if (boardType === "candidate" && !tagId) {
+        return res.status(400).json({ error: "후보자를 태그해야 합니다." });
+      }
 
       const requestedAuthorType = result.data.authorType ?? "anonymous";
       let userId = req.session.userId || null;
@@ -2509,10 +3110,17 @@ export async function registerRoutes(
 
       const { thumbnailUrl, tagType, tagName } = req.body;
 
+      // XSS 1차 방어 — 저장 시점에 HTML 정화. 클라이언트 DOMPurify가 2차 방어선.
+      const safeTitle = sanitizeText(result.data.title, 200);
+      const safeContent = sanitizeHtml(result.data.content);
+      if (!safeTitle || !safeContent) {
+        return res.status(400).json({ error: "제목/내용을 다시 확인해주세요" });
+      }
+
       const post = await storage.createPost(
         userId,
-        result.data.title,
-        result.data.content,
+        safeTitle,
+        safeContent,
         nickname,
         result.data.boardType ?? "open",
         result.data.category ?? "자유",
@@ -2591,7 +3199,12 @@ export async function registerRoutes(
         }
       }
 
-      const comment = await storage.createComment(post.id, userId, result.data.content, anonNickname, authorType, displayName, isVerified);
+      // 댓글은 일반 평문 — 태그/스크립트 제거
+      const safeContent = sanitizeText(result.data.content, 2000);
+      if (!safeContent) {
+        return res.status(400).json({ error: "댓글 내용을 입력하세요" });
+      }
+      const comment = await storage.createComment(post.id, userId, safeContent, anonNickname, authorType, displayName, isVerified);
       res.json(sanitizeComment(comment, post.userId));
     } catch (error) {
       console.error("Create comment error:", error);
@@ -2631,6 +3244,402 @@ export async function registerRoutes(
     } catch (error) {
       console.error("my-activity error:", error);
       res.status(500).json({ error: "내 활동 내역 조회 중 오류가 발생했습니다." });
+    }
+  });
+
+  // ===== 의원 팔로우 시스템 (Story 피드 + 개인화 타임라인) =====
+  // 팔로우한 의원 목록 조회 — Story UI용. legislators 메타까지 조인해서 한 번에 반환.
+  app.get("/api/users/me/follows", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const rows = await db
+        .select({
+          follow: userFollows,
+          legislator: legislators,
+        })
+        .from(userFollows)
+        .leftJoin(legislators, eq(userFollows.politicianId, legislators.monaCd))
+        .where(eq(userFollows.userId, userId))
+        .orderBy(desc(userFollows.createdAt));
+
+      // 최근 발의일을 조회해 Story Ring(3일내 업데이트) 표시 여부 판단
+      const politicianIds = rows.map((r) => r.follow.politicianId);
+      const lastActivity = new Map<string, string>(); // monaCd → 가장 최근 활동 ISO 날짜
+
+      if (politicianIds.length > 0) {
+        const legislatorRows = rows
+          .map((r) => r.legislator)
+          .filter((l): l is NonNullable<typeof l> => !!l);
+        const proposerNames = legislatorRows.map((l) => l.name);
+
+        // 최근 30일 발의 법안 → 대표발의자 이름 매칭 (가장 가까운 ISO 호환 비교)
+        if (proposerNames.length > 0) {
+          const recentBills = await db
+            .select({
+              billId: assemblyBills.billId,
+              billName: assemblyBills.billName,
+              proposer: assemblyBills.proposer,
+              proposeDate: assemblyBills.proposeDate,
+            })
+            .from(assemblyBills)
+            .orderBy(desc(assemblyBills.proposeDate))
+            .limit(200);
+
+          for (const bill of recentBills) {
+            const primary = (bill.proposer || "").split("(")[0].split(",")[0].trim();
+            const matched = legislatorRows.find((l) => l.name === primary);
+            if (matched && bill.proposeDate) {
+              const prev = lastActivity.get(matched.monaCd);
+              if (!prev || bill.proposeDate > prev) {
+                lastActivity.set(matched.monaCd, bill.proposeDate);
+              }
+            }
+          }
+        }
+      }
+
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const data = rows.map((r) => {
+        const lastDate = lastActivity.get(r.follow.politicianId);
+        const hasRecentUpdate = lastDate ? new Date(lastDate) >= threeDaysAgo : false;
+        return {
+          id: r.follow.politicianId,
+          name: r.legislator?.name ?? "알 수 없음",
+          party: r.legislator?.party ?? "",
+          district: r.legislator?.district ?? "",
+          photo: r.legislator?.photoUrl ?? "",
+          followedAt: r.follow.createdAt,
+          lastActivityDate: lastDate ?? null,
+          hasRecentUpdate,
+        };
+      });
+
+      res.json({ follows: data });
+    } catch (error) {
+      console.error("follows list error:", error);
+      res.status(500).json({ error: "팔로우 목록 조회 중 오류가 발생했습니다." });
+    }
+  });
+
+  // 팔로우 추가
+  app.post("/api/users/me/follows/:politicianId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const politicianId = req.params.politicianId;
+      if (!politicianId) return res.status(400).json({ error: "정치인 ID가 필요합니다." });
+
+      const type = (req.body?.type === "candidate" ? "candidate" : "member") as "member" | "candidate";
+
+      await db
+        .insert(userFollows)
+        .values({ userId, politicianId: politicianId as string, politicianType: type })
+        .onConflictDoNothing({ target: [userFollows.userId, userFollows.politicianId] });
+
+      // followerCount 증가 (member 타입만)
+      if (type === "member") {
+        await db
+          .update(legislators)
+          .set({ followerCount: dsql`${legislators.followerCount} + 1` })
+          .where(eq(legislators.monaCd, politicianId as string));
+      }
+
+      res.json({ following: true });
+    } catch (error) {
+      console.error("follow error:", error);
+      res.status(500).json({ error: "팔로우 처리 중 오류가 발생했습니다." });
+    }
+  });
+
+  // 언팔로우
+  app.delete("/api/users/me/follows/:politicianId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const politicianId = req.params.politicianId;
+
+      const pid = politicianId as string;
+      const [existing] = await db
+        .select()
+        .from(userFollows)
+        .where(and(eq(userFollows.userId, userId), eq(userFollows.politicianId, pid)))
+        .limit(1);
+
+      if (!existing) return res.json({ following: false });
+
+      await db
+        .delete(userFollows)
+        .where(and(eq(userFollows.userId, userId), eq(userFollows.politicianId, pid)));
+
+      if (existing.politicianType === "member") {
+        await db
+          .update(legislators)
+          .set({ followerCount: dsql`GREATEST(${legislators.followerCount} - 1, 0)` })
+          .where(eq(legislators.monaCd, pid));
+      }
+
+      res.json({ following: false });
+    } catch (error) {
+      console.error("unfollow error:", error);
+      res.status(500).json({ error: "언팔로우 처리 중 오류가 발생했습니다." });
+    }
+  });
+
+  // ===== 개인화 실시간 활동 피드 =====
+  // 팔로우한 의원의 최근 발의 법안 + 표결 활동을 시간순으로 합쳐서 반환.
+  app.get("/api/users/me/feed", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const limit = Math.min(parseInt(String(req.query.limit ?? "30")) || 30, 100);
+
+      const followRows = await db
+        .select({
+          politicianId: userFollows.politicianId,
+          name: legislators.name,
+          party: legislators.party,
+          photo: legislators.photoUrl,
+        })
+        .from(userFollows)
+        .leftJoin(legislators, eq(userFollows.politicianId, legislators.monaCd))
+        .where(eq(userFollows.userId, userId));
+
+      if (followRows.length === 0) {
+        return res.json({ items: [], followCount: 0 });
+      }
+
+      const monaCds = followRows.map((r) => r.politicianId);
+      const nameToMeta = new Map<string, { politicianId: string; name: string; party: string | null; photo: string | null }>();
+      for (const r of followRows) {
+        if (r.name) {
+          nameToMeta.set(r.name, {
+            politicianId: r.politicianId,
+            name: r.name,
+            party: r.party,
+            photo: r.photo,
+          });
+        }
+      }
+
+      // 1) 발의 법안 — 이름 매칭
+      const recentBills = await db
+        .select()
+        .from(assemblyBills)
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(500);
+
+      const billItems = recentBills
+        .map((bill) => {
+          const primary = (bill.proposer || "").split("(")[0].split(",")[0].trim();
+          const meta = nameToMeta.get(primary);
+          if (!meta) return null;
+          return {
+            type: "bill" as const,
+            id: `bill-${bill.billId}`,
+            politicianId: meta.politicianId,
+            politicianName: meta.name,
+            party: meta.party,
+            photo: meta.photo,
+            title: bill.billName,
+            subtitle: bill.committee || "법안 발의",
+            billId: bill.billId,
+            occurredAt: bill.proposeDate || "",
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      // 2) 표결 — legislatorId 직접 매칭
+      const recentVotes = await db
+        .select({
+          vote: assemblyVotes,
+          bill: assemblyBills,
+        })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(inArray(assemblyVotes.legislatorId, monaCds))
+        .orderBy(desc(assemblyVotes.syncedAt))
+        .limit(200);
+
+      const voteItems = recentVotes.map((r) => {
+        const meta = followRows.find((f) => f.politicianId === r.vote.legislatorId);
+        return {
+          type: "vote" as const,
+          id: `vote-${r.vote.id}`,
+          politicianId: r.vote.legislatorId,
+          politicianName: r.vote.legislatorName,
+          party: meta?.party ?? r.vote.party ?? "",
+          photo: meta?.photo ?? null,
+          title: r.bill?.billName ?? "법안 표결",
+          subtitle: `${r.vote.voteResult} · ${r.bill?.committee ?? ""}`.trim(),
+          billId: r.vote.billId,
+          voteResult: r.vote.voteResult,
+          occurredAt: (r.bill?.proposeDate || r.vote.syncedAt?.toISOString?.() || ""),
+        };
+      });
+
+      const merged = [...billItems, ...voteItems]
+        .filter((x) => x.occurredAt)
+        .sort((a, b) => (b.occurredAt > a.occurredAt ? 1 : -1))
+        .slice(0, limit);
+
+      res.json({ items: merged, followCount: followRows.length });
+    } catch (error) {
+      console.error("feed error:", error);
+      res.status(500).json({ error: "피드 조회 중 오류가 발생했습니다." });
+    }
+  });
+
+  // ===== Instagram-style 통합 타임라인 =====
+  // 팔로우 의원 활동 + 트렌딩 의원 활동(추천)을 시간순으로 섞어서 반환.
+  // 비로그인 사용자도 전부 추천 피드로 사용 가능.
+  app.get("/api/feed/timeline", async (req, res) => {
+    try {
+      const userId = req.session?.userId ?? null;
+      const limit = Math.min(parseInt(String(req.query.limit ?? "20")) || 20, 50);
+
+      // 1) 팔로우한 의원 메타 조회 (로그인 시)
+      const followed = userId
+        ? await db
+            .select({
+              politicianId: userFollows.politicianId,
+              name: legislators.name,
+              party: legislators.party,
+              photo: legislators.photoUrl,
+            })
+            .from(userFollows)
+            .leftJoin(legislators, eq(userFollows.politicianId, legislators.monaCd))
+            .where(eq(userFollows.userId, userId))
+        : [];
+
+      const followedIds = new Set(followed.map((f) => f.politicianId));
+      const followedNameToMeta = new Map<string, { politicianId: string; name: string; party: string | null; photo: string | null }>();
+      for (const f of followed) {
+        if (f.name) {
+          followedNameToMeta.set(f.name, {
+            politicianId: f.politicianId,
+            name: f.name,
+            party: f.party,
+            photo: f.photo,
+          });
+        }
+      }
+
+      // 2) 추천(트렌딩) 의원 — followerCount + 최근 뉴스 수 기준. 팔로우 중인 의원 제외.
+      const trendingScore = dsql`(${legislators.followerCount} * 20 + ${legislators.recentNewsCount} * 5 + ${legislators.profileViewCount})`;
+      const trendingRows = await db
+        .select({
+          monaCd: legislators.monaCd,
+          name: legislators.name,
+          party: legislators.party,
+          photo: legislators.photoUrl,
+        })
+        .from(legislators)
+        .orderBy(desc(trendingScore))
+        .limit(20);
+
+      const recNameToMeta = new Map<string, { politicianId: string; name: string; party: string | null; photo: string | null }>();
+      for (const r of trendingRows) {
+        if (!r.name || followedIds.has(r.monaCd)) continue;
+        recNameToMeta.set(r.name, {
+          politicianId: r.monaCd,
+          name: r.name,
+          party: r.party,
+          photo: r.photo,
+        });
+      }
+
+      // 3) 최근 발의 법안 — 대표발의자 이름으로 followed/recommended 매칭
+      const recentBills = await db
+        .select()
+        .from(assemblyBills)
+        .orderBy(desc(assemblyBills.proposeDate))
+        .limit(400);
+
+      const billItems = recentBills
+        .map((bill) => {
+          const primary = (bill.proposer || "").split("(")[0].split(",")[0].trim();
+          const followedMeta = followedNameToMeta.get(primary);
+          const recMeta = !followedMeta ? recNameToMeta.get(primary) : null;
+          const meta = followedMeta ?? recMeta;
+          if (!meta) return null;
+          const summary = bill.aiDescription?.trim() || bill.billName;
+          return {
+            type: "bill" as const,
+            id: `bill-${bill.billId}`,
+            politicianId: meta.politicianId,
+            politicianName: meta.name,
+            party: meta.party,
+            photo: meta.photo,
+            title: bill.billName,
+            summary,
+            subtitle: bill.committee || "법안 발의",
+            billId: bill.billId,
+            occurredAt: bill.proposeDate || "",
+            isRecommended: !followedMeta,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      // 4) 표결 (followed 의원만 — 표결은 너무 많아서 추천에는 포함하지 않음)
+      const followedMonaCds = Array.from(followedIds);
+      const voteItems = followedMonaCds.length > 0
+        ? (
+            await db
+              .select({ vote: assemblyVotes, bill: assemblyBills })
+              .from(assemblyVotes)
+              .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+              .where(inArray(assemblyVotes.legislatorId, followedMonaCds))
+              .orderBy(desc(assemblyVotes.syncedAt))
+              .limit(80)
+          ).map((r) => {
+            const followedMeta = followed.find((f) => f.politicianId === r.vote.legislatorId);
+            return {
+              type: "vote" as const,
+              id: `vote-${r.vote.id}`,
+              politicianId: r.vote.legislatorId,
+              politicianName: r.vote.legislatorName,
+              party: followedMeta?.party ?? r.vote.party ?? "",
+              photo: followedMeta?.photo ?? null,
+              title: r.bill?.billName ?? "법안 표결",
+              summary: `${r.vote.legislatorName} 의원이 「${r.bill?.billName ?? "법안"}」에 ${r.vote.voteResult} 의사를 표시했습니다.`,
+              subtitle: `${r.vote.voteResult} · ${r.bill?.committee ?? ""}`.trim(),
+              billId: r.vote.billId,
+              voteResult: r.vote.voteResult,
+              occurredAt: r.bill?.proposeDate || r.vote.syncedAt?.toISOString?.() || "",
+              isRecommended: false,
+            };
+          })
+        : [];
+
+      // 5) 머지 + 정렬. followed 우선 노출, 추천은 자연스럽게 사이사이 끼움.
+      const merged = [...billItems, ...voteItems]
+        .filter((x) => x.occurredAt)
+        .sort((a, b) => (b.occurredAt > a.occurredAt ? 1 : -1));
+
+      // followed 비율 < 50%일 때만 추천을 그대로 두고, 충분히 많으면 추천을 뒤로 미룬다.
+      const followedCount = merged.filter((m) => !m.isRecommended).length;
+      const recommendedCount = merged.length - followedCount;
+      let final = merged;
+      if (followedCount >= 6 && recommendedCount > 0) {
+        // 팔로우 항목 5개마다 추천 1개 끼워넣기
+        const followedItems = merged.filter((m) => !m.isRecommended);
+        const recItems = merged.filter((m) => m.isRecommended);
+        final = [];
+        let ri = 0;
+        for (let i = 0; i < followedItems.length; i++) {
+          final.push(followedItems[i]);
+          if ((i + 1) % 5 === 0 && ri < recItems.length) {
+            final.push(recItems[ri++]);
+          }
+        }
+        while (ri < recItems.length) final.push(recItems[ri++]);
+      }
+
+      res.json({
+        items: final.slice(0, limit),
+        followCount: followed.length,
+        hasMore: final.length > limit,
+      });
+    } catch (error) {
+      console.error("timeline error:", error);
+      res.status(500).json({ error: "타임라인 조회 중 오류가 발생했습니다." });
     }
   });
 
@@ -2761,11 +3770,11 @@ export async function registerRoutes(
   // ===== 법안 AI 설명 생성 (On-Demand) =====
   // L1: 인메모리 캐시 (재시작 전까지 빠른 응답)
   const billDescCache = new Map<string, string>();
-  // 동일 법안 중복 Gemini 호출 방지용 in-flight 맵
+  // 동일 법안 중복 AI 호출 방지용 in-flight 맵
   const billDescInFlight = new Map<string, Promise<string>>();
-  // 동시 Gemini 호출 수 제한 (429 방어)
-  let geminiDescActive = 0;
-  const GEMINI_DESC_MAX_CONCURRENT = 3;
+  // 동시 AI 호출 수 제한 (429 방어)
+  let aiDescActive = 0;
+  const AI_DESC_MAX_CONCURRENT = 3;
 
   app.post("/api/bills/describe", async (req, res) => {
     try {
@@ -2803,36 +3812,31 @@ export async function registerRoutes(
       }
 
       // 동시 요청 수 초과 시 "분석 중" 응답 반환 (클라이언트가 재시도)
-      if (geminiDescActive >= GEMINI_DESC_MAX_CONCURRENT) {
+      if (aiDescActive >= AI_DESC_MAX_CONCURRENT) {
         return res.status(429).json({ error: "분석 요청이 많습니다. 잠시 후 다시 시도해주세요.", analyzing: true });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(503).json({ error: "AI 서비스 사용 불가" });
+      if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 사용 불가" });
 
       const generatePromise = (async () => {
-        geminiDescActive++;
+        aiDescActive++;
         try {
-          const { generateText } = await import("ai");
-          const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
-          const google = createGoogleGenerativeAI({ apiKey });
-
           const context = [
             committee ? `소관위원회: ${committee}` : "",
             proposer ? `발의자: ${proposer}` : "",
           ].filter(Boolean).join(", ");
 
-          const prompt = `다음 한국 국회 법안의 내용을 시민이 이해할 수 있도록 2~3문장(최대 80자)으로 설명해주세요. 설명만 출력하고 다른 말은 하지 마세요.
-법안명: ${billName}${context ? `\n추가정보: ${context}` : ""}`;
-
-          const { text } = await generateText({
-            model: google("gemini-2.0-flash"),
-            prompt,
+          return await callLLMText({
+            system:
+              "당신은 한국 국회 법안을 시민이 쉽게 이해할 수 있도록 설명하는 전문가입니다. " +
+              "2~3문장(80자 이내)으로만 설명하세요. 다른 말은 하지 마세요.",
+            user: `법안명: ${billName}${context ? `\n추가정보: ${context}` : ""}`,
+            temperature: 0.3,
             maxTokens: 200,
+            label: "bills/describe",
           });
-          return text.trim();
         } finally {
-          geminiDescActive--;
+          aiDescActive--;
         }
       })();
 
@@ -2852,9 +3856,13 @@ export async function registerRoutes(
 
         return res.json({ description });
       } catch (error: any) {
-        const is429 = error?.status === 429 || String(error?.message).includes("429") || String(error?.message).includes("quota");
+        const is429 =
+          (error instanceof LLMTransientError && error.status === 429) ||
+          error?.status === 429 ||
+          String(error?.message).includes("429") ||
+          String(error?.message).includes("quota");
         if (is429) {
-          console.warn("[bills/describe] Gemini 429:", error.message);
+          console.warn("[bills/describe] Groq 429:", error.message);
           return res.status(429).json({ error: "AI 분석 한도 초과. 잠시 후 다시 시도해주세요.", analyzing: false });
         }
         console.error("[bills/describe] error:", error);
@@ -2868,86 +3876,441 @@ export async function registerRoutes(
     }
   });
 
+  // ===== 단독 공약 AI 분석 =====
+  const pledgeAnalyzeCache = new Map<string, object>();
+
+  // DB의 null/빈값을 LLM이 안전하게 처리할 수 있도록 통일된 placeholder 적용
+  const orNoData = (v: unknown): string => {
+    if (v === null || v === undefined) return "정보 없음";
+    const s = String(v).trim();
+    return s.length === 0 ? "정보 없음" : s;
+  };
+
+  const formatCriminalRecords = (raw: unknown): string => {
+    if (!raw) return "정보 없음";
+    if (Array.isArray(raw)) {
+      if (raw.length === 0) return "전과 기록 없음";
+      return raw
+        .map((r: any, i: number) => {
+          if (typeof r === "string") return `${i + 1}. ${r}`;
+          const title = r?.title ?? r?.crime ?? r?.summary ?? "내용 미상";
+          const date = r?.date ?? r?.year ?? "";
+          return `${i + 1}. ${title}${date ? ` (${date})` : ""}`;
+        })
+        .join("\n");
+    }
+    return orNoData(raw);
+  };
+
+  // 후보 직위가 입법권한이 없는 단체장(시·도지사·구청장·교육감)인지 판정한다.
+  // 광역/기초의원은 조례 발의 권한이 있으므로 약간 권한 가중치를 부여한다.
+  const officeAuthorityHint = (job: string): string => {
+    const j = job || "";
+    if (/시장|도지사|군수|구청장|교육감/.test(j)) {
+      return "이 후보는 단체장 후보로, 법률 제·개정 권한이 없다. 국회 입법이 필요한 공약은 권한 외이므로 실현가능성에서 큰 폭으로 감점한다.";
+    }
+    if (/시의원|도의원|구의원|군의원|의회의원/.test(j)) {
+      return "이 후보는 지방의회 의원 후보로, 조례 제·개정 권한은 있으나 법률 개정·국가 예산은 직접 통제하지 못한다.";
+    }
+    return "후보 직위가 명확하지 않다. 공약이 지방정부 권한 내인지 보수적으로 판단한다.";
+  };
+
+  app.post("/api/candidates/analyze-pledge", async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      const name = orNoData(body.name);
+      const party = orNoData(body.party);
+      const job = orNoData(body.job);
+      const career1 = orNoData(body.career1);
+      const criminalRecords = formatCriminalRecords(body.criminalRecords);
+
+      // 구조화된 공약 입력 (선관위 공보 표준 필드).
+      // 레거시 호환: body.pledge(문자열)만 와도 동작하나, method/funding/duration이 비면 점수가 강제로 50 미만이 된다.
+      const pledgeTitle = orNoData(body.pledge ?? body.title);
+      const realmName = orNoData(body.realmName ?? body.realm);
+      const content = orNoData(body.content ?? body.description);
+      const method = orNoData(body.method);
+      const funding = orNoData(body.funding);
+      const duration = orNoData(body.duration);
+
+      if (pledgeTitle === "정보 없음") {
+        return res.status(400).json({ error: "공약 내용이 필요합니다" });
+      }
+
+      const cacheKey = [name, pledgeTitle, method, funding, duration].join("||");
+      if (pledgeAnalyzeCache.has(cacheKey)) return res.json(pledgeAnalyzeCache.get(cacheKey));
+
+      if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+
+      // ⚠️ Fallback은 모델 응답이 *없을 때*만 쓰인다. 의도적으로 낮게 둔다.
+      const fallback = {
+        feasibilityScore: 35,
+        feasibilityLabel: "낮음",
+        authorityScore: 30,
+        fundingScore: 25,
+        timelineScore: 25,
+        summary: "공약 텍스트만으로는 이행방법·재원·기간을 검증할 수 없습니다.",
+        strengths: [],
+        concerns: ["이행방법 미기재", "재원조달방안 미기재", "이행기간 미기재"],
+        // 키 이름은 LLM에 주입하는 스키마와 일치(snake_case)
+        feasibility_critique:
+          "이행방법·재원조달방안·이행기간이 모두 '기재 안 됨' 상태로, 예산 확보 경로와 권한 범위를 확인할 수 없어 실현가능성이 불투명함.",
+        voterTip: "후보 측에 (1) 어떤 권한으로 (2) 얼마의 세입으로 (3) 언제까지 실행할지 직접 확인하세요.",
+      };
+
+      // 미기재(빈/null/"정보 없음")는 LLM에게 "기재 안 됨"으로 명시 전달
+      const ND = "기재 안 됨";
+      const orNotProvided = (v: string): string =>
+        v === "정보 없음" || !v.trim() ? ND : v.trim();
+
+      const blockTitle = orNotProvided(pledgeTitle);
+      const blockMethod = orNotProvided(method);
+      const blockFunding = orNotProvided(funding);
+      const blockDuration = orNotProvided(duration);
+      const blockRealm = orNotProvided(realmName);
+      const blockContent = orNotProvided(content);
+
+      const SYSTEM_PROMPT = [
+        "당신은 아주 냉혹하고 비판적인 예산 분석관입니다. 후보자의 공약 '제목'이나 '의도'는 평가하지 마십시오. 오직 '이행방법'과 '재원조달방안'의 구체성만 봅니다.",
+        "",
+        "[엄격 채점 규칙]",
+        "1. 재원조달방안이 '기재 안 됨'이거나 '국비 확보', '민자 유치' 등 구체적인 세수(Tax) 계획 없이 막연하다면 실현가능성 점수를 40점 이하로 대폭 깎으십시오.",
+        "2. 이행방법에 법률 개정(국회 권한)이 필요한데 본인이 지자체장(시장/도지사) 후보라면 권한 밖이므로 점수를 깎으십시오.",
+        "3. 평가 코멘트(feasibility_critique)에는 '이러이러해서 예산 확보가 불투명함'과 같이 팩트 기반의 비판을 1~2줄로 강하게 적으십시오.",
+        "",
+        "[채점 축 — 항목별 0~100. 최종 feasibilityScore는 가중평균(권한 0.30, 재원 0.45, 기간 0.25) 정수.]",
+        "A. authorityScore (권한): 후보 직위의 법적 권한 안에서 단독 실행 가능한가. 법률 개정·국가예산 신설 필요 시 30점 이하.",
+        "B. fundingScore (재원, deptCont): 구체 세입 출처·금액·연차로 검증 가능한가. '국비 확보' '민자 유치' '예산 절감'은 25점 이하.",
+        "C. timelineScore (기간, distCont): 임기 4년 내 분기·연차별 마일스톤이 명시되어 있는가. '추진' '검토' '단계적'만 있으면 25점 이하.",
+        "",
+        "[추가 룰]",
+        "• 이행방법·재원조달·이행기간 중 어느 하나라도 '기재 안 됨'이면 feasibilityScore는 50점을 절대 넘지 마라.",
+        "• 의도·비전·필요성에 가산점 금지. strengths에는 검증 가능한 실행 메커니즘만 적는다.",
+        "• 후보 경력·정당·현직은 가산점 사유가 아니다. 정당명·이념·인신을 평가 근거로 쓰지 않는다.",
+        "• feasibilityLabel은 점수와 엄격히 연동: 75+ '높음', 55-74 '중간', 35-54 '보통', 0-34 '낮음'.",
+        "",
+        "[출력 — 아래 JSON 스키마와 정확히 동일한 키만 사용. 코드펜스·접두어·설명문 금지.]",
+        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판(예: \'재원조달방안에 구체 세입 출처가 없어 예산 확보가 불투명함\')","voterTip":"유권자가 후보에게 추가로 물을 가장 핵심 질문 1문장"}',
+      ].join("\n");
+
+      // 사용자 명시 포맷 — [공약 1] {title} / - 이행방법 / - 재원조달 / - 이행기간
+      const pledgeBlock =
+        `[공약 1] ${blockTitle}\n` +
+        `- 이행방법: ${blockMethod}\n` +
+        `- 재원조달: ${blockFunding}\n` +
+        `- 이행기간: ${blockDuration}`;
+
+      const userPrompt =
+        `[후보자]\n` +
+        `- 이름: ${name}\n` +
+        `- 정당: ${party}\n` +
+        `- 현직: ${job}\n` +
+        `- 직위 권한 참고: ${officeAuthorityHint(job)}\n` +
+        `- 주요 경력: ${career1}\n` +
+        `- 전과 기록: ${criminalRecords}\n\n` +
+        `${pledgeBlock}\n` +
+        `(분야: ${blockRealm} · 목표/내용: ${blockContent})\n\n` +
+        `위 엄격 채점 규칙에 따라 평가하라. 이행방법·재원조달·이행기간 중 '기재 안 됨'이 하나라도 있으면 50점을 넘지 마라.`;
+
+      const rawResult = await callLLMJsonOrFallback<Record<string, any>>(
+        {
+          system: SYSTEM_PROMPT,
+          user: userPrompt,
+          temperature: 0.2,
+          maxTokens: 700,
+          label: "candidates/analyze-pledge",
+        },
+        fallback,
+      );
+
+      // 모델이 snake_case로 반환하면 camelCase로 미러링 (프론트 호환)
+      const critique =
+        rawResult?.feasibility_critique ?? rawResult?.feasibilityCritique ?? null;
+      const result = {
+        ...rawResult,
+        feasibility_critique: critique,
+        feasibilityCritique: critique,
+      };
+
+      pledgeAnalyzeCache.set(cacheKey, result);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[analyze-pledge] error:", error);
+      res.status(200).json({
+        feasibilityScore: 35,
+        feasibilityLabel: "낮음",
+        authorityScore: 0,
+        fundingScore: 0,
+        timelineScore: 0,
+        summary: "AI 분석 서비스가 일시적으로 응답하지 않습니다.",
+        strengths: [],
+        concerns: ["분석 결과를 검증할 수 없어 보수적으로 낮음 처리"],
+        feasibility_critique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
+        feasibilityCritique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
+        voterTip: "잠시 후 다시 시도해 주세요.",
+      });
+    }
+  });
+
   // ===== 공약 AI 비교 분석 =====
   const pledgeCompareCache = new Map<string, object>();
 
   app.post("/api/candidates/compare-pledges", async (req, res) => {
     try {
-      const { candidateA, candidateB } = req.body as {
-        candidateA: { name: string; party: string; pledge: string };
-        candidateB: { name: string; party: string; pledge: string };
-      };
-      if (!candidateA?.pledge || !candidateB?.pledge) {
+      const body = req.body ?? {};
+      const rawA = body.candidateA ?? {};
+      const rawB = body.candidateB ?? {};
+
+      const normalize = (c: any) => ({
+        name: orNoData(c?.name),
+        party: orNoData(c?.party),
+        pledge: orNoData(c?.pledge),
+        job: orNoData(c?.job),
+        career1: orNoData(c?.career1),
+      });
+
+      const candidateA = normalize(rawA);
+      const candidateB = normalize(rawB);
+
+      if (candidateA.pledge === "정보 없음" && candidateB.pledge === "정보 없음") {
         return res.status(400).json({ error: "두 후보의 공약이 필요합니다" });
       }
 
-      const cacheKey = `${candidateA.pledge}||${candidateB.pledge}`;
+      const cacheKey = `${candidateA.name}::${candidateA.pledge}||${candidateB.name}::${candidateB.pledge}`;
       if (pledgeCompareCache.has(cacheKey)) {
         return res.json(pledgeCompareCache.get(cacheKey));
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        // AI 없을 때 기본 응답
-        return res.json({
-          coreContrast: `${candidateA.name} 후보와 ${candidateB.name} 후보는 서로 다른 방향의 정책을 제시하고 있습니다.`,
-          candidateAHighlights: [candidateA.pledge],
-          candidateBHighlights: [candidateB.pledge],
-          voterGuide: "두 후보의 공약을 꼼꼼히 비교해 본인의 가치관에 맞는 후보를 선택하세요.",
-        });
-      }
+      if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 
-      const { generateText } = await import("ai");
-      const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
-      const google = createGoogleGenerativeAI({ apiKey });
+      const buildCandidateBlock = (c: ReturnType<typeof normalize>, label: string) =>
+        `[${label}] ${c.name} / ${c.party}\n` +
+        `- 현직: ${c.job}\n` +
+        `- 주요 경력: ${c.career1}\n` +
+        `- 공약: ${c.pledge}`;
 
-      const prompt = `당신은 대한민국 지방선거 공약을 분석하는 중립적인 정치 전문가입니다.
-두 후보의 공약을 비교 분석하고 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 절대 출력하지 마세요.
+      const fallback = {
+        coreContrast: `${candidateA.name}와 ${candidateB.name}는 서로 다른 방향의 정책을 제시하고 있습니다. 두 후보의 공약을 꼼꼼히 비교해보세요.`,
+        candidateAHighlights: candidateA.pledge !== "정보 없음" ? [candidateA.pledge] : [],
+        candidateBHighlights: candidateB.pledge !== "정보 없음" ? [candidateB.pledge] : [],
+        voterGuide: "AI 분석 결과를 일시적으로 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      };
 
-[${candidateA.name} / ${candidateA.party}]
-공약: ${candidateA.pledge}
-
-[${candidateB.name} / ${candidateB.party}]
-공약: ${candidateB.pledge}
-
-{
-  "coreContrast": "두 공약의 핵심 차이점을 2-3문장으로 설명 (중립적 시각 유지)",
-  "candidateAHighlights": ["A 공약의 특징 또는 예상 효과 1", "특징 2"],
-  "candidateBHighlights": ["B 공약의 특징 또는 예상 효과 1", "특징 2"],
-  "voterGuide": "시민이 선택 시 고려해야 할 핵심 기준 1-2문장"
-}`;
-
-      const { text } = await generateText({
-        model: google("gemini-2.0-flash"),
-        prompt,
-        maxTokens: 600,
-      });
-
-      let result: object;
-      try {
-        const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        result = JSON.parse(cleaned);
-      } catch {
-        result = {
-          coreContrast: text.trim(),
-          candidateAHighlights: [],
-          candidateBHighlights: [],
-          voterGuide: "",
-        };
-      }
+      const result = await callLLMJsonOrFallback<object>(
+        {
+          system:
+            "당신은 대한민국 지방선거 공약을 비교 분석하는 중립적인 정치 전문가입니다. " +
+            "입력값 중 일부는 '정보 없음' 으로 표시될 수 있습니다. 그 경우 해당 항목은 분석에서 제외하고 다른 정보로 판단하세요. " +
+            "반드시 아래 JSON 스키마와 정확히 동일한 키만 사용하여 출력하세요. 다른 텍스트(설명, 코드펜스 포함)는 절대 포함하지 마세요.\n" +
+            '{"coreContrast":"핵심 차이 2-3문장","candidateAHighlights":["특징1","특징2"],"candidateBHighlights":["특징1","특징2"],"voterGuide":"유권자 고려사항 1-2문장"}',
+          user:
+            `${buildCandidateBlock(candidateA, "A후보")}\n\n` +
+            `${buildCandidateBlock(candidateB, "B후보")}`,
+          temperature: 0.3,
+          maxTokens: 700,
+          label: "candidates/compare-pledges",
+        },
+        fallback,
+      );
 
       pledgeCompareCache.set(cacheKey, result);
       res.json(result);
     } catch (error: any) {
       console.error("[compare-pledges] error:", error);
-      // 네트워크 오류 등 일시적 실패 시 기본 응답 반환 (500 대신)
       const { candidateA, candidateB } = req.body ?? {};
-      res.json({
-        coreContrast: `${candidateA?.name ?? "A후보"}와 ${candidateB?.name ?? "B후보"}는 서로 다른 방향의 정책을 제시하고 있습니다. 두 후보의 공약을 꼼꼼히 비교해보세요.`,
+      res.status(200).json({
+        coreContrast: `${candidateA?.name ?? "A후보"}와 ${candidateB?.name ?? "B후보"}의 공약 차이를 AI가 분석하지 못했습니다.`,
         candidateAHighlights: candidateA?.pledge ? [candidateA.pledge] : [],
         candidateBHighlights: candidateB?.pledge ? [candidateB.pledge] : [],
-        voterGuide: "AI 분석 서비스에 일시적으로 접근할 수 없습니다. 잠시 후 다시 시도해주세요.",
+        voterGuide: "AI 분석 서비스에 일시적으로 접근할 수 없습니다. 잠시 후 다시 시도해 주세요.",
       });
+    }
+  });
+
+  // ===== 분야별 공약 통합 분석 =====
+  app.post("/api/candidates/analyze-topic", async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      const topic = orNoData(body.topic);
+      const rawCandidates: any[] = Array.isArray(body.candidates) ? body.candidates : [];
+
+      if (topic === "정보 없음" || rawCandidates.length === 0) {
+        return res.status(400).json({ error: "분야와 후보자 정보가 필요합니다" });
+      }
+
+      const candidates = rawCandidates.map((c) => ({
+        name: orNoData(c?.name),
+        party: orNoData(c?.party),
+        pledge: orNoData(c?.pledge),
+        job: orNoData(c?.job),
+        career1: orNoData(c?.career1),
+      }));
+
+      const hasAnyPledge = candidates.some((c) => c.pledge !== "정보 없음");
+      if (!hasAnyPledge) {
+        return res.status(200).json({
+          summary: `${topic} 분야에 등록된 공약 데이터가 아직 없습니다.`,
+          candidateAnalyses: candidates.map((c) => ({
+            name: c.name,
+            party: c.party,
+            strength: "공약 데이터 미등록",
+            comparison: "추후 등록 후 다시 확인해 주세요",
+          })),
+          voterTip: "후보자 공약은 선관위 공식 공보가 등록되면 자동으로 업데이트됩니다.",
+        });
+      }
+
+      if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+
+      const candidatesText = candidates
+        .map(
+          (c) =>
+            `[${c.name} / ${c.party}]\n` +
+            `- 현직: ${c.job}\n` +
+            `- 주요 경력: ${c.career1}\n` +
+            `- 공약: ${c.pledge}`,
+        )
+        .join("\n\n");
+
+      const fallback = {
+        summary: `${topic} 분야 후보자 공약 AI 분석 결과를 일시적으로 생성하지 못했습니다.`,
+        candidateAnalyses: candidates.map((c) => ({
+          name: c.name,
+          party: c.party,
+          strength: c.pledge !== "정보 없음" ? c.pledge : "공약 데이터 미등록",
+          comparison: "추가 분석 정보가 잠시 후 표시됩니다",
+        })),
+        voterTip: "잠시 후 다시 시도해 주세요.",
+      };
+
+      const result = await callLLMJsonOrFallback<object>(
+        {
+          system:
+            `당신은 대한민국 지방선거 ${topic} 분야 전문가입니다. ` +
+            "입력값 중 일부는 '정보 없음' 으로 표시될 수 있습니다. 그 경우 해당 항목은 분석에서 제외하고 다른 정보로 판단하세요. " +
+            "반드시 아래 JSON 스키마와 정확히 동일한 키만 사용하여 출력하세요. 다른 텍스트(설명, 코드펜스 포함)는 절대 포함하지 마세요. " +
+            "candidateAnalyses 배열의 길이와 순서는 입력된 후보자 순서와 동일해야 합니다.\n" +
+            '{"summary":"공약 구도 2-3문장","candidateAnalyses":[{"name":"이름","party":"정당","strength":"핵심 장점 1-2문장","comparison":"차별점 1-2문장"}],"voterTip":"유권자 고려 포인트 1문장"}',
+          user: `${topic} 분야 후보자 공약 비교:\n\n${candidatesText}`,
+          temperature: 0.3,
+          maxTokens: 1000,
+          label: "candidates/analyze-topic",
+        },
+        fallback,
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("[analyze-topic] error:", error);
+      const topic = orNoData(req.body?.topic);
+      res.status(200).json({
+        summary: `${topic} 분야 AI 분석 결과를 일시적으로 가져오지 못했습니다.`,
+        candidateAnalyses: [],
+        voterTip: "잠시 후 다시 시도해 주세요.",
+      });
+    }
+  });
+
+  // ===== 국회의원 프리미엄 AI 프로필 분석 =====
+  const memberProfileCache = new Map<string, object>();
+
+  app.get("/api/members/analyze-profile", async (req, res) => {
+    try {
+      const monaCd = String(req.query.monaCd ?? "");
+      if (!monaCd) return res.status(400).json({ error: "monaCd 필요" });
+
+      if (memberProfileCache.has(monaCd)) return res.json(memberProfileCache.get(monaCd));
+
+      if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+
+      // 의원 기본정보
+      const memberRows = await db
+        .select({ name: legislators.name, party: legislators.party, district: legislators.district })
+        .from(legislators)
+        .where(eq(legislators.monaCd, monaCd))
+        .limit(1);
+      if (memberRows.length === 0) return res.status(404).json({ error: "의원을 찾을 수 없습니다" });
+      const member = memberRows[0];
+
+      // 표결 기록 (최근 40건, 법안명 포함) — DB 우선, 부족하면 라이브 API 폴백
+      let voteRows = await db
+        .select({
+          billName: assemblyBills.billName,
+          committee: assemblyBills.committee,
+          voteResult: assemblyVotes.voteResult,
+        })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(eq(assemblyVotes.legislatorId, monaCd))
+        .limit(40);
+
+      // DB가 비어있으면 in-memory 표결 인덱스에서 실시간 조합 (서버 startup prefetch 결과)
+      if (voteRows.length < 3) {
+        const indexed = legislatorVotesIndex.get(monaCd);
+        if (indexed && indexed.length > 0) {
+          voteRows = indexed.slice(0, 40).map((v) => ({
+            billName: v.billName,
+            committee: "",
+            voteResult: v.voteResult,
+          }));
+        }
+      }
+
+      // 임계치 완화 (5 → 3). 3건 미만이면 분석 불가가 아니라 일반화된 기본 응답 반환.
+      if (voteRows.length < 3) {
+        return res.status(422).json({
+          error: "표결 데이터가 충분하지 않습니다 (최소 3건 필요). DB 동기화가 필요할 수 있습니다.",
+          hint: "터미널에서 `npm run enrich:assembly-records` 실행",
+          monaCd,
+        });
+      }
+
+      const voteSummary = voteRows
+        .filter(v => v.billName)
+        .map(v => `${v.voteResult}: ${v.billName}${v.committee ? ` (${v.committee})` : ""}`)
+        .join("\n");
+
+      const profileSchema =
+        "당신은 대한민국 국회의원의 표결 기록을 분석하는 중립적인 정치 전문가입니다. " +
+        "반드시 아래 JSON 스키마만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.\n" +
+        JSON.stringify({
+          summary: "경제 분야에서 친기업·규제완화 성향이 뚜렷하며, 재정 건전성을 중시합니다. (1문장, 50자 이내)",
+          orientation: { economy: 7, government: 3 },
+          topInterests: [
+            { field: "경제", percentage: 45 },
+            { field: "복지", percentage: 30 },
+            { field: "교육", percentage: 25 },
+          ],
+          crucialBills: [
+            { billName: "중대재해처벌법 개정안", reason: "기업 규제 완화에 찬성 표결을 던짐" },
+            { billName: "법안명2", reason: "이유2" },
+            { billName: "법안명3", reason: "이유3" },
+          ],
+        }) +
+        "\n\norientation.economy: 0=친노동/시장개입, 10=친기업/규제완화\n" +
+        "orientation.government: 0=큰정부/복지확대, 10=작은정부/감세\n" +
+        "topInterests: 관심분야 TOP3, 합계 100\n" +
+        "crucialBills: 성향 파악에 결정적인 법안 3개";
+
+      try {
+        const result = await callLLMJson<object>({
+          system: profileSchema,
+          user:
+            `의원: ${member.name} (${member.party} / ${member.district})\n\n` +
+            `최근 표결 기록 (${voteRows.length}건):\n${voteSummary}`,
+          temperature: 0.2,
+          maxTokens: 700,
+          label: "members/analyze-profile",
+        });
+        memberProfileCache.set(monaCd, result);
+        res.json(result);
+      } catch (err) {
+        if (err instanceof LLMParseError) return res.status(500).json({ error: "분석 결과 파싱 실패" });
+        throw err;
+      }
+    } catch (error: any) {
+      console.error("[members/analyze-profile] error:", error);
+      res.status(500).json({ error: error.message ?? "분석 실패" });
     }
   });
 
@@ -3015,6 +4378,13 @@ export async function registerRoutes(
             if (!billId || billVotesCache.has(billId)) { prefetchProgress.done++; return; }
             try {
               const result = await fetchBillMemberVotes(billId);
+              if (result.votes.length === 0) {
+                // 0건: 동기화 완료 표시(syncedAt 갱신) 후 바로 다음 법안으로
+                await db.update(assemblyBills).set({ syncedAt: new Date() }).where(eq(assemblyBills.billId, billId)).catch(() => {});
+                billVotesCache.set(billId, { votes: [], cachedAt: Date.now() });
+                prefetchProgress.done++;
+                return;
+              }
               billVotesCache.set(billId, { votes: result.votes, cachedAt: Date.now() });
               updateLegislatorVotesIndex(billId, result.billName, result.votes);
             } catch {}
@@ -3046,6 +4416,13 @@ export async function registerRoutes(
   // 지역별 최신 여론조사 조회
   app.get("/api/polls", async (req, res) => {
     try {
+      // 공직선거법 §108 — 선거일 6일 전부터 투표 마감까지 여론조사 결과 공표 금지
+      if (isPollPublicationBlackout()) {
+        return res.status(451).json({
+          error: "공직선거법 제108조에 따라 여론조사 결과는 선거일 6일 전부터 투표 마감 시각까지 공표할 수 없습니다.",
+          blackout: true,
+        });
+      }
       const regionCode = (req.query.regionCode as string) || "";
       const rows = await getLatestPolls(regionCode);
       res.json(rows);
@@ -3061,6 +4438,16 @@ export async function registerRoutes(
       .then(m => m.syncElectionCandidates())
       .then(() => console.log("[sync-nec] 완료"))
       .catch(e => console.error("[sync-nec] 실패:", e.message));
+  });
+
+  // 5대 공약 본문(goalCont/methCont/distCont/deptCont) 보강
+  app.post("/api/admin/enrich-pledges", syncGuard, async (req, res) => {
+    const force = req.query.force === "1" || req.body?.force === true;
+    res.json({ success: true, message: `공약 본문 보강 백그라운드 시작 (force=${force})` });
+    import("./nec-sync")
+      .then((m) => m.enrichCandidatePledges({ force }))
+      .then((r) => console.log("[enrich-pledges] 완료:", r))
+      .catch((e) => console.error("[enrich-pledges] 실패:", e.message));
   });
 
   // 선관위 API 테스트 (개발용)
@@ -3096,6 +4483,15 @@ export async function registerRoutes(
   });
 
   // 선거구 목록
+  app.get("/api/election/all", async (_req, res) => {
+    try {
+      const candidates = await db.select().from(electionCandidates);
+      res.json(candidates);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/election/districts", async (req, res) => {
     try {
       const { regionCode } = req.query as { regionCode: string };
@@ -3112,84 +4508,130 @@ export async function registerRoutes(
     }
   });
 
-  // 후보자 목록
+  // 후보자 목록 (실시간 선관위 API 조회)
   app.get("/api/election/candidates", async (req, res) => {
     try {
-      const { regionCode, districtName, electionType } = req.query as Record<string, string>;
+      const { regionCode, electionType } = req.query as Record<string, string>;
       if (!regionCode || !electionType) {
         return res.status(400).json({ error: "regionCode, electionType 필요" });
       }
-      
-      // regionCode가 "11" 같은 코드인 경우 "서울특별시" 등으로 변환 시도
-      const REGION_CODE_MAP: Record<string, string> = {
+
+      // 1. Strict Region Name Mapping (sdName)
+      const REGION_MAP: Record<string, string> = {
+        "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시",
+        "인천": "인천광역시", "광주": "광주광역시", "대전": "대전광역시",
+        "울산": "울산광역시", "세종": "세종특별자치시", "경기": "경기도",
+        "강원": "강원특별자치도", "충북": "충청북도", "충남": "충청남도",
+        "전북": "전북특별자치도", "전남": "전라남도", "경북": "경상북도",
+        "경남": "경상남도", "제주": "제주특별자치도",
+        // 기존 코드 호환
         "11": "서울특별시", "26": "부산광역시", "27": "대구광역시", "28": "인천광역시",
         "29": "광주광역시", "30": "대전광역시", "31": "울산광역시", "36": "세종특별자치시",
         "41": "경기도", "42": "강원특별자치도", "43": "충청북도", "44": "충청남도",
-        "45": "전라북도", "46": "전라남도", "47": "경상북도", "48": "경상남도", "50": "제주특별자치도"
+        "45": "전북특별자치도", "46": "전라남도", "47": "경상북도", "48": "경상남도",
+        "50": "제주특별자치도", "51": "강원특별자치도"
       };
-      
-      const mappedRegion = REGION_CODE_MAP[regionCode] || regionCode;
 
-      // districtName only required if not mayor
-      if (electionType !== "mayor" && !districtName) {
-        return res.status(400).json({ error: "districtName 필요" });
+      const sdName = REGION_MAP[regionCode] || regionCode;
+
+      // 2. Verify Election ID & Type
+      const sgId = "20260603"; // 2026 지방선거
+      let sgTypecode = "3"; // 기본 시·도지사선거
+      if (electionType === "mayor") sgTypecode = "3";
+      if (electionType === "district-head") sgTypecode = "4";
+      if (electionType === "metro-council") sgTypecode = "5";
+      if (electionType === "district-council") sgTypecode = "6";
+      if (electionType === "superintendent") sgTypecode = "11";
+
+      const apiKey = process.env.DATA_GO_KR_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "DATA_GO_KR_API_KEY 없음" });
       }
 
-      const userId = req.session?.userId;
+      const axios2 = (await import("axios")).default;
+      const baseUrl = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPoelpcddRegistSttusInfoInqire";
+      const params = {
+        serviceKey: apiKey,
+        pageNo: "1",
+        numOfRows: "200",
+        sgId,
+        sgTypecode,
+        sdName,
+        resultType: "json"
+      };
+
+      // 3. API Response Logging
+      const urlWithParams = `${baseUrl}?serviceKey=${apiKey}&pageNo=${params.pageNo}&numOfRows=${params.numOfRows}&sgId=${params.sgId}&sgTypecode=${params.sgTypecode}&sdName=${encodeURIComponent(params.sdName)}&resultType=${params.resultType}`;
+      console.log(`[NEC API Request] URL: ${urlWithParams.replace(apiKey, 'HIDDEN_KEY')}`);
+
+      const response = await axios2.get(baseUrl, { params, timeout: 15000 });
+      console.log(`[NEC API Response Raw Data for ${sdName}]:`, JSON.stringify(response.data).substring(0, 500) + '...');
+
+      const body = response.data?.response?.body ?? {};
+      const rawItems = body?.items?.item ?? [];
+      const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+
+      // 프론트엔드 호환성을 위해 DB 모델 포맷으로 변환
+      // DB에 enrich:pledges로 적재된 실 공약이 있으면 그것을 사용, 없으면 빈 배열
+      const candidateNames = items.map((item: any) => item.name).filter(Boolean);
       
-      let conditions = [
-        or(
-          eq(electionCandidates.regionCode, mappedRegion),
-          eq(electionCandidates.regionCode, regionCode)
-        ),
-        eq(electionCandidates.electionType, electionType)
-      ];
-      
-      if (districtName) {
-        conditions.push(eq(electionCandidates.districtName, districtName));
+      // DB에서 실 공약 데이터 조회 (이미 enrich:pledges 스크립트로 적재됨)
+      let dbCandidateMap: Record<string, any> = {};
+      if (candidateNames.length > 0) {
+        try {
+          const dbRows = await db.select()
+            .from(electionCandidates)
+            .where(
+              and(
+                inArray(electionCandidates.name, candidateNames),
+                ilike(electionCandidates.sdName, `%${sdName.replace(/(특별자치도|특별자치시|특별시|광역시|도)$/, '').trim() || sdName}%`)
+              )
+            );
+          for (const row of dbRows) {
+            dbCandidateMap[row.name] = row;
+          }
+        } catch {}
       }
 
-      const rows = await db
-        .select()
-        .from(electionCandidates)
-        .where(and(...conditions))
-        .limit(200);
-
-      const candidateIds = rows.map(r => r.id);
-      const supportVotes = candidateIds.length > 0
-        ? await db.select().from(candidateSupportVotes).where(inArray(candidateSupportVotes.candidateId, candidateIds))
-        : [];
-
-      const myVoteRow = userId
-        ? supportVotes.find(v => v.userId === userId)
-        : null;
-
-      const result = rows.map(c => {
-        // 더미 공약 주입 (실제 API에 공약이 없을 경우)
-        let pledges = c.pledges;
-        if (!pledges || (Array.isArray(pledges) && pledges.length === 0)) {
-           pledges = [
-             { id: "p1", title: "지역 경제 활성화 및 일자리 창출", description: "소상공인 지원 확대 및 청년 창업 펀드 조성으로 활력 넘치는 지역 경제를 만들겠습니다." },
-             { id: "p2", title: "교통 인프라 대폭 확충", description: "광역철도망 조기 착공 및 버스 노선 개편으로 출퇴근 시간을 30분 단축하겠습니다." },
-             { id: "p3", title: "맞춤형 복지 사각지대 해소", description: "1인 가구 및 노년층을 위한 찾아가는 복지 서비스를 도입하고 공공 의료 시설을 확충하겠습니다." }
-           ];
-        }
+      const candidates = items.map((item: any) => {
+        const dbRow = dbCandidateMap[item.name];
+        // 실 공약: DB에서 가져온 pledges → 없으면 빈 배열 (mock 없음)
+        const pledges = (dbRow?.pledges && Array.isArray(dbRow.pledges) && dbRow.pledges.length > 0)
+          ? dbRow.pledges
+          : [];
 
         return {
-          ...c,
+          id: dbRow?.id || item.huboid || `${item.sgId}_${item.name}`,
+          name: item.name,
+          party: item.jdName || "무소속",
+          candidateStatus: item.status || item.regStatus || item.sttuscode || "등록",
+          regionCode: sdName,
+          electionType: electionType,
+          districtName: item.sggName || item.wiwName || sdName,
+          photo: dbRow?.photo || item.photo || item.jpgLink || null,
+          job: dbRow?.job || item.job || null,
+          career: dbRow?.career || null,
+          career1: dbRow?.career1 || item.career1 || null,
+          career2: dbRow?.career2 || item.career2 || null,
+          edu: dbRow?.edu || item.edu || null,
+          age: dbRow?.age || item.age || null,
           pledges,
-          promises: pledges, // 프론트엔드 호환성을 위해 추가
-          supportCount: supportVotes.filter(v => v.candidateId === c.id).length,
-          myVote: myVoteRow?.candidateId === c.id || false,
+          promises: pledges,
+          supportCount: 0,
+          myVote: false
         };
       });
 
-      res.json(result);
+      res.json(candidates);
     } catch (e: any) {
-      console.error("[CANDIDATES API ERROR]", e);
+      console.error("[CANDIDATES API ERROR]", e.message);
+      if (e.response) {
+        console.error("[NEC API Error Response]:", e.response.data);
+      }
       res.status(500).json({ error: e.message || String(e) });
     }
   });
+
 
   // 지지율 투표
   app.post("/api/election/support-vote", requireAuth, async (req, res) => {
@@ -3478,6 +4920,13 @@ export async function registerRoutes(
   // GET /api/election/support-rates/:regionCode — 지역별 후보자 지지율 집계
   app.get("/api/election/support-rates/:regionCode", async (req, res) => {
     try {
+      // 공직선거법 §108 — 지지율 정보도 여론조사로 해석될 여지가 있어 차단
+      if (isPollPublicationBlackout()) {
+        return res.status(451).json({
+          error: "공직선거법 제108조에 따라 선거일 6일 전부터 투표 마감까지 지지율을 공개할 수 없습니다.",
+          blackout: true,
+        });
+      }
       const { regionCode } = req.params;
 
       // 해당 지역 후보자 목록
@@ -3603,14 +5052,32 @@ export async function registerRoutes(
   });
 
   // ===== 정치인 사진 프록시 =====
-  // GET /api/politician-photo?name=홍준표&monaCd=1234567 → 사진을 서버에서 프록시해 제공
+  // GET /api/politician-photo?name=홍준표&monaCd=1234567 → 사진을 서버에서 프록시해 제공.
+  // 동명이인 disambiguation: monaCd가 있으면 legislators에서 party를 조회해 검색 컨텍스트로 사용.
+  // (이전 구현은 monaCd 자체를 context로 넘겨 "황희 M03AAA1234" 같은 무의미한 쿼리를 만들었음 →
+  //  Naver가 그 쿼리에서 빈손이면 plain name으로 재시도 → 황희정승 같은 동명이인 인물이 찍힘.)
   app.get("/api/politician-photo", async (req, res) => {
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
     const monaCd = typeof req.query.monaCd === "string" ? req.query.monaCd.trim() : undefined;
-    
+
     if (!name && !monaCd) return res.status(400).end();
 
-    const photoUrl = await getPoliticianPhotoUrl(name, monaCd);
+    // monaCd로 party 조회 — disambiguation context로 사용. 실패해도 무시.
+    let context: string | undefined;
+    if (monaCd) {
+      try {
+        const [row] = await db
+          .select({ party: legislators.party })
+          .from(legislators)
+          .where(eq(legislators.monaCd, monaCd))
+          .limit(1);
+        if (row?.party) context = `${row.party} 국회의원`;
+      } catch {
+        // ignore — context 없이도 진행 가능
+      }
+    }
+
+    const photoUrl = await getPoliticianPhotoUrl(name, context);
     if (!photoUrl) return res.status(404).end();
 
     const result = await proxyImage(photoUrl);

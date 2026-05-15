@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, Home, Users, MessageSquare, FileText, User } from "lucide-react";
+import { Search, Home, Users, MessageSquare, FileText, User, Plus } from "lucide-react";
 
 const navItems = [
   { title: "홈", url: "/", icon: Home },
@@ -17,14 +17,22 @@ export function SideNav() {
   return (
     <nav className="hidden md:flex flex-col w-[260px] fixed top-0 left-0 bottom-0 bg-white border-r border-gray-100 z-50 py-6 px-4 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
       {/* 로고 영역 */}
-      <div className="mb-10 px-4 pt-2">
+      <div className="mb-6 px-4 pt-2">
         <Link href="/" className="cursor-pointer flex flex-col">
-          <span className="text-[20px] font-black tracking-tight text-[#6320EE]">
+          <span className="text-[24px] font-black tracking-tight text-[#6D28D9]">
             이유
           </span>
-          <span className="text-[10px] font-bold text-gray-400 mt-0.5">
-            데이터 기반 정치 인사이트
-          </span>
+        </Link>
+      </div>
+
+      {/* 글쓰기 버튼 */}
+      <div className="px-2 mb-8">
+        <Link 
+          href="/community/write"
+          className="flex items-center justify-center gap-2 w-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white py-3.5 rounded-2xl font-bold text-[15px] transition-all duration-200 shadow-[0_4px_12px_rgba(99,32,238,0.2)] hover:shadow-[0_6px_16px_rgba(99,32,238,0.3)] hover:-translate-y-0.5"
+        >
+          <Plus className="w-5 h-5 stroke-[3]" />
+          <span>글쓰기</span>
         </Link>
       </div>
 
@@ -39,7 +47,7 @@ export function SideNav() {
               href={item.url}
               className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? "bg-[#F4F0FF] text-[#6320EE] font-bold"
+                  ? "bg-[#F4F0FF] text-[#6D28D9] font-bold"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-medium"
               }`}
             >
@@ -48,24 +56,6 @@ export function SideNav() {
             </Link>
           );
         })}
-      </div>
-
-      {/* 하단 Premium Access 배너 */}
-      <div className="mt-auto pt-4 pb-2">
-        <div className="bg-[#F8F9FA] rounded-2xl p-4 flex flex-col">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-[#6320EE] text-white flex items-center justify-center font-black text-[10px]">
-              이유
-            </div>
-            <div>
-              <div className="text-[12px] font-black text-gray-900 leading-tight">Premium Access</div>
-              <div className="text-[10px] text-gray-500">데이터 분석 무제한</div>
-            </div>
-          </div>
-          <button className="w-full bg-[#6320EE] hover:bg-[#5218D0] text-white py-2.5 rounded-xl font-bold text-[12px] transition-colors shadow-sm">
-            업그레이드
-          </button>
-        </div>
       </div>
     </nav>
   );

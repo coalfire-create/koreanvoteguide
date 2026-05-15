@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Flame, Bell, Settings, FileText, MessageSquare, TrendingUp, Loader2, AlertCircle, Newspaper, ExternalLink, ChevronRight, Clock, Building2 } from "lucide-react";
-import { getBillEmoji } from "@/lib/utils";
+import { getBillEmoji, getBillInitial } from "@/lib/utils";
 import { useAssemblyBills, useAssemblyMembers, useHotBills, useSearchHistory, saveSearchQuery, clearSearchHistory, deleteSearchHistoryItem } from "@/lib/api-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
@@ -44,17 +44,20 @@ export default function BillSearch() {
   const { history: searchHistory, isLoading: historyLoading } = useSearchHistory();
   const queryClient = useQueryClient();
 
-  // 오늘 발의 법안 수 계산
-  const today = new Date().toISOString().slice(0, 10);
-  const todayBillCount = bills.filter(b => b.proposedDate?.startsWith(today)).length;
-
-  // 가장 활발한 토론 법안 (커뮤니티에서 태그된 bill 게시글 중 가장 인기 있는 것)
-  const { data: trendingBillPosts } = useQuery<any[]>({
-    queryKey: ["/api/community/posts", "trending-bill"],
-    queryFn: () => apiRequest("GET", "/api/community/posts?sort=popular&tagType=bill").then((r) => r.json()),
+  // 오늘 발의 법안 수 (DB COUNT, KST 기준)
+  const { data: todayBillData, isLoading: todayBillLoading } = useQuery<{ date: string; count: number }>({
+    queryKey: ["/api/bills/today-count"],
+    queryFn: () => apiRequest("GET", "/api/bills/today-count").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
-  const hotDiscussionPost = trendingBillPosts?.[0];
+  const todayBillCount = todayBillData?.count ?? 0;
+
+  // 가장 활발한 토론 — 댓글 수 기준 단일 게시글
+  const { data: hotDiscussionPost } = useQuery<any>({
+    queryKey: ["/api/community/hot-discussion", "bill"],
+    queryFn: () => apiRequest("GET", "/api/community/hot-discussion?tagType=bill").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
   
   // 뉴스 API 데이터 (법안 관련)
   const { data: newsData, isLoading: newsLoading } = useQuery<any>({
@@ -175,23 +178,6 @@ export default function BillSearch() {
           {/* Main Content */}
           <div className="space-y-8">
             
-            {/* Filter Chips */}
-            <section className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {FILTER_CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCat(cat)}
-                  className={`px-6 py-2.5 rounded-full text-[14px] font-bold transition-all active:scale-95 border-none shadow-sm ${
-                    filterCat === cat
-                      ? "bg-[#6D28D9] text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </section>
-
             {/* 인기 법안 Top 5 */}
             <section>
               <div className="flex items-center justify-between mb-4">
@@ -226,75 +212,76 @@ export default function BillSearch() {
                   <p className="text-[15px] font-medium">인기 법안 데이터를 불러올 수 없습니다</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4 pt-2">
                   {hotBills.map((bill: any, idx: number) => {
-                    const rankColors = [
-                      { bg: "bg-[#FB923C]", text: "text-white", border: "border-[#FB923C]/20", card: "border-l-[#FB923C]" },
-                      { bg: "bg-[#6D28D9]", text: "text-white", border: "border-[#6D28D9]/20", card: "border-l-[#6D28D9]" },
-                      { bg: "bg-slate-500", text: "text-white", border: "border-slate-200", card: "border-l-slate-400" },
-                      { bg: "bg-slate-300", text: "text-slate-700", border: "border-slate-100", card: "border-l-slate-300" },
-                      { bg: "bg-slate-200", text: "text-slate-600", border: "border-slate-100", card: "border-l-slate-200" },
-                    ];
-                    const rank = rankColors[idx] ?? rankColors[4];
                     const isTop = idx === 0;
-
                     const statusLabel = !bill.result || bill.result === "" || bill.result === "계류" ? "심사중" : bill.result;
-                    const statusColor = statusLabel === "심사중" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700";
+                    const statusColor = statusLabel === "심사중" ? "bg-amber-50 text-amber-600 border border-amber-100/50" : "bg-blue-50 text-blue-600 border border-blue-100/50";
 
                     return (
                       <div
                         key={bill.billId}
                         onClick={() => navigate(`/bills/${bill.billId}/vote`)}
-                        className={`bg-white rounded-[14px] px-5 py-4 shadow-sm border border-slate-100 border-l-4 ${rank.card} flex gap-4 items-start cursor-pointer hover:shadow-md transition-all active:scale-[0.99] group ${isTop ? "ring-2 ring-[#FB923C]/20" : ""}`}
+                        className={`group relative bg-white rounded-[20px] p-5 flex gap-4 items-center cursor-pointer transition-all duration-300 border ${
+                          isTop ? "border-orange-200/80 shadow-[0_8px_30px_rgb(251,146,60,0.15)] hover:shadow-[0_12px_40px_rgb(251,146,60,0.2)] hover:-translate-y-1.5 z-10 bg-gradient-to-br from-white to-orange-50/30" :
+                          idx === 1 ? "border-purple-200/60 shadow-[0_4px_20px_rgb(168,85,247,0.08)] hover:shadow-[0_8px_30px_rgb(168,85,247,0.15)] hover:-translate-y-1" :
+                          idx === 2 ? "border-blue-200/60 shadow-[0_4px_15px_rgb(59,130,246,0.06)] hover:shadow-[0_8px_25px_rgb(59,130,246,0.12)] hover:-translate-y-1" :
+                          "border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-100"
+                        }`}
                       >
-                        {/* 순위 배지 및 이모지 */}
-                        <div className="relative shrink-0">
-                          <div className={`px-2 h-8 min-w-[32px] rounded-[8px] ${rank.bg} ${rank.text} flex items-center justify-center text-[11px] font-extrabold shadow-sm whitespace-nowrap`}>
-                            {getBillInitial(bill.billName, bill.committee)}
+                        {isTop && (
+                          <div className="absolute -top-3 left-6 px-3 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black rounded-full shadow-md flex items-center gap-1.5 tracking-wider">
+                            <Flame className="w-3 h-3 fill-white/20" /> 실시간 1위
                           </div>
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center text-[10px] shadow-sm border border-slate-50">
-                            {getBillEmoji(bill.billName, bill.committee)}
-                          </div>
+                        )}
+
+                        {/* Rank Number */}
+                        <div className="flex-shrink-0 w-10 flex flex-col items-center justify-center">
+                          <span className={`text-[28px] font-black italic tracking-tighter ${
+                            idx === 0 ? "text-transparent bg-clip-text bg-gradient-to-br from-orange-500 to-red-500" :
+                            idx === 1 ? "text-transparent bg-clip-text bg-gradient-to-br from-purple-500 to-indigo-500" :
+                            idx === 2 ? "text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-cyan-500" :
+                            "text-slate-300"
+                          }`}>
+                            {idx + 1}
+                          </span>
                         </div>
 
                         {/* 법안 정보 */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                            {isTop && (
-                              <span className="px-2 py-0.5 bg-[#FFF4ED] text-[#FB923C] text-[10px] font-bold rounded-full flex items-center gap-1">
-                                <Flame className="w-2.5 h-2.5" /> HOT
-                              </span>
-                            )}
-                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${statusColor}`}>
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="text-[16px] drop-shadow-sm">{getBillEmoji(bill.billName, bill.committee)}</span>
+                            <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md ${statusColor}`}>
                               {statusLabel}
                             </span>
-                            {bill.mediaMentionCount > 0 && (
-                              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full flex items-center gap-1">
-                                <Newspaper className="w-2.5 h-2.5" />
-                                뉴스 {bill.mediaMentionCount}건
+                            {(bill.newsMentionCount ?? bill.mediaMentionCount ?? 0) > 0 && (
+                              <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-100 text-[10px] font-bold rounded-md flex items-center gap-1.5">
+                                <Newspaper className="w-3 h-3" />
+                                뉴스 {bill.newsMentionCount ?? bill.mediaMentionCount}건
                               </span>
                             )}
                           </div>
 
-                          <h3 className={`text-[14px] font-extrabold text-slate-900 leading-snug mb-1.5 group-hover:text-[#6D28D9] transition-colors line-clamp-2 ${isTop ? "text-[15px]" : ""}`}>
+                          <h3 className={`font-extrabold text-slate-900 leading-snug mb-2 group-hover:text-[#6D28D9] transition-colors line-clamp-2 ${isTop ? "text-[17px]" : "text-[15px]"}`}>
                             {bill.billName}
                           </h3>
 
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium flex-wrap">
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400 font-semibold flex-wrap">
                             {bill.committee && (
                               <span className="flex items-center gap-1">
-                                <Building2 className="w-3 h-3" />
+                                <Building2 className="w-3.5 h-3.5" />
                                 {bill.committee}
                               </span>
                             )}
                             {bill.proposer && (
-                              <span className="truncate max-w-[160px]">
+                              <span className="truncate max-w-[160px] flex items-center gap-1">
+                                <span className="w-1 h-1 rounded-full bg-slate-300 inline-block mr-0.5"></span>
                                 {bill.proposer.split("(")[0].trim()} 외 {bill.coProposerCount ?? 0}인
                               </span>
                             )}
                             {bill.proposeDate && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
+                              <span className="flex items-center gap-1 ml-auto text-slate-300">
+                                <Clock className="w-3.5 h-3.5" />
                                 {bill.proposeDate}
                               </span>
                             )}
@@ -302,16 +289,13 @@ export default function BillSearch() {
                         </div>
 
                         {/* 우측 액션 */}
-                        <div className="flex flex-col items-end gap-2 shrink-0">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/bills/${bill.billId}/vote`); }}
-                            className="px-3 py-1.5 rounded-[8px] text-[12px] font-bold bg-[#6D28D9] text-white hover:bg-[#5B21B6] transition-colors whitespace-nowrap"
-                          >
-                            투표 →
-                          </button>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3" />
-                            조회 {(bill.viewCount ?? 0).toLocaleString()}
+                        <div className="flex flex-col items-center justify-center gap-2.5 shrink-0 pl-2">
+                          <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-[#6D28D9] flex items-center justify-center transition-colors shadow-inner border border-slate-100 group-hover:border-[#6D28D9]">
+                            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                            <TrendingUp className="w-2.5 h-2.5 text-indigo-400" />
+                            {(bill.viewCount ?? 0).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -375,6 +359,128 @@ export default function BillSearch() {
               </div>
             </section>
             
+            {/* Filter Chips & Filtered Bills */}
+            <section className="space-y-6 pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900">카테고리별 법안 탐색</h3>
+              </div>
+              
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {FILTER_CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCat(cat)}
+                    className={`px-6 py-2.5 rounded-full text-[14px] font-bold transition-all active:scale-95 border-none shadow-sm ${
+                      filterCat === cat
+                        ? "bg-[#6D28D9] text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                {billsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="bg-white rounded-[14px] p-5 shadow-sm border border-slate-100 flex gap-4">
+                        <Skeleton className="w-8 h-8 rounded-[8px] shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-3/4 rounded" />
+                          <Skeleton className="h-3 w-1/2 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  (() => {
+                    const getCategoryKeywords = (cat: string) => {
+                      switch (cat) {
+                        case "경제": return ["기재", "기획재정", "산업", "산자", "정무", "국토", "교통", "경제", "조세"];
+                        case "복지": return ["보건", "복지", "여가", "여성가족", "연금", "노인", "아동"];
+                        case "환경": return ["환경", "노동", "환노", "기후", "탄소", "생태"];
+                        case "교육": return ["교육", "학교", "학생", "교원", "대학"];
+                        default: return [];
+                      }
+                    };
+
+                    const filteredBills = bills.filter((bill: any) => {
+                      if (filterCat === "전체") return true;
+                      const keywords = getCategoryKeywords(filterCat);
+                      const committee = bill.summary || bill.committee || "";
+                      const name = bill.name || bill.billName || "";
+                      return keywords.some(k => committee.includes(k) || name.includes(k));
+                    }).slice(0, 10);
+
+                    if (filteredBills.length === 0) {
+                      return (
+                        <div className="bg-white rounded-[16px] p-8 shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-3 text-slate-400">
+                          <FileText className="w-8 h-8" />
+                          <p className="text-[15px] font-medium">해당 카테고리의 법안이 없습니다</p>
+                        </div>
+                      );
+                    }
+
+                    return filteredBills.map((bill: any, idx: number) => {
+                      const statusLabel = !bill.status || bill.status === "" || bill.status === "계류" ? "심사중" : bill.status;
+                      const statusColor = statusLabel === "심사중" ? "bg-amber-50 text-amber-600 border border-amber-100/50" : "bg-blue-50 text-blue-600 border border-blue-100/50";
+                      const billName = bill.name || bill.billName || "이름 없는 법안";
+                      const committee = bill.summary || bill.committee || "";
+
+                      return (
+                        <div
+                          key={bill.id || `filtered-${idx}`}
+                          onClick={() => navigate(`/bills/${bill.id || bill.billId}/vote`)}
+                          className="group bg-white rounded-[16px] p-5 flex gap-4 items-center cursor-pointer transition-all duration-300 border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-100"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="text-[16px] drop-shadow-sm">{getBillEmoji(billName, committee)}</span>
+                              <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+
+                            <h3 className="font-bold text-[15px] text-slate-900 leading-snug mb-2 group-hover:text-[#6D28D9] transition-colors line-clamp-2">
+                              {billName}
+                            </h3>
+
+                            <div className="flex items-center gap-3 text-[11px] text-slate-400 font-semibold flex-wrap">
+                              {committee && (
+                                <span className="flex items-center gap-1">
+                                  <Building2 className="w-3.5 h-3.5" />
+                                  {committee}
+                                </span>
+                              )}
+                              {bill.proposer && (
+                                <span className="truncate max-w-[160px] flex items-center gap-1">
+                                  <span className="w-1 h-1 rounded-full bg-slate-300 inline-block mr-0.5"></span>
+                                  {bill.proposer.split("(")[0].trim()} 대표발의
+                                </span>
+                              )}
+                              {bill.proposedDate && (
+                                <span className="flex items-center gap-1 ml-auto text-slate-300">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {bill.proposedDate}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-[#6D28D9] flex items-center justify-center transition-colors shadow-inner border border-slate-100 group-hover:border-[#6D28D9] shrink-0">
+                            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </section>
+
+            
           </div>
 
           {/* Middle Widgets Column */}
@@ -428,7 +534,7 @@ export default function BillSearch() {
               </div>
               <div>
                 <p className="text-[12px] font-bold text-slate-500 mb-1">오늘 발의된 법안</p>
-                {billsLoading ? (
+                {todayBillLoading ? (
                   <Skeleton className="h-9 w-12 rounded mb-1" />
                 ) : (
                   <h3 className="text-[28px] font-extrabold text-slate-900 leading-none mb-1">
@@ -447,13 +553,13 @@ export default function BillSearch() {
               <div>
                 <p className="text-[12px] font-bold text-slate-500 mb-1.5">가장 활발한 토론</p>
                 {!hotDiscussionPost ? (
-                  <h3 className="text-[16px] font-bold text-slate-900 leading-snug mb-1 line-clamp-2">
-                    {hotBills?.[0]?.billName ?? "법안 토론 불러오는 중..."}
+                  <h3 className="text-[16px] font-bold text-slate-400 leading-snug mb-1 line-clamp-2">
+                    아직 활발한 토론이 없어요
                   </h3>
                 ) : (
                   <Link href={`/community/${hotDiscussionPost.id}`}>
                     <h3 className="text-[16px] font-bold text-slate-900 leading-snug mb-1 hover:text-[#6D28D9] transition-colors cursor-pointer line-clamp-2">
-                      {getBillEmoji(hotDiscussionPost.tagName || hotDiscussionPost.title)} {hotDiscussionPost.tagName ?? hotDiscussionPost.title}
+                      {getBillEmoji(hotDiscussionPost.title)} {hotDiscussionPost.title}
                     </h3>
                   </Link>
                 )}

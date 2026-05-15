@@ -50,7 +50,7 @@ export function DailyPoll({ board }: DailyPollProps) {
 
   const { data: comments } = useQuery({
     queryKey: ["/api/poll-comments", poll?.id],
-    queryFn: () => fetch(`/api/poll-comments?pollId=${poll!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/poll-comments?pollId=${poll!.id}`, { credentials: "include" }).then(r => r.json()),
     enabled: !!poll && showComments,
   });
 
@@ -86,7 +86,7 @@ export function DailyPoll({ board }: DailyPollProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reactions", "poll", poll?.id] });
-      toast({ title: "투표 🗳️", description: "소중한 공감이 반영되었습니다!", duration: 2000 });
+      toast({ title: "투표 완료", description: "소중한 공감이 반영되었습니다!", duration: 2000 });
     },
     onError: (error: Error) => {
       toast({ variant: "destructive", title: "공감 오류", description: error.message, duration: 2000 });
@@ -95,12 +95,20 @@ export function DailyPoll({ board }: DailyPollProps) {
 
   const commentMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", `/api/poll-comments`, { pollId: poll!.id, content, authorType: "anonymous" });
+      const res = await apiRequest("POST", `/api/poll-comments`, { pollId: poll!.id, content, authorType: user?.nickname ? "nickname" : "realname" });
       return res.json();
     },
     onSuccess: () => {
       setCommentText("");
       queryClient.invalidateQueries({ queryKey: ["/api/poll-comments", poll?.id] });
+      toast({ title: "댓글이 등록되었습니다", duration: 1500 });
+    },
+    onError: (err: any) => {
+      const raw = String(err?.message || "");
+      const detail = raw.includes("401")
+        ? "로그인 후 댓글을 남길 수 있습니다."
+        : (raw.match(/^\d+:\s*(.+)$/)?.[1] || "댓글 작성에 실패했습니다");
+      toast({ variant: "destructive", title: "오류", description: detail });
     },
   });
 
@@ -300,24 +308,37 @@ export function DailyPoll({ board }: DailyPollProps) {
             className="overflow-hidden bg-slate-50 border-t border-slate-100"
           >
             <div className="p-4">
-              <div className="flex gap-2 mb-4">
-                <Textarea 
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!user || !commentText.trim() || commentMutation.isPending) return;
+                  commentMutation.mutate(commentText);
+                }}
+                className="flex gap-2 mb-4"
+              >
+                <Textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  placeholder={user ? "다양한 의견을 존중하며 자유롭게 남겨주세요." : "비로그인 상태에서는 익명으로 작성됩니다."}
-                  disabled={commentMutation.isPending}
-                  className="min-h-[44px] max-h-[100px] text-[13px] resize-none bg-white font-medium focus-visible:ring-indigo-500/20 border-slate-200 rounded-xl shadow-sm"
+                  placeholder={user ? "다양한 의견을 존중하며 자유롭게 남겨주세요." : "로그인 후 댓글을 남길 수 있습니다."}
+                  disabled={!user || commentMutation.isPending}
+                  maxLength={500}
+                  className="min-h-[44px] max-h-[100px] text-[13px] resize-none bg-white font-medium focus-visible:ring-indigo-500/20 border-slate-200 rounded-xl shadow-sm disabled:bg-slate-50 disabled:cursor-not-allowed"
                   rows={1}
                 />
-                <Button 
-                  size="sm" 
-                  onClick={() => commentMutation.mutate(commentText)}
-                  disabled={!commentText.trim() || commentMutation.isPending}
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!user || !commentText.trim() || commentMutation.isPending}
                   className="shrink-0 h-[44px] font-black rounded-xl shadow-sm bg-slate-900 hover:bg-slate-800 text-white"
                 >
                   등록
                 </Button>
-              </div>
+              </form>
+              {!user && (
+                <a href="/login" className="block text-center text-[12px] font-bold text-[#6D28D9] mb-3 hover:underline">
+                  로그인 / 회원가입 →
+                </a>
+              )}
               
               {comments && comments.length > 0 && (
                 <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 pb-1">

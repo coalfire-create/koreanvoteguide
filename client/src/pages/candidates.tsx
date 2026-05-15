@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { MessageCircle, ThumbsUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 
 function CandidatePosts({ candidateId, candidateName }: { candidateId: string, candidateName: string }) {
   const { data: posts, isLoading } = useQuery<any[]>({
@@ -103,7 +104,7 @@ function CandidateCard({
                 id: candidate.id,
                 name: candidate.name,
                 type: "candidate",
-                imageUrl: candidate.imageUrl,
+                imageUrl: (candidate as any).imageUrl ?? candidate.photo,
               });
             }
           }}
@@ -120,12 +121,13 @@ function CandidateCard({
           />
         </button>
         <div className="flex items-start gap-4 mb-4">
-          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0">
+          <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 border-[3px] border-white shadow-md relative group/photo">
             <PoliticianPhoto
               name={candidate.name}
               photo={candidate.photo || (candidate as any).imageUrl}
               monaCd={candidate.id}
-              avatarClassName="w-full h-full flex items-center justify-center bg-muted text-lg font-bold"
+              className="group-hover/photo:scale-110 transition-transform duration-500"
+              avatarClassName="w-full h-full flex items-center justify-center bg-gray-50 text-gray-200 text-lg font-bold"
             />
           </div>
           <div className="min-w-0 flex-1">

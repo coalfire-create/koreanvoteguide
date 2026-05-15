@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, CheckCircle2, MessageCircle, ThumbsUp, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, MessageCircle, ThumbsUp, Sparkles, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +21,7 @@ function formatTime(pubDate: string): string {
   }
 }
 
-// ─── 단독 공약 실현가능성 분석 (candidate-detail.tsx 호환용) ───────────────
+// ─── 단독 공약 실현가능성 초기 추정 (로딩 중 표시용 키워드 기반) ─────────
 export function analyzeFeasibility(title: string, description: string): {
   score: number; label: string; color: string; bg: string; reasons: string[]; concerns: string[];
 } {
@@ -52,12 +52,33 @@ export function analyzeFeasibility(title: string, description: string): {
   return { score, label, color, bg, reasons, concerns };
 }
 
+// ─── AI 단독 공약 분석 결과 타입 ─────────────────────────────────────
+interface PledgeAnalysisResult {
+  feasibilityScore: number;
+  feasibilityLabel: string;
+  authorityScore?: number;
+  fundingScore?: number;
+  timelineScore?: number;
+  summary: string;
+  strengths: string[];
+  concerns: string[];
+  /** 짧고 직설적인 실현가능성 비판 — 신규 엄격 프롬프트 결과 */
+  feasibilityCritique?: string;
+  voterTip: string;
+}
+
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 
 interface Pledge {
   id: string;
   title: string;
   description?: string;
+  /** 선관위 공보 표준 구조 — LLM 엄격 채점 입력 */
+  realmName?: string;
+  content?: string;
+  method?: string;
+  funding?: string;
+  duration?: string;
 }
 
 export interface CompareWith {
@@ -65,12 +86,19 @@ export interface CompareWith {
   name: string;
   party: string;
   pledge: Pledge;
+  /** 후보 추가 컨텍스트 (DB 동기화 후 LLM 분석 정확도 향상용) */
+  job?: string;
+  career1?: string;
 }
 
 interface PledgeDetailViewProps {
   candidateId: string;
   candidateName?: string;
   candidateParty?: string;
+  /** 현직(job) — DB 후보의 추가 컨텍스트 */
+  candidateJob?: string;
+  /** 주요 경력(career1) — DB 후보의 추가 컨텍스트 */
+  candidateCareer1?: string;
   promise: Pledge | null;
   open: boolean;
   onClose: () => void;
@@ -94,7 +122,7 @@ function partyColor(party: string): string {
   if (party?.includes("조국혁신당")) return "#1e3a8a";
   if (party?.includes("개혁신당")) return "#FF8C00";
   if (party?.includes("진보당")) return "#D60024";
-  return "#6320EE";
+  return "#6D28D9";
 }
 
 // ============================================================
@@ -106,7 +134,7 @@ function ComparisonView({
   candidateB,
   onClose,
 }: {
-  candidateA: { candidateId: string; name: string; party: string; pledge: Pledge };
+  candidateA: { candidateId: string; name: string; party: string; pledge: Pledge; job?: string; career1?: string };
   candidateB: CompareWith;
   onClose: () => void;
 }) {
@@ -123,26 +151,38 @@ function ComparisonView({
           candidateA: {
             name: candidateA.name,
             party: candidateA.party,
+            job: candidateA.job ?? "",
+            career1: candidateA.career1 ?? "",
             pledge: candidateA.pledge.title + (candidateA.pledge.description ? ` — ${candidateA.pledge.description}` : ""),
           },
           candidateB: {
             name: candidateB.name,
             party: candidateB.party,
+            job: candidateB.job ?? "",
+            career1: candidateB.career1 ?? "",
             pledge: candidateB.pledge.title + (candidateB.pledge.description ? ` — ${candidateB.pledge.description}` : ""),
           },
         }),
       });
       if (!res.ok) throw new Error("분석 실패");
-      return res.json();
+      const json = await res.json();
+      // 백엔드 폴백 응답을 그대로 받아도 화면이 채워지도록 모든 필드를 보장
+      return {
+        coreContrast: json?.coreContrast ?? "AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        candidateAHighlights: Array.isArray(json?.candidateAHighlights) ? json.candidateAHighlights : [],
+        candidateBHighlights: Array.isArray(json?.candidateBHighlights) ? json.candidateBHighlights : [],
+        voterGuide: json?.voterGuide ?? "",
+      } as CompareResult;
     },
     staleTime: 60 * 60 * 1000,
+    retry: 1,
   });
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div>
       {/* 두 후보 공약 카드 */}
-      <div className="grid grid-cols-2 gap-0">
-        <div className="p-5 border-r border-gray-100" style={{ borderTop: `4px solid ${colorA}` }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-100 p-4">
+        <div className="p-5 border border-gray-100 rounded-2xl" style={{ borderTop: `4px solid ${colorA}` }}>
           <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorA }}>
             {candidateA.party}
           </div>
@@ -152,7 +192,7 @@ function ComparisonView({
             <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
           )}
         </div>
-        <div className="p-5" style={{ borderTop: `4px solid ${colorB}` }}>
+        <div className="p-5 border border-gray-100 rounded-2xl" style={{ borderTop: `4px solid ${colorB}` }}>
           <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorB }}>
             {candidateB.party}
           </div>
@@ -167,11 +207,11 @@ function ComparisonView({
       {/* AI 분석 */}
       <div className="px-5 py-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6320EE] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <h3 className="text-[16px] font-black text-gray-900">AI 공약 비교 분석</h3>
-          <span className="text-[10px] font-bold text-[#6320EE] bg-indigo-50 px-2 py-0.5 rounded-full">Gemini</span>
+          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
         </div>
 
         {isLoading && (
@@ -182,14 +222,14 @@ function ComparisonView({
                 <div className="h-3 bg-gray-100 rounded-full" style={{ width: `${70 - i * 5}%` }} />
               </div>
             ))}
-            <p className="text-[12px] text-gray-400 text-center pt-2">Gemini가 공약을 분석하고 있습니다...</p>
+            <p className="text-[12px] text-gray-400 text-center pt-2">AI가 공약을 분석하고 있습니다...</p>
           </div>
         )}
 
         {isError && (
           <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl text-[13px] text-red-600">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            분석 서비스를 일시적으로 이용할 수 없습니다.
+            AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
           </div>
         )}
 
@@ -202,7 +242,7 @@ function ComparisonView({
             </div>
 
             {/* 후보별 분석 */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="rounded-2xl p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
                 <p className="text-[11px] font-black mb-2" style={{ color: colorA }}>{candidateA.name} 공약</p>
                 <ul className="space-y-1.5">
@@ -229,8 +269,8 @@ function ComparisonView({
 
             {/* 유권자 가이드 */}
             {result.voterGuide && (
-              <div className="bg-gradient-to-r from-[#6320EE]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100">
-                <p className="text-[11px] font-black text-[#6320EE] uppercase tracking-wider mb-2">유권자 가이드</p>
+              <div className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 가이드</p>
                 <p className="text-[13px] text-gray-700 leading-relaxed">{result.voterGuide}</p>
               </div>
             )}
@@ -249,11 +289,85 @@ function ComparisonView({
 // 단독 공약 뷰 (candidate-detail.tsx 호환)
 // ============================================================
 
-function SinglePledgeView({ promise }: { promise: Pledge }) {
-  const feasibility = analyzeFeasibility(promise.title, promise.description || "");
+function SinglePledgeView({
+  promise,
+  candidateName = "",
+  candidateParty = "",
+  candidateJob = "",
+  candidateCareer1 = "",
+}: {
+  promise: Pledge;
+  candidateName?: string;
+  candidateParty?: string;
+  candidateJob?: string;
+  candidateCareer1?: string;
+}) {
+  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+
+  const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
+
+  const { data: ai, isLoading, isError } = useQuery<PledgeAnalysisResult>({
+    queryKey: ["pledge-analyze", promise.id, promise.title, promise.method, promise.funding, promise.duration],
+    queryFn: async () => {
+      const res = await fetch("/api/candidates/analyze-pledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: candidateName,
+          party: candidateParty,
+          job: candidateJob,
+          career1: candidateCareer1,
+          // 레거시 호환용 합쳐진 문자열
+          pledge: pledgeText,
+          // 구조화된 선관위 공보 필드 — 엄격 채점기 입력
+          title: promise.title,
+          realmName: promise.realmName,
+          content: promise.content ?? promise.description,
+          method: promise.method,
+          funding: promise.funding,
+          duration: promise.duration,
+        }),
+      });
+      if (!res.ok) throw new Error("분석 실패");
+      const json = await res.json();
+      return {
+        feasibilityScore: typeof json?.feasibilityScore === "number" ? json.feasibilityScore : fallback.score,
+        feasibilityLabel: json?.feasibilityLabel ?? fallback.label,
+        authorityScore: typeof json?.authorityScore === "number" ? json.authorityScore : undefined,
+        fundingScore: typeof json?.fundingScore === "number" ? json.fundingScore : undefined,
+        timelineScore: typeof json?.timelineScore === "number" ? json.timelineScore : undefined,
+        summary: json?.summary ?? "",
+        strengths: Array.isArray(json?.strengths) ? json.strengths : [],
+        concerns: Array.isArray(json?.concerns) ? json.concerns : [],
+        feasibilityCritique:
+          typeof json?.feasibilityCritique === "string"
+            ? json.feasibilityCritique
+            : typeof json?.feasibility_critique === "string"
+            ? json.feasibility_critique
+            : undefined,
+        voterTip: json?.voterTip ?? "",
+      } as PledgeAnalysisResult;
+    },
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+  });
+
+  // 외부 카드와 동일한 결과를 보여주기 위해 항상 fallback 점수/라벨 사용
+  const score = fallback.score;
+  const label = fallback.label;
+  const scoreColor =
+    score >= 75 ? "text-emerald-600" :
+    score >= 55 ? "text-blue-600" :
+    score >= 40 ? "text-amber-600" : "text-red-500";
+  const scoreBg =
+    score >= 75 ? "bg-emerald-50" :
+    score >= 55 ? "bg-blue-50" :
+    score >= 40 ? "bg-amber-50" : "bg-red-50";
+  const barColor =
+    score >= 75 ? "#10b981" : score >= 55 ? "#3b82f6" : "#f59e0b";
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div>
       <div className="px-6 py-10 bg-gradient-to-b from-indigo-50/50 to-white">
         <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-200">
           <CheckCircle2 className="w-7 h-7 text-white" />
@@ -267,30 +381,48 @@ function SinglePledgeView({ promise }: { promise: Pledge }) {
       </div>
 
       <div className="px-6 py-8 space-y-6">
+        {/* 헤더 */}
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
           <h3 className="text-xl font-black text-gray-900">AI 실현 가능성 분석</h3>
+          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
+          {isLoading && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin ml-1" />}
         </div>
 
-        <div className={`rounded-[2.5rem] p-8 ${feasibility.bg} shadow-sm`}>
+        {/* AI 요약 (로드된 경우) */}
+        {ai?.summary && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
+          >
+            <p className="text-[13px] text-gray-700 leading-relaxed">{ai.summary}</p>
+          </motion.div>
+        )}
+
+        {/* 점수 카드 */}
+        <div className={`rounded-[2.5rem] p-8 ${scoreBg} shadow-sm`}>
           <div className="flex items-center justify-between mb-6">
             <span className="text-[16px] font-black text-gray-800">종합 평가</span>
             <div className="flex items-center gap-3">
-              <span className={`text-[20px] font-black ${feasibility.color}`}>{feasibility.label}</span>
+              <span className={`text-[20px] font-black ${scoreColor}`}>{label}</span>
               <div className="text-[14px] font-bold text-white px-4 py-1.5 rounded-full shadow-sm"
-                style={{ backgroundColor: feasibility.score >= 75 ? '#10b981' : feasibility.score >= 55 ? '#3b82f6' : feasibility.score >= 40 ? '#f59e0b' : '#ef4444' }}>
-                {feasibility.score}점
+                style={{ backgroundColor: barColor }}>
+                {score}점
               </div>
             </div>
           </div>
 
           <div className="h-5 bg-white/60 rounded-full overflow-hidden mb-8 shadow-inner">
             <motion.div
+              key={score}
               initial={{ width: 0 }}
-              animate={{ width: `${feasibility.score}%` }}
+              animate={{ width: `${score}%` }}
               transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
               className="h-full rounded-full"
-              style={{ background: `linear-gradient(90deg, ${feasibility.score >= 75 ? '#10b981' : feasibility.score >= 55 ? '#3b82f6' : '#f59e0b'} 0%, #fff 200%)` }}
+              style={{ background: `linear-gradient(90deg, ${barColor} 0%, #fff 200%)` }}
             />
           </div>
 
@@ -301,7 +433,7 @@ function SinglePledgeView({ promise }: { promise: Pledge }) {
                 긍정 요인
               </p>
               <div className="space-y-3">
-                {feasibility.reasons.map((r, i) => (
+                {(ai?.strengths ?? fallback.reasons).map((r, i) => (
                   <p key={i} className="text-[14px] text-gray-700 leading-relaxed flex gap-2">
                     <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" /> {r}
                   </p>
@@ -314,7 +446,7 @@ function SinglePledgeView({ promise }: { promise: Pledge }) {
                 우려 요인
               </p>
               <div className="space-y-3">
-                {feasibility.concerns.map((c, i) => (
+                {(ai?.concerns ?? fallback.concerns).map((c, i) => (
                   <p key={i} className="text-[14px] text-gray-700 leading-relaxed flex gap-2">
                     <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" /> {c}
                   </p>
@@ -322,8 +454,28 @@ function SinglePledgeView({ promise }: { promise: Pledge }) {
               </div>
             </div>
           </div>
-          <p className="text-[12px] text-gray-400 mt-8 text-center italic font-medium">
-            * 위 분석은 공약 텍스트를 기반으로 한 AI 시뮬레이션 결과입니다
+
+          {/* 유권자 팁 */}
+          {ai?.voterTip && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-6 p-4 bg-white/60 rounded-2xl border border-white"
+            >
+              <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-1">유권자 체크포인트</p>
+              <p className="text-[13px] text-gray-700">{ai.voterTip}</p>
+            </motion.div>
+          )}
+
+          {isError && (
+            <div className="mt-4 flex items-center gap-2 text-[12px] text-amber-600 bg-amber-50 rounded-xl p-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+            </div>
+          )}
+
+          <p className="text-[12px] text-gray-400 mt-6 text-center italic font-medium">
+            {ai ? "* Groq AI(LLaMA3)가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다" : "* 공약 텍스트 기반 자동 추정값입니다"}
           </p>
         </div>
       </div>
@@ -339,6 +491,8 @@ export default function PledgeDetailView({
   candidateId,
   candidateName = "",
   candidateParty = "",
+  candidateJob = "",
+  candidateCareer1 = "",
   promise,
   open,
   onClose,
@@ -391,12 +545,25 @@ export default function PledgeDetailView({
           <div className="flex-1 overflow-y-auto flex flex-col">
             {isCompareMode ? (
               <ComparisonView
-                candidateA={{ candidateId, name: candidateName, party: candidateParty, pledge: promise }}
+                candidateA={{
+                  candidateId,
+                  name: candidateName,
+                  party: candidateParty,
+                  job: candidateJob,
+                  career1: candidateCareer1,
+                  pledge: promise,
+                }}
                 candidateB={compareWith!}
                 onClose={onClose}
               />
             ) : (
-              <SinglePledgeView promise={promise} />
+              <SinglePledgeView
+                promise={promise}
+                candidateName={candidateName}
+                candidateParty={candidateParty}
+                candidateJob={candidateJob}
+                candidateCareer1={candidateCareer1}
+              />
             )}
 
             {/* 시민 토론 */}

@@ -41,27 +41,24 @@ export default function CitySelect() {
     }
     return [];
   });
-  const [tab, setTab] = useState<"metropolitan" | "municipal">("metropolitan");
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSelect = (regionCode: string, regionShort: string, level: string) => {
-    setSelectedRegions((prev) => {
-      const exists = prev.find((r) => r.code === regionCode);
-      if (exists) {
-        return prev.filter((r) => r.code !== regionCode);
-      }
-      
-      const countForLevel = prev.filter(r => r.level === level).length;
-      if (countForLevel >= 3) {
-        toast({
-          title: `${level === "metropolitan" ? "광역" : "기초"} 지역은 최대 3개까지만 선택 가능합니다`,
-          variant: "destructive",
-        });
-        return prev;
-      }
-      
-      return [...prev, { code: regionCode, name: regionShort, level }];
-    });
+    const exists = selectedRegions.find((r) => r.code === regionCode);
+    if (exists) {
+      setSelectedRegions(prev => prev.filter((r) => r.code !== regionCode));
+      return;
+    }
+    
+    if (selectedRegions.length >= 3) {
+      toast({
+        title: "지역은 최대 3개까지만 선택 가능합니다",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedRegions(prev => [...prev, { code: regionCode, name: regionShort, level }]);
   };
 
   const handleComplete = async () => {
@@ -107,74 +104,47 @@ export default function CitySelect() {
         className="w-full px-6 pt-14 pb-8 max-w-[760px] mx-auto"
       >
         <div className="flex items-center gap-3 mb-7">
-          <div className="w-11 h-11 rounded-[14px] bg-[#6320EE] flex items-center justify-center shadow-lg">
+          <div className="w-11 h-11 rounded-[14px] bg-[#6D28D9] flex items-center justify-center shadow-lg">
             <span className="text-white font-black text-sm tracking-tight">이유</span>
           </div>
-          <span className="text-[#6320EE] font-black text-xl tracking-tight">이유</span>
+          <span className="text-[#6D28D9] font-black text-xl tracking-tight">이유</span>
         </div>
 
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[13px] font-bold text-[#6320EE] bg-[#6320EE]/10 px-3 py-1 rounded-full">
+          <span className="text-[13px] font-bold text-[#6D28D9] bg-[#6D28D9]/10 px-3 py-1 rounded-full">
             2026 지방선거 D-{Math.max(0, Math.ceil((new Date("2026-06-03").getTime() - Date.now()) / 86400000))}
           </span>
         </div>
 
         <h1 className="text-[32px] font-black text-gray-900 leading-[1.2] tracking-tight mb-3">
           어느 지역<br />
-          <span className="text-[#6320EE]">시장 선거</span>가 궁금하세요?
+          <span className="text-[#6D28D9]">지방 선거</span>가 궁금하세요?
         </h1>
         <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
-          광역 시장 3개, 기초 시장 3개까지<br />나누어서 선택할 수 있어요.
+          관심 있는 광역시장 및 구청장 후보들을<br />최대 3개까지 선택할 수 있어요.
         </p>
 
         {/* Search Bar */}
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+        <div className="w-full">
+          <div className="relative w-full">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="지역명을 검색하세요 (서울, 부산, 경기...)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-12 pl-12 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6D28D9] focus:outline-none transition-all text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="지역명을 검색하세요 (예: 영천, 강남, 수원)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-12 pl-12 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6320EE] focus:outline-none transition-all text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
-          />
           <div className="flex gap-4 mt-3 px-1">
             <div className="text-[11px] font-bold text-gray-400">
-              광역 <span className="text-[#6320EE]">{selectedRegions.filter(r => r.level === "metropolitan").length}</span>/3
-            </div>
-            <div className="text-[11px] font-bold text-gray-400">
-              기초 <span className="text-[#6320EE]">{selectedRegions.filter(r => r.level === "municipal").length}</span>/3
+              선택된 지역 <span className="text-[#6D28D9]">{selectedRegions.length}</span>/3
             </div>
           </div>
         </div>
       </motion.div>
-
-      {/* Tabs */}
-      <div className="w-full max-w-[760px] mx-auto px-6 mb-6">
-        <div className="flex p-1 bg-gray-100 rounded-[16px] w-fit">
-          <button
-            onClick={() => setTab("metropolitan")}
-            className={`px-6 py-2.5 rounded-[12px] text-[14px] font-bold transition-all ${
-              tab === "metropolitan"
-                ? "bg-white text-[#6320EE] shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            광역 (시·도지사)
-          </button>
-          <button
-            onClick={() => setTab("municipal")}
-            className={`px-6 py-2.5 rounded-[12px] text-[14px] font-bold transition-all ${
-              tab === "municipal"
-                ? "bg-white text-[#6320EE] shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            기초 (시장·군수·구청장)
-          </button>
-        </div>
-      </div>
 
       {/* Region Cards Grid */}
       <div className="w-full max-w-[760px] mx-auto px-4 pb-32">
@@ -182,11 +152,9 @@ export default function CitySelect() {
           variants={container}
           initial="hidden"
           animate="show"
-          key={tab}
           className="grid grid-cols-1 sm:grid-cols-2 gap-3"
         >
           {MAYOR_RACES.filter(r => 
-            (r.level === tab) && 
             (r.region.includes(searchQuery) || r.regionShort.includes(searchQuery))
           ).map((race) => {
             const [candA, candB, candC] = race.candidates;
@@ -200,27 +168,31 @@ export default function CitySelect() {
                 onClick={() => handleSelect(race.regionCode, race.regionShort, race.level || "metropolitan")}
                 className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 shadow-sm focus:outline-none active:scale-[0.97] ${
                   isSelected
-                    ? "border-[#6320EE] bg-[#6320EE]/5 shadow-lg shadow-[#6320EE]/10 scale-[1.02]"
-                    : "bg-white border-gray-100 hover:border-[#6320EE]/30 hover:shadow-md"
+                    ? "border-[#6D28D9] bg-[#6D28D9]/5 shadow-lg shadow-[#6D28D9]/10 scale-[1.02]"
+                    : "bg-white border-gray-100 hover:border-[#6D28D9]/30 hover:shadow-md"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#6320EE]" />
-                      <span className="text-[13px] font-bold text-gray-500">{race.positionLabel}</span>
+                      <MapPin className="w-3.5 h-3.5 text-[#6D28D9]" />
+                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">
+                        {race.level === "metropolitan" ? "광역" : "기초"}
+                      </span>
+                      <span className="text-[11px] font-medium text-gray-400">|</span>
+                      <span className="text-[11px] font-bold text-gray-500">{race.positionLabel}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <h3 className="text-[18px] font-black text-gray-900">{race.regionShort}</h3>
                       {isSelected && (
-                        <span className="w-5 h-5 rounded-full bg-[#6320EE] text-white text-[10px] flex items-center justify-center font-black">
+                        <span className="w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] flex items-center justify-center font-black">
                           {selectedIndex + 1}
                         </span>
                       )}
                     </div>
                   </div>
                   <ChevronRight
-                    className={`w-5 h-5 transition-colors ${isSelected ? "text-[#6320EE]" : "text-gray-300"}`}
+                    className={`w-5 h-5 transition-colors ${isSelected ? "text-[#6D28D9]" : "text-gray-300"}`}
                   />
                 </div>
 
@@ -309,7 +281,7 @@ export default function CitySelect() {
                 <div className="text-[12px] text-gray-400 font-bold mb-1">선택된 지역</div>
                 <div className="flex gap-2">
                   {selectedRegions.map((r) => (
-                    <span key={r.code} className="text-[14px] font-black text-[#6320EE] bg-[#6320EE]/5 px-3 py-1 rounded-full">
+                    <span key={r.code} className="text-[14px] font-black text-[#6D28D9] bg-[#6D28D9]/5 px-3 py-1 rounded-full">
                       {r.name}
                     </span>
                   ))}
@@ -317,7 +289,7 @@ export default function CitySelect() {
               </div>
               <button
                 onClick={handleComplete}
-                className="bg-[#6320EE] text-white px-8 h-14 rounded-[20px] font-black text-[16px] shadow-lg shadow-[#6320EE]/20 active:scale-[0.98] transition-all"
+                className="bg-[#6D28D9] text-white px-8 h-14 rounded-[20px] font-black text-[16px] shadow-lg shadow-[#6D28D9]/20 active:scale-[0.98] transition-all"
               >
                 {selectedRegions.length}개 지역 선택 완료
               </button>
@@ -329,7 +301,7 @@ export default function CitySelect() {
       {!selectedRegions.length && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#F8F9FA]/90 backdrop-blur-xl border-t border-gray-200/60 px-6 py-4 text-center">
           <p className="text-[12px] text-gray-400">
-            나중에 지역을 변경하려면 <span className="text-[#6320EE] font-bold">더보기 → 지역 설정</span>에서 바꿀 수 있어요
+            나중에 지역을 변경하려면 <span className="text-[#6D28D9] font-bold">더보기 → 지역 설정</span>에서 바꿀 수 있어요
           </p>
         </div>
       )}

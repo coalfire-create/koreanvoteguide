@@ -1,0 +1,79 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# 적용 방법:
+#   1) 이 파일을 main 브랜치에 푸시
+#   2) Render Dashboard → New + → Blueprint → 이 레포 선택 → Apply
+#   3) sync: false 표시된 env vars는 Render Dashboard에서 수동 입력 필요
+#
+# 주의:
+#   - free 플랜은 15분 idle 후 sleep → server/scheduler.ts cron이 안 돕니다.
+#     prod에서는 starter 이상 필수.
+#   - free Postgres는 90일 후 자동 삭제 → 운영은 basic-256mb 이상으로.
+
+services:
+  - type: web
+    name: iyu-web                 # 도메인이 이유.com 이므로 서비스명 통일
+    runtime: node
+    region: singapore              # 한국에서 latency 가장 낮음
+    plan: starter                  # cron 필요 — free는 sleep 됨
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health   # server/index.ts:26 에 정의됨
+    autoDeploy: true
+    envVars:
+      # ===== 기본 =====
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"             # Render 기본. 실제 외부 포트는 443/80
+
+      # ===== DB (아래 databases 블록과 자동 연결) =====
+      - key: DATABASE_URL
+        fromDatabase:
+          name: iyu-db
+          property: connectionString
+
+      # ===== 세션·암호 — Render가 자동 생성 =====
+      - key: SESSION_SECRET
+        generateValue: true        # 32B base64 random
+      - key: PHONE_PEPPER
+        generateValue: true        # PII HMAC 페퍼 (한 번 정하면 절대 바꾸지 말 것)
+
+      # ===== CORS / 도메인 =====
+      # 이유.com 은 IDN — Render 도메인 추가 시 ASCII(Punycode) 폼이 등록되지만
+      # ALLOWED_ORIGIN 매칭은 브라우저가 보내는 Origin 헤더 기준이므로 두 폼 모두 넣어둡니다.
+      - key: ALLOWED_ORIGIN
+        value: "https://이유.com,https://www.이유.com,https://xn--2r5b1f.com,https://www.xn--2r5b1f.com"
+
+      # ===== 외부 API (수동 입력) =====
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPEN_ASSEMBLY_API_KEY
+        sync: false
+
+      # ===== Kakao OAuth =====
+      - key: KAKAO_REST_API_KEY
+        sync: false
+      - key: KAKAO_REDIRECT_URI
+        value: https://이유.com/api/auth/kakao/callback
+      # KAKAO_CLIENT_SECRET 은 Kakao Developers에서 활성화한 경우만 추가
+      # - key: KAKAO_CLIENT_SECRET
+      #   sync: false
+
+      # ===== 관리자 / 본인확인 / SMS (선택) =====
+      - key: ADMIN_USER_IDS
+        sync: false                # 쉼표 구분 user.id. 비우면 /api/admin/*, /api/sync/* 차단 (fail-closed)
+      - key: SMS_PROVIDER
+        sync: false                # 빈 값이면 /api/auth/send-sms가 prod에서 503
+
+      # ===== 안전장치 =====
+      - key: ENABLE_DEV_TESTER
+        value: "0"                 # mock 계정 비활성화. prod에서 절대 "1"로 두지 말 것
+
+databases:
+  - name: iyu-db
+    databaseName: iyu              # PG 내 database 이름
+    user: iyu
+    region: singapore              # web 서비스와 동일 region 필수 (latency)
+    plan: basic-256mb              # free는 90일 후 자동 삭제됨 — prod 부적합
+    postgresMajorVersion: 16

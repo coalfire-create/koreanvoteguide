@@ -1,14 +1,31 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { registerLegalPages } from "./legal-pages";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { startScheduler } from "./scheduler";
 import helmet from "helmet";
+import { initMonitoring, captureError } from "./utils/monitoring";
+
+initMonitoring();
 
 const app = express();
 const httpServer = createServer(app);
 
 const isProduction = process.env.NODE_ENV === "production";
+
+// Railway/Vercel/Cloudflare 등 프록시 뒤에서 X-Forwarded-* 헤더 신뢰 (rate limit IP, secure cookie 판정)
+app.set("trust proxy", 1);
+
+// 운영 환경에서 SESSION_SECRET이 비어있으면 즉시 종료 (서명 위조 방지)
+if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
+  throw new Error("프로덕션에서는 SESSION_SECRET(32자 이상) 환경변수가 필수입니다.");
+}
+
+// 컨테이너/오케스트레이터 헬스체크 — 인증/세션/외부 호출 없는 경량 응답
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", uptimeSec: Math.floor(process.uptime()) });
+});
 
 // 보안 헤더
 app.use(
@@ -17,14 +34,30 @@ app.use(
       ? {
           directives: {
             defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
             scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https://open.assembly.go.kr", "https://upload.wikimedia.org", "https://wikimedia.org"],
+            // 외부 이미지는 사진 프록시 + 위키 정도만. HTTP 혼합 콘텐츠 제거.
+            imgSrc: [
+              "'self'",
+              "data:",
+              "https://open.assembly.go.kr",
+              "https://upload.wikimedia.org",
+              "https://wikimedia.org",
+              "https://search.pstatic.net",
+              "https://sstatic.naver.net",
+            ],
             connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
           },
         }
       : false,
     crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
 
@@ -101,11 +134,12 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      // 프로덕션에서는 응답 본문을 로그에 남기지 않음 (개인정보/세션/비번 유출 방지)
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (!isProduction && capturedJsonResponse) {
+        const preview = JSON.stringify(capturedJsonResponse).slice(0, 200);
+        logLine += ` :: ${preview}`;
       }
-
       log(logLine);
     }
   });
@@ -114,19 +148,22 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  registerLegalPages(app);
   await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     console.error("Internal Server Error:", err);
+    captureError(err, { path: req.path, method: req.method, status });
 
     if (res.headersSent) {
       return next(err);
     }
-
-    return res.status(status).json({ message });
+    // 운영에서는 내부 에러 메시지를 외부에 노출하지 않는다
+    const exposed = isProduction && status === 500 ? "Internal Server Error" : message;
+    return res.status(status).json({ message: exposed });
   });
 
   // importantly only setup vite in development and after

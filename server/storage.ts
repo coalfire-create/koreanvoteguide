@@ -10,7 +10,11 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getUserByPhoneHash(phoneHash: string): Promise<User | undefined>;
+  createUser(user: Partial<User> & InsertUser): Promise<User>;
+  withdrawUser(userId: string): Promise<void>;
+  hidePost(postId: string): Promise<void>;
+  unhidePost(postId: string): Promise<void>;
   verifyVote(userId: string): Promise<User>;
   getUserBadges(userId: string): Promise<string[]>;
   createVerificationCode(phone: string, code: string, expiresAt: Date): Promise<void>;
@@ -51,13 +55,43 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async getUserByPhoneHash(phoneHash: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phoneHash, phoneHash));
+    return user;
+  }
+
+  async createUser(insertUser: Partial<User> & InsertUser): Promise<User> {
     const [user] = await db.insert(users).values({
       ...insertUser,
       phoneVerified: true,
       badges: ["first_post"] as any,
-    }).returning();
+    } as any).returning();
     return user;
+  }
+
+  async withdrawUser(userId: string): Promise<void> {
+    // 회원 탈퇴 — 식별정보를 즉시 비식별화하고 soft delete. 30일 후 cron으로 완전 삭제.
+    const now = new Date();
+    await db
+      .update(users)
+      .set({
+        deletedAt: now,
+        username: `deleted_${userId.slice(0, 8)}_${Date.now()}`,
+        name: "탈퇴회원",
+        realName: null,
+        phone: "",
+        phoneHash: null,
+        nickname: null,
+      } as any)
+      .where(eq(users.id, userId));
+  }
+
+  async hidePost(postId: string): Promise<void> {
+    await db.update(communityPosts).set({ hiddenAt: new Date() } as any).where(eq(communityPosts.id, postId));
+  }
+
+  async unhidePost(postId: string): Promise<void> {
+    await db.update(communityPosts).set({ hiddenAt: null } as any).where(eq(communityPosts.id, postId));
   }
 
   async verifyVote(userId: string): Promise<User> {

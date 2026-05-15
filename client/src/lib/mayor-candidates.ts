@@ -1,5 +1,5 @@
 // 2026 지방선거 시·도지사 및 시·군·구청장 후보 데이터
-import { MUNICIPAL_RACES } from "./municipal-data";
+// import { MUNICIPAL_RACES } from "./municipal-data";
 
 export interface Promise {
   id: string;
@@ -1224,8 +1224,7 @@ export const MAYOR_RACES: MayorRace[] = [
       },
     ],
   },
-  ...MUNICIPAL_RACES,
-];
+].filter(race => race.level === "metropolitan");
 
 export function buildRegionalFallback(): Record<string, Candidate[]> {
   const fallback: Record<string, Candidate[]> = {};
@@ -1239,4 +1238,8 @@ export function buildRegionalFallback(): Record<string, Candidate[]> {
 
 export function getMayorRaceByName(name: string): MayorRace | null {
   return MAYOR_RACES.find((race) => name.includes(race.region) || name.includes(race.regionShort)) || null;
+}
+
+export function getMayorRaceByCode(code: string): MayorRace | undefined {
+  return MAYOR_RACES.find((r) => r.regionCode === code);
 }

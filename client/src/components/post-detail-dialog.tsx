@@ -44,14 +44,6 @@ function AuthorBadges({ badges }: { badges: string[] }) {
 }
 
 function AuthorDisplay({ displayName, authorType }: { displayName?: string; authorType?: string }) {
-  if (authorType === "realname" && displayName) {
-    return (
-      <span className="flex items-center gap-1">
-        <span className="text-[12px] font-bold text-slate-700">{displayName}</span>
-        <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">실명</span>
-      </span>
-    );
-  }
   if (authorType === "nickname" && displayName) {
     return <span className="text-[12px] font-bold text-slate-700">{displayName}</span>;
   }
@@ -205,13 +197,13 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                       onClick={() => reactMutation.mutate("agree")}
                       className={`flex-1 h-12 rounded-xl font-bold gap-2 transition-all active:scale-95 ${data.userReactions?.stance === 'agree' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600'}`}
                     >
-                      {data.userReactions?.stance === 'agree' ? '✅ 찬성함' : '👍 찬성'}
+                      {data.userReactions?.stance === 'agree' ? '찬성함' : '찬성'}
                     </Button>
                     <Button 
                       onClick={() => reactMutation.mutate("disagree")}
                       className={`flex-1 h-12 rounded-xl font-bold gap-2 transition-all active:scale-95 ${data.userReactions?.stance === 'disagree' ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-red-200 hover:text-red-500'}`}
                     >
-                      {data.userReactions?.stance === 'disagree' ? '❌ 반대함' : '👎 반대'}
+                      {data.userReactions?.stance === 'disagree' ? '반대함' : '반대'}
                     </Button>
                   </div>
                 </div>
@@ -247,7 +239,7 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                       <div key={c.id} className="flex gap-3">
                         <div className="w-7 h-7 rounded-full bg-slate-200/50 flex flex-col items-center justify-center shrink-0 border border-slate-200 mt-0.5">
                           <span className="text-[10px] font-bold text-slate-500">
-                            {c.authorType === "realname" ? "실" : c.authorType === "nickname" ? (c.displayName?.charAt(0) || "닉") : "익"}
+                            {c.authorType === "nickname" ? (c.displayName?.charAt(0) || "닉") : "익"}
                           </span>
                         </div>
                         <div className="flex-1">

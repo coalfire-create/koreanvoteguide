@@ -13,7 +13,9 @@ import {
   Settings, ChevronRight, Bell, CircleHelp, Moon, Sun,
   Plus, MessageSquare, CheckCircle2, LogOut, MapPin,
   Edit3, Loader2, FileText, User, ThumbsUp, ThumbsDown, X,
+  Activity, Vote, Sparkles, BadgeCheck, ShieldCheck,
 } from "lucide-react";
+import { StoryFeed } from "@/components/StoryFeed";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +33,25 @@ interface MyActivity {
     committee: string;
     createdAt: string;
   }[];
+}
+
+interface FeedItem {
+  type: "bill" | "vote";
+  id: string;
+  politicianId: string;
+  politicianName: string;
+  party: string | null;
+  photo: string | null;
+  title: string;
+  subtitle: string;
+  billId: string;
+  voteResult?: string;
+  occurredAt: string;
+}
+
+interface FeedResponse {
+  items: FeedItem[];
+  followCount: number;
 }
 
 function timeAgo(dateStr: string) {
@@ -62,7 +83,7 @@ function GuestPrompt() {
       </div>
       <div className="flex gap-3">
         <Button
-          className="flex-1 bg-[#6320EE] hover:bg-[#5415D0] text-white rounded-xl h-12 font-bold"
+          className="flex-1 bg-[#6D28D9] hover:bg-[#5B21B6] text-white rounded-xl h-12 font-bold"
           onClick={() => setLocation("/login")}
         >
           로그인
@@ -122,7 +143,7 @@ function NicknameSheet({
           className="h-12 rounded-xl border-gray-200 text-base"
         />
         <Button
-          className="w-full h-12 bg-[#6320EE] hover:bg-[#5415D0] text-white rounded-xl font-bold"
+          className="w-full h-12 bg-[#6D28D9] hover:bg-[#5B21B6] text-white rounded-xl font-bold"
           disabled={mutation.isPending || value.trim().length < 2}
           onClick={() => mutation.mutate(value.trim())}
         >
@@ -133,12 +154,57 @@ function NicknameSheet({
   );
 }
 
+function formatDemographic(ageGroup?: number | null, gender?: string | null): string | null {
+  if (!ageGroup && !gender) return null;
+  const parts: string[] = [];
+  if (ageGroup) {
+    parts.push(ageGroup >= 60 ? "60대 이상" : `${ageGroup}대`);
+  }
+  if (gender === "M") parts.push("남성");
+  else if (gender === "F") parts.push("여성");
+  return parts.length > 0 ? parts.join(" • ") : null;
+}
+
 export default function More() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [nicknameSheetOpen, setNicknameSheetOpen] = useState(false);
+
+  // ===== 본인인증 모킹 (PortOne/PASS 연동 전 테스트용) =====
+  // POST /api/auth/verify-identity 에 고정된 mock payload를 보내 본인확인 콜백 시뮬레이션.
+  const verifyIdentityMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/verify-identity", {
+        name: "테스터",
+        birthDate: "19980515",
+        gender: "M",
+        ci: `mock_ci_${user?.id ?? "anon"}`,
+        provider: "mock_pass",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "본인인증 완료", description: "프로필이 업데이트되었습니다." });
+    },
+    onError: (err: any) => {
+      const raw = String(err?.message || "");
+      // apiRequest는 "<status>: <body>" 형식으로 throw — 409면 이미 인증된 계정
+      if (raw.startsWith("409")) {
+        toast({ title: "이미 인증된 계정입니다.", variant: "destructive" });
+        return;
+      }
+      let detail = raw.replace(/^\d+:\s*/, "") || "본인인증 처리 중 오류가 발생했습니다.";
+      try {
+        const parsed = JSON.parse(detail);
+        if (parsed?.error) detail = parsed.error;
+      } catch {}
+      toast({ title: "본인인증 실패", description: detail, variant: "destructive" });
+    },
+  });
 
   const { favorites } = useFavorites();
   const { members = [] } = useAssemblyMembers();
@@ -153,6 +219,15 @@ export default function More() {
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
   });
+
+  // 팔로우한 의원의 실시간 활동 피드
+  const feedQuery = useQuery<FeedResponse>({
+    queryKey: ["/api/users/me/feed"],
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
+  const feedItems = feedQuery.data?.items ?? [];
+  const followCount = feedQuery.data?.followCount ?? 0;
 
   const activity = activityQuery.data;
   const votedBills = activity?.votedBills ?? [];
@@ -211,13 +286,24 @@ export default function More() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-2xl font-bold text-gray-900">{displayName} 님</h2>
-                    {user.voteVerified && (
-                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full border border-emerald-100">
-                        투표인증
-                      </span>
+                    {user.realNameVerified && (
+                      <BadgeCheck
+                        className="w-6 h-6 text-blue-500"
+                        aria-label="본인인증 완료"
+                        data-testid="verified-badge"
+                      />
                     )}
                   </div>
                   <p className="text-sm text-gray-400">@{user.username}</p>
+                  {(() => {
+                    const demo = formatDemographic(user.ageGroup, user.gender);
+                    return demo ? (
+                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                        <Sparkles className="w-3 h-3" />
+                        {demo}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <button
@@ -247,57 +333,125 @@ export default function More() {
                 <p className="text-[12px] font-medium text-gray-400">작성 글</p>
               </div>
             </div>
+
+            {/* ===== 본인인증 (PortOne/PASS 연동 전 mock 테스트 버튼) ===== */}
+            <div className="mt-5 pt-5 border-t border-gray-50">
+              {user.realNameVerified ? (
+                <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 border border-blue-100 rounded-2xl py-3 px-4">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-[13px] font-bold">본인인증 완료</span>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => verifyIdentityMutation.mutate()}
+                  disabled={verifyIdentityMutation.isPending}
+                  data-testid="mock-verify-identity"
+                  className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-sm flex items-center justify-center gap-2"
+                >
+                  {verifyIdentityMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  본인인증 하기 (테스트)
+                </Button>
+              )}
+            </div>
           </motion.div>
         )}
 
-        {/* 관심 의원 */}
+        {/* 관심 의원 — Story 스타일 */}
+        {user && (
+          <section className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-50 py-3 -mx-1">
+            <StoryFeed />
+          </section>
+        )}
+
+        {/* 내 관심 의원 실시간 활동 — 개인화 타임라인 */}
         {user && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-lg font-bold text-gray-900 tracking-tight">관심 의원</h3>
-              <Link href="/members">
-                <span className="text-xs font-semibold text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer">전체보기</span>
-              </Link>
-            </div>
-            <div className="flex items-center gap-5 overflow-x-auto pb-2 no-scrollbar">
-              {favoriteMembers.length === 0 && !members.length ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center gap-3 shrink-0">
-                    <div className="w-[68px] h-[68px] rounded-full bg-gray-100 animate-pulse" />
-                    <div className="w-12 h-3 bg-gray-100 rounded animate-pulse" />
-                  </div>
-                ))
-              ) : favoriteMembers.length > 0 ? (
-                favoriteMembers.map((member) => (
-                  <Link key={member.id} href={`/members/${member.id}`}>
-                    <div className="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
-                      <div className="w-[68px] h-[68px] rounded-full overflow-hidden border-2 border-transparent group-hover:border-indigo-200 transition-all shadow-sm bg-gray-100">
-                        <PoliticianPhoto
-                          name={member.name}
-                          monaCd={member.id}
-                          photo={member.photo}
-                          avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-xl font-bold"
-                        />
-                      </div>
-                      <span className="text-xs font-bold text-gray-600 tracking-tight">{member.name}</span>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <div className="py-4 text-sm text-gray-400">
-                  아직 관심 의원이 없습니다.{" "}
-                  <Link href="/members"><span className="text-indigo-500 font-bold cursor-pointer">의원 탐색하기</span></Link>
-                </div>
+              <h3 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-fuchsia-500" />
+                내 관심 의원 실시간 활동
+              </h3>
+              {followCount > 0 && (
+                <span className="text-[11px] font-bold text-gray-400">
+                  {followCount}명 팔로잉
+                </span>
               )}
-              <Link href="/members">
-                <div className="flex flex-col items-center gap-3 shrink-0 cursor-pointer">
-                  <div className="w-[68px] h-[68px] rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 hover:border-indigo-300 hover:text-indigo-300 transition-all">
-                    <Plus className="w-8 h-8 stroke-[1.5]" />
-                  </div>
-                  <span className="text-xs font-bold text-gray-300">추가</span>
-                </div>
-              </Link>
             </div>
+
+            {feedQuery.isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-[24px] p-5 h-24 animate-pulse border border-gray-50" />
+              ))
+            ) : followCount === 0 ? (
+              <div className="bg-white rounded-[24px] p-7 text-center border border-gray-50 space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-fuchsia-50 to-rose-50 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-fuchsia-500" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-gray-700">팔로우한 의원이 없어요</p>
+                  <p className="text-[11px] text-gray-400 mt-1">의원을 팔로우하면 발의·표결 활동이 실시간으로 표시됩니다</p>
+                </div>
+                <Link href="/members">
+                  <button className="text-[12px] font-bold text-white bg-[#6D28D9] hover:bg-[#5B21B6] transition px-4 py-2 rounded-xl">
+                    의원 탐색하기
+                  </button>
+                </Link>
+              </div>
+            ) : feedItems.length === 0 ? (
+              <div className="bg-white rounded-[24px] p-6 text-center text-sm text-gray-400 border border-gray-50">
+                아직 새로운 활동이 없습니다.
+              </div>
+            ) : (
+              feedItems.slice(0, 12).map((item) => {
+                const isBill = item.type === "bill";
+                const accent = isBill
+                  ? "from-indigo-50 to-purple-50 text-indigo-500"
+                  : item.voteResult?.includes("찬")
+                    ? "from-emerald-50 to-teal-50 text-emerald-500"
+                    : "from-orange-50 to-rose-50 text-orange-500";
+                return (
+                  <motion.div
+                    key={item.id}
+                    whileHover={{ y: -2 }}
+                    className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex items-start gap-4"
+                  >
+                    <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 ring-2 ring-white shadow-sm bg-gray-100">
+                      <PoliticianPhoto
+                        name={item.politicianName}
+                        monaCd={item.politicianId}
+                        photo={item.photo ?? undefined}
+                        avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-sm font-bold"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/members/${item.politicianId}`}>
+                          <span className="text-[13px] font-bold text-gray-900 hover:text-indigo-600 cursor-pointer">
+                            {item.politicianName}
+                          </span>
+                        </Link>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r ${accent} text-[10px] font-black uppercase tracking-wide`}>
+                          {isBill ? <FileText className="w-2.5 h-2.5" /> : <Vote className="w-2.5 h-2.5" />}
+                          {isBill ? "법안 발의" : "표결"}
+                        </span>
+                      </div>
+                      <p className="text-[13px] font-semibold text-gray-700 leading-snug line-clamp-2">
+                        {item.title}
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] text-gray-400">
+                        <span className="truncate">{item.subtitle}</span>
+                        <span className="shrink-0 ml-2">{timeAgo(item.occurredAt)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </section>
         )}
 
@@ -467,13 +621,40 @@ export default function More() {
               <button
                 className="w-full flex items-center justify-between p-5 hover:bg-red-50/40 transition-colors text-left group"
                 onClick={handleLogout}
+                aria-label="로그아웃"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 rounded-2xl bg-red-50 flex items-center justify-center text-red-400">
-                    <LogOut className="w-5 h-5" />
+                    <LogOut className="w-5 h-5" aria-hidden="true" />
                   </div>
                   <span className="text-[15px] font-bold text-red-400">로그아웃</span>
                 </div>
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* 법적 고지 */}
+        <section className="space-y-2 pb-4">
+          <div className="bg-white rounded-[24px] shadow-[0_4px_15px_rgb(0,0,0,0.02)] border border-gray-50 divide-y divide-gray-50 overflow-hidden text-sm">
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-gray-50/50 text-gray-600">이용약관</a>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-gray-50/50 text-gray-600">개인정보처리방침</a>
+            {user && (
+              <button
+                className="w-full text-left px-5 py-4 hover:bg-red-50/40 text-red-500"
+                onClick={async () => {
+                  if (!confirm("정말 탈퇴하시겠습니까? 식별정보는 즉시 비식별화되며 30일 후 완전 삭제됩니다.")) return;
+                  const res = await apiRequest("DELETE", "/api/auth/me");
+                  if (res.ok) {
+                    toast({ title: "탈퇴가 완료되었습니다" });
+                    setLocation("/");
+                    window.location.reload();
+                  } else {
+                    toast({ title: "탈퇴 실패", variant: "destructive" });
+                  }
+                }}
+              >
+                회원 탈퇴
               </button>
             )}
           </div>

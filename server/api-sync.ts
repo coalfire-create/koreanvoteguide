@@ -14,6 +14,18 @@ export function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+/** JPG URL 정규화: http→https, 빈 값이면 MONA_CD 기반 표준 국회 주소 생성 */
+function buildPhotoUrl(monaCd: string, hnmA?: string): string {
+  if (hnmA) {
+    return `https://open.assembly.go.kr/portal/assm/assmpic/${hnmA}`;
+  }
+  // MONA_CD가 숫자 ID일 때만 표준 국회 이미지 주소 사용
+  if (/^\d+$/.test(monaCd)) {
+    return `https://www.assembly.go.kr/static/portal/img/open_assm/${monaCd}.jpg`;
+  }
+  return "";
+}
+
 /** 의원 홈페이지 URL을 SNS 종류별로 자동 분류 */
 function classifyHomepageUrl(url: string): {
   homepage: string | null;
@@ -71,6 +83,10 @@ async function fetchOnePage(
   const head = serviceData[0]?.head;
   const result = head?.[1]?.RESULT;
   if (result?.CODE && result.CODE !== "INFO-000") {
+    // INFO-200 = 해당 데이터 없음 → 빈 결과로 처리 (오류 아님)
+    if (result.CODE === "INFO-200") {
+      return { rows: [], totalCount: 0 };
+    }
     throw new Error(`API 오류: ${result.MESSAGE || result.CODE}`);
   }
 
@@ -91,15 +107,27 @@ async function fetchAllPages(
   allRows.push(...first.rows);
 
   const totalCount = first.totalCount;
+
+  // 0건이면 즉시 반환 (더 이상 페이지 없음)
+  if (totalCount === 0) {
+    console.log(`[api-sync] ${serviceId} 0건 반환, 페이지네이션 종료`);
+    return allRows;
+  }
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  // 안전 상한선: API 오류로 totalCount가 비정상적으로 클 때 무한 루프 방지
+  const maxPage = Math.min(totalPages, 500);
   console.log(`[api-sync] 전체 ${totalCount}건 / ${totalPages}페이지`);
 
-  while (pIndex < totalPages) {
-    pIndex++;
+  while (pIndex < maxPage) {
+    pIndex++;  // 항상 먼저 증가 → 종료 조건 보장
     await delay(DELAY_MS);
     console.log(`[api-sync] ${serviceId} ${pIndex}/${totalPages} 페이지 조회 중...`);
     const page = await fetchOnePage(serviceId, pIndex, extraParams);
-    if (page.rows.length === 0) break;
+    if (page.rows.length === 0) {
+      console.log(`[api-sync] ${pIndex}페이지 빈 응답, 페이지네이션 조기 종료`);
+      break;
+    }
     allRows.push(...page.rows);
   }
 
@@ -134,9 +162,7 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
             name: row.HG_NM || "",
             party: row.POLY_NM || "",
             district: row.ORIG_NM || "비례대표",
-            photoUrl: row.HG_NM_A
-              ? `https://open.assembly.go.kr/portal/assm/assmpic/${row.HG_NM_A}`
-              : "",
+            photoUrl: buildPhotoUrl(monaCd, row.HG_NM_A || ""),
             committee: row.CMIT_NM || "",
             committees: row.CMITS || row.CMIT_NM || "",
             electedTerm: 22,
@@ -161,7 +187,7 @@ export async function syncLegislators(): Promise<{ synced: number; errors: strin
               name: sql`EXCLUDED.name`,
               party: sql`EXCLUDED.party`,
               district: sql`EXCLUDED.district`,
-              photoUrl: sql`CASE WHEN EXCLUDED.photo_url != '' THEN EXCLUDED.photo_url ELSE ${legislators.photoUrl} END`,
+              photoUrl: sql`CASE WHEN EXCLUDED.photo_url != '' THEN REPLACE(EXCLUDED.photo_url, 'http://', 'https://') ELSE ${legislators.photoUrl} END`,
               committee: sql`EXCLUDED.committee`,
               committees: sql`EXCLUDED.committees`,
               email: sql`EXCLUDED.email`,
@@ -340,7 +366,7 @@ export async function fetchEnactedBillsFromApi(fetchPageCount = 30): Promise<any
   console.log(`[api-sync] 가결 법안 조회 시작 (뒤 ${fetchPageCount}페이지)...`);
   const enacted: any[] = [];
 
-  const { rows: firstRows, totalCount } = await fetchOnePage("nzmimeepazxkubdpn", 1);
+  const { totalCount } = await fetchOnePage("nzmimeepazxkubdpn", 1);
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   console.log(`[api-sync] 전체 ${totalCount}건 / ${totalPages}페이지, 마지막 ${fetchPageCount}페이지 조회 예정`);
 

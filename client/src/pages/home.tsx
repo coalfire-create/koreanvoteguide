@@ -68,9 +68,9 @@ export default function Home() {
       <header className="sticky top-0 z-40 w-full h-[72px] bg-white border-b border-gray-100 flex items-center px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6320EE] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6D28D9] transition-colors" />
             <input
-              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6320EE]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6D28D9]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
               placeholder="국회의원 이름으로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -92,45 +92,6 @@ export default function Home() {
       <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-8 gap-8">
         {/* Main Feed Section */}
         <div className="flex-1 min-w-0 space-y-6">
-          {/* Stories / Member Circles */}
-          <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide">
-            <button className="flex flex-col items-center gap-2 group flex-shrink-0">
-              <div className="w-14 h-14 rounded-full border border-dashed border-gray-300 flex items-center justify-center group-hover:border-[#6320EE] transition-colors">
-                <Plus className="w-5 h-5 text-gray-400 group-hover:text-[#6320EE]" />
-              </div>
-              <span className="text-[11px] font-bold text-gray-400">탐색</span>
-            </button>
-            {isMembersLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
-                  <Skeleton className="w-14 h-14 rounded-full" />
-                  <Skeleton className="w-10 h-3" />
-                </div>
-              ))
-            ) : (
-              storyMembers.map((member, idx) => (
-                <Link key={member.id} href={`/members/${member.id}`} className="flex flex-col items-center gap-2 group flex-shrink-0">
-                  <div className={`w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-purple-500 to-indigo-500 group-hover:scale-105 transition-transform`}>
-                    <div className="w-full h-full rounded-full bg-white p-[2px]">
-                      <div className="w-full h-full rounded-full overflow-hidden">
-                        <PoliticianPhoto
-                          name={member.name}
-                          photo={member.photo}
-                          monaCd={member.id}
-                          className="w-full h-full object-cover"
-                          avatarClassName="text-[14px] font-black bg-gray-100 text-gray-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-bold text-gray-900 truncate w-14 text-center">{member.name}</span>
-                </Link>
-              ))
-            )}
-          </div>
-
-          <div className="h-px bg-gray-100 w-full" />
-
           {/* Feed List */}
           <div className="space-y-6">
             {isBillsLoading ? (
@@ -185,7 +146,7 @@ export default function Home() {
                       <button className="flex items-center gap-1.5 text-gray-400 hover:text-red-500 transition-colors">
                         <Heart className="w-5 h-5" />
                       </button>
-                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-[#6320EE] transition-colors">
+                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-[#6D28D9] transition-colors">
                         <MessageCircle className="w-5 h-5" />
                       </button>
                       <button className="flex items-center gap-1.5 text-gray-400 hover:text-green-500 transition-colors">
@@ -217,7 +178,7 @@ export default function Home() {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
                   {user ? (
-                    <div className="w-full h-full bg-[#6320EE] flex items-center justify-center text-white font-black">
+                    <div className="w-full h-full bg-[#6D28D9] flex items-center justify-center text-white font-black">
                       {user.name.charAt(0)}
                     </div>
                   ) : (
@@ -231,7 +192,7 @@ export default function Home() {
               </div>
               {!user && (
                 <Link href="/login">
-                  <button className="text-[12px] font-black text-[#6320EE] hover:underline">로그인</button>
+                  <button className="text-[12px] font-black text-[#6D28D9] hover:underline">로그인</button>
                 </Link>
               )}
             </div>
@@ -261,7 +222,7 @@ export default function Home() {
                         />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-[13px] font-black text-gray-900 truncate group-hover:text-[#6320EE] transition-colors">{member.name}</h4>
+                        <h4 className="text-[13px] font-black text-gray-900 truncate group-hover:text-[#6D28D9] transition-colors">{member.name}</h4>
                         <p className="text-[11px] font-bold text-gray-400 truncate">{member.party} · {member.district.split(' ')[0]}</p>
                       </div>
                     </Link>
@@ -274,7 +235,7 @@ export default function Home() {
                         followMutation.mutate(member.id);
                       }}
                       disabled={followMutation.isPending}
-                      className="text-[12px] font-black text-[#6320EE] hover:text-[#5218D0] transition-colors pl-2 disabled:opacity-50"
+                      className="text-[12px] font-black text-[#6D28D9] hover:text-[#5B21B6] transition-colors pl-2 disabled:opacity-50"
                     >
                       팔로우
                     </button>

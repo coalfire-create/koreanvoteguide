@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { getBillEmoji } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { Link } from "wouter";
 
 // 법안 상태 배지 색상
 function getStatusColor(result: string) {
@@ -47,7 +49,9 @@ interface BillDetail {
   committee: string;
   coProposerCount: number;
   viewCount: number;
+  voteCount: number;
   mediaMentionCount: number;
+  newsMentionCount: number;
   yesCount: number;
   noCount: number;
   abstainCount: number;
@@ -75,6 +79,7 @@ export default function BillVote() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [commentText, setCommentText] = useState("");
 
   // 법안 데이터 (bills API에서 가져오기)
@@ -107,10 +112,10 @@ export default function BillVote() {
     staleTime: 10 * 1000,
   });
 
-  // 댓글 데이터
+  // 댓글 데이터 — credentials 포함해야 서버에서 isAuthor 판정 가능
   const { data: comments = [], isLoading: commentsLoading } = useQuery<Comment[]>({
     queryKey: ["/api/bills", billId, "comments"],
-    queryFn: () => fetch(`/api/bills/${billId}/comments`).then(r => r.json()),
+    queryFn: () => fetch(`/api/bills/${billId}/comments`, { credentials: "include" }).then(r => r.json()),
     enabled: !!billId,
     staleTime: 30 * 1000,
   });
@@ -124,7 +129,7 @@ export default function BillVote() {
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/bills", billId, "opinion"], data);
       toast({
-        title: data.myOpinion === "agree" ? "👍 찬성에 투표했습니다!" : data.myOpinion === "disagree" ? "👎 반대에 투표했습니다!" : "투표가 취소되었습니다",
+        title: data.myOpinion === "agree" ? "찬성에 투표했습니다!" : data.myOpinion === "disagree" ? "반대에 투표했습니다!" : "투표가 취소되었습니다",
         description: `찬성 ${data.agree}명 · 반대 ${data.disagree}명`,
       });
     },
@@ -223,7 +228,7 @@ export default function BillVote() {
               </div>
               <div className="px-4 py-4 text-center">
                 <div className="text-[11px] font-bold text-slate-400 mb-1">뉴스 언급</div>
-                <div className="text-[22px] font-extrabold text-[#FB923C]">{bill.mediaMentionCount ?? 0}<span className="text-[13px] ml-0.5">회</span></div>
+                <div className="text-[22px] font-extrabold text-[#FB923C]">{bill.newsMentionCount ?? bill.mediaMentionCount ?? 0}<span className="text-[13px] ml-0.5">회</span></div>
               </div>
               <div className="px-4 py-4 text-center">
                 <div className="text-[11px] font-bold text-slate-400 mb-1">시민 투표</div>
@@ -288,12 +293,12 @@ export default function BillVote() {
               )}
 
               {/* 뉴스 언급 수 */}
-              {(bill.mediaMentionCount ?? 0) > 0 && (
+              {(bill.newsMentionCount ?? bill.mediaMentionCount ?? 0) > 0 && (
                 <div className="px-6 py-4 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400">뉴스 언급</p>
                   <div className="flex items-center gap-2">
                     <Newspaper className="w-3.5 h-3.5 text-[#FB923C]" />
-                    <span className="text-[13px] font-bold text-[#FB923C]">{bill.mediaMentionCount}건의 뉴스에서 언급됨</span>
+                    <span className="text-[13px] font-bold text-[#FB923C]">{bill.newsMentionCount ?? bill.mediaMentionCount}건의 뉴스에서 언급됨</span>
                   </div>
                 </div>
               )}
@@ -422,34 +427,49 @@ export default function BillVote() {
             <span className="ml-auto text-[12px] font-bold text-slate-400">{comments.length}개의 댓글</span>
           </div>
 
-          {/* 댓글 입력 */}
-          <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-100">
-            <textarea
-              className="w-full bg-transparent resize-none text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none min-h-[80px]"
-              placeholder="이 법안에 대한 의견을 자유롭게 작성해주세요..."
-              value={commentText}
-              onChange={e => setCommentText(e.target.value)}
-              maxLength={500}
-            />
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[11px] text-slate-400">{commentText.length}/500</span>
-              <button
-                onClick={() => {
+          {/* 댓글 입력 — 로그인 사용자만 */}
+          {user ? (
+            <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-100">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
                   if (!commentText.trim()) return;
                   commentMutation.mutate(commentText.trim());
                 }}
-                disabled={!commentText.trim() || commentMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-[#6D28D9] text-white rounded-xl text-[13px] font-bold hover:bg-[#5B21B6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {commentMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                등록
-              </button>
+                <textarea
+                  className="w-full bg-transparent resize-none text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none min-h-[80px]"
+                  placeholder="이 법안에 대한 의견을 자유롭게 작성해주세요..."
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  maxLength={500}
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[11px] text-slate-400">{commentText.length}/500</span>
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || commentMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#6D28D9] text-white rounded-xl text-[13px] font-bold hover:bg-[#5B21B6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {commentMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    등록
+                  </button>
+                </div>
+              </form>
             </div>
-          </div>
+          ) : (
+            <Link href="/login">
+              <div className="bg-slate-50 rounded-xl p-5 mb-5 border border-dashed border-slate-200 text-center cursor-pointer hover:bg-slate-100 transition-colors">
+                <MessageSquare className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                <p className="text-[13px] font-medium text-slate-500">로그인 후 댓글을 남길 수 있습니다.</p>
+                <p className="text-[11px] text-[#6D28D9] font-bold mt-1">로그인 / 회원가입 →</p>
+              </div>
+            </Link>
+          )}
 
           {/* 댓글 목록 */}
           {commentsLoading ? (

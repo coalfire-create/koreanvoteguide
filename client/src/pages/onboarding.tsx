@@ -110,10 +110,10 @@ export default function Onboarding() {
       >
         {/* Logo mark */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-11 h-11 rounded-[14px] bg-[#6320EE] flex items-center justify-center shadow-lg">
+          <div className="w-11 h-11 rounded-[14px] bg-[#6D28D9] flex items-center justify-center shadow-lg">
             <span className="text-white font-black text-sm tracking-tight">이유</span>
           </div>
-          <span className="text-[#6320EE] font-black text-xl tracking-tight">이유</span>
+          <span className="text-[#6D28D9] font-black text-xl tracking-tight">이유</span>
         </div>
 
         {/* Headline */}
@@ -145,13 +145,13 @@ export default function Onboarding() {
                   onClick={() => handleToggleRegion(region)}
                   className={`relative w-full py-5 flex flex-col items-center justify-center rounded-[20px] transition-all duration-200 shadow-sm border-2 focus:outline-none ${
                     isSelected
-                      ? "bg-[#6320EE] border-[#6320EE] text-white shadow-lg shadow-[#6320EE]/20 scale-[1.03]"
-                      : "bg-white border-gray-100 text-gray-700 hover:border-[#6320EE]/30 hover:shadow-md active:scale-[0.97]"
+                      ? "bg-[#6D28D9] border-[#6D28D9] text-white shadow-lg shadow-[#6D28D9]/20 scale-[1.03]"
+                      : "bg-white border-gray-100 text-gray-700 hover:border-[#6D28D9]/30 hover:shadow-md active:scale-[0.97]"
                   }`}
                 >
                   {/* Order badge */}
                   {isSelected && (
-                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-white text-[#6320EE] rounded-full flex items-center justify-center text-[11px] font-black shadow border border-[#6320EE]/20">
+                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-white text-[#6D28D9] rounded-full flex items-center justify-center text-[11px] font-black shadow border border-[#6D28D9]/20">
                       {selectedIndex + 1}
                     </div>
                   )}
@@ -182,9 +182,9 @@ export default function Onboarding() {
                     initial={{ scale: 0.7, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.7, opacity: 0 }}
-                    className="flex items-center gap-1.5 bg-[#6320EE]/10 text-[#6320EE] text-[12px] font-bold px-3 py-1.5 rounded-full"
+                    className="flex items-center gap-1.5 bg-[#6D28D9]/10 text-[#6D28D9] text-[12px] font-bold px-3 py-1.5 rounded-full"
                   >
-                    <span className="w-4 h-4 bg-[#6320EE] text-white rounded-full text-[10px] flex items-center justify-center font-black">{i + 1}</span>
+                    <span className="w-4 h-4 bg-[#6D28D9] text-white rounded-full text-[10px] flex items-center justify-center font-black">{i + 1}</span>
                     {r.name}
                   </motion.span>
                 ))}
@@ -192,7 +192,7 @@ export default function Onboarding() {
 
               <button
                 onClick={handleComplete}
-                className="w-full h-14 bg-[#6320EE] hover:bg-[#5210d4] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black shadow-xl shadow-[#6320EE]/30 flex items-center justify-center gap-2 transition-all duration-150"
+                className="w-full h-14 bg-[#6D28D9] hover:bg-[#5210d4] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black shadow-xl shadow-[#6D28D9]/30 flex items-center justify-center gap-2 transition-all duration-150"
               >
                 {selectedRegions.length === 1
                   ? `${selectedRegions[0].name} 선택 완료`
