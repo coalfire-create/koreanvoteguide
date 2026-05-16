@@ -374,6 +374,7 @@ function RegionView({
   onNextRegion?: () => void;
 }) {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [selectedPledge, setSelectedPledge] = useState<{ id: string; title: string; description: string } | null>(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [selectedCandidateName, setSelectedCandidateName] = useState<string>("");
@@ -461,9 +462,11 @@ function RegionView({
       <div className="px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
         {/* Story-style 관심 의원 피드 — 페이지 최상단 (election-home.tsx:13 import 후 실제 렌더링) */}
-        <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm py-3 mb-6 -mx-1">
-          <StoryFeed />
-        </div>
+        {user && (
+          <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm py-3 mb-6 -mx-1">
+            <StoryFeed />
+          </div>
+        )}
 
         {/* Instagram-style 통합 활동 피드 — StoryFeed 바로 아래 (팔로우 + 추천 머지) */}
         <div className="max-w-[640px] mx-auto">

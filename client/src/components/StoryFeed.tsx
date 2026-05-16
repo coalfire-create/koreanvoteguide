@@ -91,26 +91,9 @@ export function StoryFeed({ className = "" }: { className?: string }) {
     staleTime: 60 * 1000,
   });
 
-  // 비로그인 — 가입 유도
+  // 비로그인 — 가입 유도 제거 (사용자 요청)
   if (!user) {
-    return (
-      <section className={`px-5 pt-3 ${className}`}>
-        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
-            <Users className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-gray-800 leading-tight">관심 의원을 팔로우해보세요</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">스토리처럼 실시간 활동을 한눈에</p>
-          </div>
-          <Link href="/login">
-            <button className="text-[12px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition px-3 py-1.5 rounded-lg">
-              로그인
-            </button>
-          </Link>
-        </div>
-      </section>
-    );
+    return null;
   }
 
   const follows = data?.follows ?? [];

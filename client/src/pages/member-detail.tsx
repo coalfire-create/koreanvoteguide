@@ -26,6 +26,34 @@ import {
 } from "recharts";
 import { PostDetailDialog } from "@/components/post-detail-dialog";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
+
+// ─── 관련 뉴스 타입 ──────────────────────────────────────────────────────────
+interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+  sourceCode: string;
+  thumbnail?: string;
+}
+interface NewsResponse {
+  items: NewsItem[];
+}
+
+function formatNewsTime(pubDate: string): string {
+  if (!pubDate) return "";
+  try {
+    const date = new Date(pubDate);
+    const diff = Date.now() - date.getTime();
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return "방금";
+    if (hours < 24) return `${hours}시간 전`;
+    return `${Math.floor(hours / 24)}일 전`;
+  } catch {
+    return "";
+  }
+}
 
 interface StanceData {
   econScore: number;
@@ -252,6 +280,7 @@ export default function MemberDetail() {
   const [writeContent, setWriteContent] = useState("");
   const [isWriteOpen, setIsWriteOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedNews, setSelectedNews] = useState<{ title: string; url: string; source: string } | null>(null);
 
   const communityQuery = useQuery({
     queryKey: ["/api/community/posts", "member", id],
@@ -362,6 +391,23 @@ export default function MemberDetail() {
     queryKey: ["/api/db/legislators", id, "stance"],
     queryFn: () => fetch(`/api/db/legislators/${id}/stance`).then((r) => r.json()),
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // 관련 뉴스 — 의원 이름으로 RSS 뉴스 필터링
+  const memberName = member?.name ?? "";
+  const { data: newsData, isLoading: newsLoading } = useQuery<NewsResponse>({
+    queryKey: ["/api/news", "member", memberName],
+    queryFn: async () => {
+      const res = await fetch(`/api/news`);
+      if (!res.ok) return { items: [] };
+      const data = await res.json();
+      const filtered = (data.items || []).filter((item: NewsItem) =>
+        item.title.includes(memberName)
+      );
+      return { items: filtered };
+    },
+    enabled: !!memberName,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -1022,12 +1068,19 @@ export default function MemberDetail() {
           >
             발의 법안
           </TabsTrigger>
-          <TabsTrigger 
-            value="activities" 
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
+          <TabsTrigger
+            value="activities"
+            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
             data-testid="tab-activities"
           >
             공개 활동
+          </TabsTrigger>
+          <TabsTrigger
+            value="news"
+            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            data-testid="tab-news"
+          >
+            관련 뉴스
           </TabsTrigger>
         </TabsList>
 
@@ -1641,6 +1694,72 @@ export default function MemberDetail() {
             </div>
           )}
         </TabsContent>
+
+        {/* ===== 관련 뉴스 탭 (RSS + AI 요약) ===== */}
+        <TabsContent value="news">
+          <div className="flex items-center gap-2 mb-4" data-testid="tab-content-news">
+            <Newspaper className="w-4 h-4 text-primary" />
+            <p className="text-xs font-medium text-muted-foreground">
+              기사를 누르면 AI가 핵심 요약·배경·다양한 관점을 정리해 드립니다
+            </p>
+          </div>
+          {newsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-2/3 mb-3" />
+                    <Skeleton className="h-3 w-24" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (newsData?.items ?? []).length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-3">
+              <Newspaper className="w-8 h-8 text-muted-foreground/40" />
+              <p>{member.name} 의원 관련 뉴스가 없습니다</p>
+              <Link href="/news">
+                <Button variant="ghost" size="sm" className="text-primary font-bold underline-offset-4 hover:underline">
+                  전체 뉴스 보러 가기
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden divide-y divide-border/40">
+              {(newsData?.items ?? []).map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedNews({ title: item.title, url: item.link, source: item.source })}
+                  className="w-full text-left flex items-start gap-3 px-4 py-3.5 hover:bg-accent/40 transition-colors group"
+                  data-testid={`news-item-${i}`}
+                >
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                      <Newspaper className="w-5 h-5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-1.5">
+                      {item.title}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{item.source}</Badge>
+                      {item.pubDate && (
+                        <span className="text-[11px] text-muted-foreground">{formatNewsTime(item.pubDate)}</span>
+                      )}
+                      <span className="text-[10px] font-bold text-primary/70 flex items-center gap-1 ml-auto">
+                        <Sparkles className="w-3 h-3" /> AI 요약
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       <Separator className="my-10" />
@@ -1801,9 +1920,15 @@ export default function MemberDetail() {
         />
       )}
 
-      <PostDetailDialog 
-        postId={selectedPostId} 
-        onOpenChange={(open) => { if (!open) setSelectedPostId(null); }} 
+      <PostDetailDialog
+        postId={selectedPostId}
+        onOpenChange={(open) => { if (!open) setSelectedPostId(null); }}
+      />
+
+      <NewsAnalysisDialog
+        isOpen={!!selectedNews}
+        onOpenChange={(open) => { if (!open) setSelectedNews(null); }}
+        news={selectedNews}
       />
     </div>
   );

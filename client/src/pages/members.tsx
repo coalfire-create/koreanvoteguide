@@ -177,17 +177,21 @@ export default function Members() {
           {/* Main Content (Center) */}
           <div className="flex-1 min-w-0 space-y-12">
             {/* Elegant Title Section */}
-            <section className="space-y-3">
-              <h1 className="text-[32px] font-black text-gray-900 tracking-tight leading-tight">의원을 팔로우하세요</h1>
-              <p className="text-gray-500 text-[15px] font-medium leading-relaxed max-w-2xl">
-                관심 의원의 활동을 받아보고, 한 명씩 알아가보세요.
-              </p>
-            </section>
+            {user && (
+              <section className="space-y-3">
+                <h1 className="text-[32px] font-black text-gray-900 tracking-tight leading-tight">의원을 팔로우하세요</h1>
+                <p className="text-gray-500 text-[15px] font-medium leading-relaxed max-w-2xl">
+                  관심 의원의 활동을 받아보고, 한 명씩 알아가보세요.
+                </p>
+              </section>
+            )}
 
             {/* Story-style 팔로우 피드 */}
-            <div className="bg-white rounded-[2rem] border border-gray-100 py-2 -mx-4 sm:mx-0">
-              <StoryFeed />
-            </div>
+            {user && (
+              <div className="bg-white rounded-[2rem] border border-gray-100 py-2 -mx-4 sm:mx-0">
+                <StoryFeed />
+              </div>
+            )}
 
             {/* List Section */}
             <section className="space-y-8">
