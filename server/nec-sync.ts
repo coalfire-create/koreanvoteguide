@@ -8,7 +8,7 @@ const SERVICE_KEY = process.env.DATA_GO_KR_API_KEY;
 const CANDIDATE_API_BASE = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService";
 
 // ============================================================
-// 2026 지방선거 예비후보자 Deep Sync
+// 2026 지방선거 후보자 Deep Sync
 // - 전체 재동기화 + 엄격 upsert (huboid 기준)
 // - criminal_records JSONB는 [] 로 강제 (선관위 API 미제공)
 // - composite match key 생성: 이름_생년월일_선거구 (외부 CSV 매칭용)
@@ -67,7 +67,7 @@ export async function syncElectionCandidates(): Promise<SyncSummary> {
     throw new Error("DATA_GO_KR_API_KEY 환경변수가 설정되지 않았습니다.");
   }
 
-  console.log(`[nec-sync] 2026 지방선거(${SG_ID_2026}) 예비후보자 Deep Sync 시작...`);
+  console.log(`[nec-sync] 2026 지방선거(${SG_ID_2026}) 후보자 Deep Sync 시작...`);
 
   // 기존 sourceId 사전 조회 → insert / update 판정에 사용
   const existing = await db
@@ -123,7 +123,7 @@ async function fetchAndSyncType(
     let items: any[] = [];
     try {
       const response = await axios.get(
-        `${CANDIDATE_API_BASE}/getPoelpcddRegistSttusInfoInqire`,
+        `${CANDIDATE_API_BASE}/getPofelcddRegistSttusInfoInqire`,
         {
           params: {
             serviceKey: SERVICE_KEY,
@@ -226,7 +226,7 @@ async function fetchAndSyncType(
               age,
               birthday: birthday || null,
               gender,
-              status: "예비후보",
+              status: "후보",
               candidateStatus,
               sdName,
               sggName,
@@ -258,7 +258,7 @@ async function fetchAndSyncType(
             criminalRecords: [], // 선관위 API 미제공 → 항상 빈 배열로 강제
             birthday: birthday || null,
             gender,
-            status: "예비후보",
+            status: "후보",
             candidateStatus,
             sdName,
             sggName,

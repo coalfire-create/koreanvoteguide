@@ -702,3 +702,37 @@ export const politicianPhotoCache = pgTable("politician_photo_cache", {
 });
 
 export type PoliticianPhotoCache = typeof politicianPhotoCache.$inferSelect;
+
+// ===== 선거 주요 일정 (election-home 우측 위젯) =====
+// 2026 제9회 전국동시지방선거를 위한 동적 일정 테이블.
+// region 은 단순 문자열("서울", "경기", "전국" 등). regionCode가 아닌 "표시용 이름"을
+// 그대로 저장해 LIKE/= 매칭이 가능하도록 한다 (공식 일정 = "전국", 토론회 = 시도명).
+export const electionSchedules = pgTable("election_schedules", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),                    // 예: "사전투표", "서울시장 TV 토론회"
+  eventDate: timestamp("event_date").notNull(),      // 일시 (TZ 보존)
+  description: text("description"),                  // 부가 설명 (선택) — 예: "오전 6시 ~ 오후 6시"
+  region: text("region").default("전국").notNull(),  // "전국" | "서울" | ... — 필터 키
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // (region, eventDate) 조합 인덱스: GET /api/schedules?region=서울 ORDER BY eventDate
+  regionDateIdx: index("schedules_region_date_idx").on(table.region, table.eventDate),
+}));
+
+export type ElectionSchedule = typeof electionSchedules.$inferSelect;
+
+export const insertElectionScheduleSchema = createInsertSchema(electionSchedules).pick({
+  title: true,
+  eventDate: true,
+  description: true,
+  region: true,
+}).extend({
+  // ISO 8601 문자열 또는 Date 모두 허용 (admin POST 편의)
+  eventDate: z.union([z.string().datetime(), z.date()]).transform((v) =>
+    typeof v === "string" ? new Date(v) : v
+  ),
+  region: z.string().default("전국"),
+  description: z.string().optional(),
+});
+
+export type InsertElectionSchedule = z.infer<typeof insertElectionScheduleSchema>;

@@ -4,7 +4,7 @@ function printSummary(summary: SyncSummary) {
   const line = "=".repeat(60);
   console.log("");
   console.log(line);
-  console.log("  Deep Sync 실행 요약 (2026 지방선거 예비후보)");
+  console.log("  Deep Sync 실행 요약 (2026 지방선거 후보)");
   console.log(line);
   console.log(`  Total fetched (API)        : ${summary.totalFetched}`);
   console.log(`  Newly inserted             : ${summary.inserted}`);

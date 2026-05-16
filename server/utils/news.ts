@@ -52,7 +52,7 @@ interface NaverNewsApiResponse {
 // 텍스트 정제 헬퍼
 // ─────────────────────────────────────────────
 
-function stripHtml(input: string): string {
+export function stripHtml(input: string): string {
   if (!input) return "";
   return input
     .replace(/<[^>]+>/g, "")
@@ -96,11 +96,11 @@ export async function fetchRecentNews(
   const name = (politicianName ?? "").trim();
   if (!name) return [];
 
-  const clientId = process.env.NAVER_SEARCH_CLIENT_ID;
-  const clientSecret = process.env.NAVER_SEARCH_CLIENT_SECRET;
+  const clientId = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
     process.stderr.write(
-      "  ⚠ [news/fetchRecentNews] NAVER_SEARCH_CLIENT_ID/SECRET 미설정 — 빈 배열 반환\n"
+      "  ⚠ [news/fetchRecentNews] NAVER_CLIENT_ID/SECRET 미설정 — 빈 배열 반환\n"
     );
     return [];
   }

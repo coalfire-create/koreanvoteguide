@@ -134,6 +134,133 @@ function TimelineFeed() {
   );
 }
 
+// ─────────────────────────────────────────────
+// 선거 주요 일정 위젯 (DB 연동)
+// ─────────────────────────────────────────────
+interface ScheduleItem {
+  id: number;
+  title: string;
+  eventDate: string;       // ISO 문자열 (서버에서 timestamp → JSON 직렬화)
+  description: string | null;
+  region: string;
+}
+
+const MONTH_ABBR = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+function formatMonthDay(iso: string): string {
+  const d = new Date(iso);
+  return `${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 오늘 자정 기준 D-Day 계산. 음수면 지난 일정. 0이면 D-DAY. */
+function calculateDDay(iso: string): number {
+  const target = new Date(iso);
+  const today = new Date();
+  // 자정 기준으로 정규화 — 시·분 차이로 D-Day 가 ±1 흔들리는 것 방지
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const t1 = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  return Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
+}
+
+function formatDDayLabel(days: number): string {
+  if (days === 0) return "D-DAY";
+  if (days > 0) return `D-${days}`;
+  return `D+${Math.abs(days)}`;
+}
+
+function ScheduleWidget({ regionName }: { regionName?: string }) {
+  // region 미지정 시 전국 일정만 표시되도록 query param 생략
+  const queryKey = regionName
+    ? ["/api/schedules", regionName]
+    : ["/api/schedules"];
+
+  const { data, isLoading, isError } = useQuery<ScheduleItem[]>({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      const url = regionName
+        ? `/api/schedules?region=${encodeURIComponent(regionName)}`
+        : "/api/schedules";
+      const res = await fetch(url, { signal, credentials: "include" });
+      if (!res.ok) throw new Error("일정 조회 실패");
+      return (await res.json()) as ScheduleItem[];
+    },
+    staleTime: 10 * 60 * 1000, // 10분
+  });
+
+  const items = (data ?? []).slice(0, 5); // UI 부담 방지 — 가까운 5건만
+  const headlineDday = items.length > 0 ? calculateDDay(items[0].eventDate) : null;
+
+  return (
+    <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="font-bold text-gray-900 text-[15px]">선거 주요 일정</h3>
+        {headlineDday !== null && (
+          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-1 rounded-md">
+            {formatDDayLabel(headlineDday)}
+          </span>
+        )}
+      </div>
+
+      {isLoading && (
+        <div className="space-y-4 animate-pulse">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex gap-4">
+              <div className="w-3 h-3 mt-1 rounded-full bg-gray-200" />
+              <div className="flex-1">
+                <div className="h-3 w-12 bg-gray-200 rounded mb-1" />
+                <div className="h-4 w-40 bg-gray-200 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isError && (
+        <p className="text-[12px] text-gray-400">일정을 불러오지 못했습니다.</p>
+      )}
+
+      {!isLoading && !isError && items.length === 0 && (
+        <p className="text-[12px] text-gray-400">예정된 선거 일정이 없습니다.</p>
+      )}
+
+      {!isLoading && !isError && items.length > 0 && (
+        <div className="relative pl-3 space-y-6">
+          {/* Timeline line */}
+          <div className="absolute left-[17px] top-2 bottom-2 w-0.5 bg-gray-100 z-0" />
+
+          {items.map((item, idx) => {
+            const isNext = idx === 0; // 가장 가까운 일정만 강조
+            const dotClass = isNext
+              ? "bg-white border-[3px] border-[#6D28D9]"
+              : "bg-white border-[3px] border-gray-200";
+            const titleClass = isNext
+              ? "text-[13px] font-bold text-gray-900"
+              : "text-[13px] font-bold text-gray-900 opacity-60";
+
+            return (
+              <div key={item.id} className="relative z-10 flex gap-4">
+                <div className={`w-3 h-3 mt-1 rounded-full flex-shrink-0 ${dotClass}`} />
+                <div>
+                  <div className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-0.5">
+                    {formatMonthDay(item.eventDate)}
+                    <span className="ml-2 text-[10px] text-[#6D28D9] font-bold">
+                      {formatDDayLabel(calculateDDay(item.eventDate))}
+                    </span>
+                  </div>
+                  <div className={titleClass}>{item.title}</div>
+                  {item.description && (
+                    <div className="text-[11px] text-gray-400 mt-1">{item.description}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmptyState({ regionName }: { regionName: string }) {
   return (
     <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 px-8 py-20 flex flex-col items-center justify-center gap-4">
@@ -682,44 +809,8 @@ function RegionView({
           <div className="flex flex-col gap-6">
             
 
-            {/* Widget 1: 선거 주요 일정 */}
-            <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-gray-900 text-[15px]">선거 주요 일정</h3>
-                <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-1 rounded-md">D-32</span>
-              </div>
-              <div className="relative pl-3 space-y-6">
-                {/* Timeline line */}
-                <div className="absolute left-[17px] top-2 bottom-2 w-0.5 bg-gray-100 z-0"></div>
-                
-                <div className="relative z-10 flex gap-4">
-                  <div className="w-3 h-3 mt-1 rounded-full bg-white border-[3px] border-[#6D28D9] flex-shrink-0"></div>
-                  <div>
-                    <div className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-0.5">OCT 15</div>
-                    <div className="text-[13px] font-bold text-gray-900">제1차 TV 법정 토론회</div>
-                    <div className="text-[11px] text-gray-400 mt-1">오후 8:00 MBC 생중계</div>
-                  </div>
-                </div>
-
-                <div className="relative z-10 flex gap-4">
-                  <div className="w-3 h-3 mt-1 rounded-full bg-white border-[3px] border-gray-200 flex-shrink-0"></div>
-                  <div>
-                    <div className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-0.5">OCT 28</div>
-                    <div className="text-[13px] font-bold text-gray-900 opacity-60">재외 선거인 등록 마감</div>
-                    <div className="text-[11px] text-gray-400 mt-1">중앙선관위 온라인 접수</div>
-                  </div>
-                </div>
-
-                <div className="relative z-10 flex gap-4">
-                  <div className="w-3 h-3 mt-1 rounded-full bg-white border-[3px] border-gray-200 flex-shrink-0"></div>
-                  <div>
-                    <div className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-0.5">NOV 07</div>
-                    <div className="text-[13px] font-bold text-gray-900 opacity-60">제22대 총선 투표일</div>
-                    <div className="text-[11px] text-gray-400 mt-1">오전 6시 ~ 오후 6시</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Widget 1: 선거 주요 일정 (DB 연동) */}
+            <ScheduleWidget regionName={region.name} />
 
             {/* Widget 2: 가장 인기있는 토론 참여 */}
             <div className="bg-[#6D28D9] rounded-[1.5rem] p-6 shadow-md text-white relative overflow-hidden">

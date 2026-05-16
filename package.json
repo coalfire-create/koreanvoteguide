@@ -17,6 +17,7 @@
     "enrich:pledges:force": "tsx --env-file=.env script/enrich-pledges.ts -- --force",
     "enrich:assembly-records": "tsx --env-file=.env script/enrich-assembly-records.ts",
     "enrich:assembly-records:force": "tsx --env-file=.env script/enrich-assembly-records.ts -- --force",
+    "seed:schedules": "tsx --env-file=.env script/seed-schedules.ts",
     "fix:photos": "tsx --env-file=.env script/fix-photo-urls.ts",
     "sync:photos": "tsx --env-file=.env script/sync-politician-photos.ts",
     "sync:photos:force": "tsx --env-file=.env script/sync-politician-photos.ts --force",

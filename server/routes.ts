@@ -14,13 +14,13 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { analyzeLegislator } from "./legislator-analysis";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows } from "@shared/schema";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
 import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
 import { callLLMText, callLLMJson, callLLMJsonOrFallback, LLMConfigError, LLMTransientError, LLMParseError } from "./utils/llm-wrapper";
-import { fetchRecentNews, type RecentNewsItem } from "./utils/news";
+import { fetchRecentNews, stripHtml, type RecentNewsItem } from "./utils/news";
 import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
 import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
 import {
@@ -34,7 +34,7 @@ import {
 } from "./utils/kakao-oauth";
 import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
-import { eq, desc, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
+import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 import multer from "multer";
@@ -42,6 +42,76 @@ import path from "path";
 import crypto from "crypto";
 
 const isProduction = process.env.NODE_ENV === "production";
+
+// ===== AI 평가 (POST /api/ai/evaluate) — 타입 + Strict-Neutrality 프롬프트 =====
+//
+// 본 프롬프트는 "데이터 기반 객관 분석"만 허용한다. 외부 지식·주관 형용사 사용 금지.
+// 두 평가 축은 0~10 정수 스케일로 강제한다 (UI 슬라이더와 1:1 매핑).
+//   - economy: 0=친노동/규제, 10=친시장/규제완화
+//   - society: 0=진보/복지중시, 10=보수/질서중시
+//
+// LLM 응답은 반드시 EvaluatePayload 스키마를 따라야 한다.
+interface EvaluateAxis {
+  score: number;          // 0~10 정수
+  reasoning: string;      // 어떤 데이터(법안/표결/뉴스)에 근거했는지
+}
+
+interface EvaluateInterest {
+  category: string;
+  percentage: number;     // 0~100
+  evidence_count: number; // 해당 카테고리에 매칭된 데이터 건수
+}
+
+interface EvaluateNewsEvidence {
+  statementSummary: string;
+  sourceDate: string;     // yyyy-mm-dd
+  impact: string;         // 어떤 축을 어느 방향으로 이동시키는 근거인지
+}
+
+interface EvaluatePayload {
+  summary: string;
+  axes: { economy: EvaluateAxis; society: EvaluateAxis };
+  topInterests: EvaluateInterest[];
+  newsEvidence: EvaluateNewsEvidence[];
+}
+
+const STRICT_NEUTRALITY_SYSTEM_PROMPT = `당신은 고도로 객관적이고 중립적인 정치 데이터 분석가입니다.
+
+[절대 규칙]
+1. 외부 지식을 사용하지 마십시오. 오직 사용자가 제공한 JSON 데이터(대표 발의 법안, 본회의 표결, 최근 뉴스 및 발언)에만 근거하여 분석하십시오.
+2. 주관적 형용사(예: "열정적인", "헌신적인", "유능한", "무능한")를 사용하지 마십시오. 사실과 데이터만 서술하십시오.
+3. 정당·이념을 칭찬하거나 비난하지 마십시오. 기록된 행동(발의·표결·발언)만 인용하십시오.
+4. 데이터에 없는 내용을 추론·상상·가정하지 마십시오. 데이터가 부족하면 부족하다고 명시하십시오.
+5. 모든 점수와 근거는 입력 JSON의 특정 항목(법안 제목, 표결 결과, 뉴스 제목·날짜)을 직접 인용해야 합니다.
+
+[평가 축 정의]
+- economy (0~10 정수): 0 = 친노동/규제 강화, 10 = 친시장/규제 완화. 5는 중도.
+- society (0~10 정수): 0 = 진보/복지 중시, 10 = 보수/질서 중시. 5는 중도.
+
+[출력 형식 — 아래 JSON 스키마만 출력. 다른 텍스트 금지]
+{
+  "summary": "2~3문장의 객관적·사실 기반 요약. 주관적 평가 형용사 금지.",
+  "axes": {
+    "economy": { "score": 4, "reasoning": "법안 A 발의 및 뉴스 B 발언에 근거함" },
+    "society": { "score": 7, "reasoning": "법안 C에 반대표를 던진 기록에 근거함" }
+  },
+  "topInterests": [
+    { "category": "국방", "percentage": 30, "evidence_count": 5 }
+  ],
+  "newsEvidence": [
+    {
+      "statementSummary": "부동산 세제 완화 주장",
+      "sourceDate": "2024-05-10",
+      "impact": "경제 성향을 10점(시장친화) 쪽으로 이동시키는 근거가 됨"
+    }
+  ]
+}
+
+[추가 제약]
+- topInterests 의 percentage 합은 100이 되도록 작성하십시오. 카테고리는 입력 데이터의 위원회/카테고리/뉴스 키워드에서 도출합니다.
+- newsEvidence 는 입력의 [최근 뉴스 및 발언] 배열에서 점수 산출에 직접 영향을 준 항목만 포함하십시오. 뉴스가 없으면 빈 배열을 출력하십시오.
+- axes.*.reasoning 은 50자 이내, 반드시 입력 데이터의 구체적 항목을 가리켜야 합니다.
+- 데이터가 한쪽으로 치우치지 않은 경우에는 5(중도)에 가까운 점수를 부여하십시오.`;
 
 // ===== Rate Limiters =====
 const authLimiter = rateLimit({
@@ -241,7 +311,7 @@ async function fetchNaverNews(query: string): Promise<NewsItem[]> {
 
     const items = res.data?.items || [];
     return items.map((item: any) => ({
-      title: item.title.replace(/<[^>]*>?/gm, "").replace(/&quot;/g, '"'),
+      title: stripHtml(item.title),
       link: item.originallink || item.link,
       pubDate: new Date(item.pubDate).toISOString(),
       source: "네이버뉴스",
@@ -4360,6 +4430,232 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Premium AI 데이터 기반 평가 (POST /api/ai/evaluate) =====
+  // 3대 데이터 소스(대표 발의 법안 / 본회의 표결 / 최근 뉴스)를 모아
+  // LLM에 strict-neutrality 시스템 프롬프트와 함께 주입하고
+  // newsEvidence 까지 포함된 정형 JSON 응답을 돌려준다.
+  //
+  // Request body:
+  //   { monaCd: string }                          — DB 등록된 의원
+  //   또는 { politicianName: string }              — 후보자/비등록자
+  //   또는 { monaCd, politicianName }              — 둘 다 명시
+  app.post("/api/ai/evaluate", async (req, res) => {
+    try {
+      const monaCd = typeof req.body?.monaCd === "string" ? req.body.monaCd.trim() : "";
+      const explicitName =
+        typeof req.body?.politicianName === "string" ? req.body.politicianName.trim() : "";
+
+      if (!monaCd && !explicitName) {
+        return res.status(400).json({ error: "monaCd 또는 politicianName 중 하나는 필요합니다." });
+      }
+
+      if (!process.env.GROQ_API_KEY) {
+        return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+      }
+
+      // ── 1. 의원 식별 (monaCd가 있으면 DB에서 정식 이름 사용) ──
+      let politicianName = explicitName;
+      let party = "";
+      let district = "";
+
+      if (monaCd) {
+        const [member] = await db
+          .select({ name: legislators.name, party: legislators.party, district: legislators.district })
+          .from(legislators)
+          .where(eq(legislators.monaCd, monaCd))
+          .limit(1);
+        if (!member && !explicitName) {
+          return res.status(404).json({ error: "의원을 찾을 수 없습니다." });
+        }
+        if (member) {
+          politicianName = member.name;
+          party = member.party;
+          district = member.district;
+        }
+      }
+
+      // ── 2. 데이터 소스 #1 : 대표 발의 법안 (최근 10건) ──
+      const proposedBillsRows = politicianName
+        ? await db
+            .select({
+              billName: assemblyBills.billName,
+              committee: assemblyBills.committee,
+              proposeDate: assemblyBills.proposeDate,
+              result: assemblyBills.result,
+              category: assemblyBills.category,
+              aiDescription: assemblyBills.aiDescription,
+            })
+            .from(assemblyBills)
+            .where(dsql`${assemblyBills.proposer} LIKE ${politicianName + "%"}`)
+            .orderBy(desc(assemblyBills.proposeDate))
+            .limit(10)
+        : [];
+
+      const proposedBills = proposedBillsRows.map((b) => ({
+        title: b.billName,
+        committee: b.committee,
+        date: b.proposeDate,
+        result: b.result,
+        category: b.category,
+        summary: (b.aiDescription ?? "").slice(0, 200),
+      }));
+
+      // ── 3. 데이터 소스 #2 : 본회의 표결 기록 (최근 30건) ──
+      const voteRowsForEval = monaCd
+        ? await db
+            .select({
+              billName: assemblyBills.billName,
+              committee: assemblyBills.committee,
+              voteResult: assemblyVotes.voteResult,
+              proposeDate: assemblyBills.proposeDate,
+            })
+            .from(assemblyVotes)
+            .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+            .where(eq(assemblyVotes.legislatorId, monaCd))
+            .orderBy(desc(assemblyBills.proposeDate))
+            .limit(30)
+        : [];
+
+      const votingRecords = voteRowsForEval
+        .filter((v) => v.billName && (v.voteResult === "찬성" || v.voteResult === "반대"))
+        .map((v) => ({
+          bill_title: v.billName as string,
+          committee: v.committee ?? "",
+          date: v.proposeDate ?? "",
+          vote_result: v.voteResult,
+        }));
+
+      // ── 4. 데이터 소스 #3 : 최근 뉴스 / 발언 ──
+      const newsItems: RecentNewsItem[] = politicianName
+        ? await fetchRecentNews(politicianName, 10)
+        : [];
+
+      const recentNews = newsItems.map((n) => ({
+        title: n.title,
+        description: n.description,
+        date: n.pubDate,
+      }));
+
+      // ── 5. 데이터 가용성 가드 ──
+      if (proposedBills.length === 0 && votingRecords.length === 0 && recentNews.length === 0) {
+        return res.status(422).json({
+          error: "분석할 데이터가 부족합니다. 발의 법안·표결·뉴스가 모두 비어있습니다.",
+          politicianName,
+        });
+      }
+
+      // ── 6. LLM 페이로드 직렬화 ──
+      const userPayload = JSON.stringify(
+        {
+          politician: { name: politicianName, party, district },
+          "[대표 발의 법안]": proposedBills,
+          "[본회의 표결]": votingRecords,
+          "[최근 뉴스 및 발언]": recentNews,
+        },
+        null,
+        2
+      );
+
+      // ── 7. LLM 호출 (객관성 최우선 — temperature 최소화) ──
+      try {
+        const result = await callLLMJson<EvaluatePayload>({
+          system: STRICT_NEUTRALITY_SYSTEM_PROMPT,
+          user: userPayload,
+          temperature: 0.1,
+          maxTokens: 1200,
+          label: "ai/evaluate",
+        });
+
+        return res.json({
+          ...result,
+          dataCounts: {
+            proposedBills: proposedBills.length,
+            votingRecords: votingRecords.length,
+            recentNews: recentNews.length,
+          },
+        });
+      } catch (err) {
+        if (err instanceof LLMParseError) {
+          return res.status(500).json({ error: "AI 응답 파싱 실패" });
+        }
+        if (err instanceof LLMTransientError) {
+          return res.status(503).json({ error: "AI 서비스가 일시적으로 응답하지 않습니다." });
+        }
+        throw err;
+      }
+    } catch (error: any) {
+      console.error("[ai/evaluate] error:", error);
+      res.status(500).json({ error: error.message ?? "AI 평가 실패" });
+    }
+  });
+
+  // ===== 선거 주요 일정 (election_schedules) =====
+  // GET  /api/schedules?region=서울  → 미래 일정만 가까운 순으로 반환
+  // POST /api/admin/schedules        → 관리자 전용 신규 일정 등록
+  //
+  // region 매칭 규칙:
+  //   - region 미지정 시 "전국" 일정 + 모든 지역 일정 모두 반환
+  //   - region 지정 시 "전국" + 해당 지역 일정 반환 (시도별 토론회 등)
+  app.get("/api/schedules", async (req, res) => {
+    try {
+      const region = typeof req.query.region === "string" ? req.query.region.trim() : "";
+      const now = new Date();
+
+      const baseQuery = db
+        .select({
+          id: electionSchedules.id,
+          title: electionSchedules.title,
+          eventDate: electionSchedules.eventDate,
+          description: electionSchedules.description,
+          region: electionSchedules.region,
+        })
+        .from(electionSchedules);
+
+      const rows = region
+        ? await baseQuery
+            .where(
+              and(
+                gte(electionSchedules.eventDate, now),
+                or(eq(electionSchedules.region, region), eq(electionSchedules.region, "전국"))
+              )
+            )
+            .orderBy(asc(electionSchedules.eventDate))
+        : await baseQuery
+            .where(gte(electionSchedules.eventDate, now))
+            .orderBy(asc(electionSchedules.eventDate));
+
+      res.json(rows);
+    } catch (error: any) {
+      console.error("[schedules] error:", error);
+      res.status(500).json({ error: error.message ?? "일정 조회 실패" });
+    }
+  });
+
+  app.post("/api/admin/schedules", requireAdmin, async (req, res) => {
+    try {
+      const parsed = insertElectionScheduleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: "유효하지 않은 일정 데이터",
+          issues: parsed.error.issues,
+        });
+      }
+      const [created] = await db
+        .insert(electionSchedules)
+        .values({
+          title: parsed.data.title,
+          eventDate: parsed.data.eventDate,
+          description: parsed.data.description ?? null,
+          region: parsed.data.region ?? "전국",
+        })
+        .returning();
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error("[admin/schedules] error:", error);
+      res.status(500).json({ error: error.message ?? "일정 등록 실패" });
+    }
+  });
+
   app.post("/api/community/report", requireAuth, async (req, res) => {
     try {
       const result = insertReportSchema.safeParse(req.body);
@@ -4595,7 +4891,7 @@ export async function registerRoutes(
       }
 
       const axios2 = (await import("axios")).default;
-      const baseUrl = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPoelpcddRegistSttusInfoInqire";
+      const baseUrl = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPofelcddRegistSttusInfoInqire";
       const params = {
         serviceKey: apiKey,
         pageNo: "1",
