@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { saveCandidateToSession } from "@/pages/candidate-detail";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
 import { getPartyRank } from "@/lib/mock-data";
