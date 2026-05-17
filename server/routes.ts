@@ -5621,13 +5621,20 @@ export async function registerRoutes(
   });
 
   // ===== 정치인 사진 배치 URL 조회 =====
-  // GET /api/politician-photos/batch?names=홍준표,이재명,... → Wikipedia URL 맵 반환 (이미지 프록시 없음)
+  // GET /api/politician-photos/batch?names=홍준표,이재명,...&contexts={"김종훈":"국민의힘",...}
   app.get("/api/politician-photos/batch", async (req, res) => {
     const raw = req.query.names;
     if (!raw || typeof raw !== "string") return res.json({});
     const names = raw.split(",").map((n) => n.trim()).filter(Boolean).slice(0, 100);
     if (!names.length) return res.json({});
-    const urls = await getBatchPhotoUrls(names);
+
+    // contexts: name → party/region 힌트 — 동명이인 disambiguation에 활용
+    let contexts: Record<string, string> = {};
+    if (req.query.contexts && typeof req.query.contexts === "string") {
+      try { contexts = JSON.parse(req.query.contexts); } catch { /* 무시 */ }
+    }
+
+    const urls = await getBatchPhotoUrls(names, contexts);
     res.setHeader("Cache-Control", "public, max-age=3600");
     return res.json(urls);
   });

@@ -435,10 +435,23 @@ function RegionView({
     [displayCandidates],
   );
 
+  // 동명이인 disambiguation: 후보 이름→정당 컨텍스트 맵 (서버가 "김종훈 국민의힘" 식으로 검색)
+  const candidateContexts = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of displayCandidates) {
+      if (c.name && c.party) map[c.name] = c.party;
+    }
+    return map;
+  }, [displayCandidates]);
+
   const { data: candidatePhotos = {} } = useQuery<Record<string, string | null>>({
     queryKey: ["/api/politician-photos/batch", "candidates", allCandidateNames],
-    queryFn: ({ signal }) =>
-      fetch(`/api/politician-photos/batch?names=${encodeURIComponent(allCandidateNames)}`, { signal }).then((r) => r.json()),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ names: allCandidateNames });
+      const ctxStr = JSON.stringify(candidateContexts);
+      if (ctxStr !== "{}") params.set("contexts", ctxStr);
+      return fetch(`/api/politician-photos/batch?${params}`, { signal }).then((r) => r.json());
+    },
     staleTime: 60 * 60 * 1000,
     enabled: !!allCandidateNames,
   });
@@ -666,8 +679,8 @@ function RegionView({
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
                           <Sparkles className="w-7 h-7 text-muted-foreground" />
                         </div>
-                        <p className="text-[15px] font-bold text-foreground">아직 선관위에 공식 공약이 등록되지 않았습니다</p>
-                        <p className="text-[12px] text-muted-foreground max-w-sm text-center">예비후보 단계에서는 공약이 공개되지 않을 수 있습니다. 후보자 등록 후 공약이 업데이트됩니다.</p>
+                        <p className="text-[15px] font-bold text-foreground">5월 21일부터 공약 정보가 공개됩니다</p>
+                        <p className="text-[12px] text-muted-foreground max-w-sm text-center">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 이곳에 자동으로 업데이트됩니다.</p>
                       </div>
                     );
                   }
@@ -693,7 +706,8 @@ function RegionView({
 
                               {pledges.length === 0 ? (
                                 <div className="bg-muted rounded-2xl p-6 text-center">
-                                  <p className="text-[13px] text-muted-foreground font-medium">아직 선관위에 공식 공약이 등록되지 않았습니다.</p>
+                                  <p className="text-[13px] font-bold text-foreground mb-1">5월 21일부터 공약 정보가 공개됩니다</p>
+                                  <p className="text-[11px] text-muted-foreground">후보자 등록 기간 종료 후 자동으로 업데이트됩니다.</p>
                                 </div>
                               ) : (
                                 pledges.map((p, pIdx) => (
@@ -766,7 +780,7 @@ function RegionView({
                                     <span className={`text-[10px] font-black ${color.replace('bg-', 'text-')}`}>{candidate.name} (기호 {getPartyRank(candidate.party)})</span>
                                   </div>
                                   {pledges.length === 0 ? (
-                                    <p className="text-[11px] text-muted-foreground">공약 미등록</p>
+                                    <p className="text-[11px] text-muted-foreground">5월 21일 이후 공개 예정</p>
                                   ) : (
                                     <div className="flex flex-col gap-2">
                                       {pledges.slice(0, 3).map((p, pIdx) => (

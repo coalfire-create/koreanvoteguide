@@ -345,17 +345,26 @@ export default function CandidateDetail() {
               </div>
               <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200">{candidate.promises.length}개</Badge>
             </div>
-            <p className="text-[12px] text-gray-400 font-medium mb-3">공약을 클릭하면 AI 분석과 시민 의견을 볼 수 있습니다</p>
-            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
-              {candidate.promises.map((promise) => (
-                <PledgeCard
-                  key={promise.id}
-                  candidateId={candidate.id}
-                  promise={promise}
-                  onClick={() => setSelectedPledge(promise)}
-                />
-              ))}
-            </div>
+            {candidate.promises.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
+                <p className="text-[14px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
+                <p className="text-[12px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-[12px] text-gray-400 font-medium mb-3">공약을 클릭하면 AI 분석과 시민 의견을 볼 수 있습니다</p>
+                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+                  {candidate.promises.map((promise) => (
+                    <PledgeCard
+                      key={promise.id}
+                      candidateId={candidate.id}
+                      promise={promise}
+                      onClick={() => setSelectedPledge(promise)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </section>
 
           {/* ── 활동 이력 ── */}

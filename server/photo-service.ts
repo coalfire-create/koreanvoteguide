@@ -105,7 +105,22 @@ async function fetchFromNaver(name: string, context?: string): Promise<string | 
 }
 
 async function fetchFromWikipedia(name: string): Promise<string | null> {
-  const variants = [name, `${name} (정치인)`, `${name} (국회의원)`];
+  // 기본 변형
+  const variants = [name, `${name} (정치인)`, `${name} (국회의원)`, `${name} (도지사)`, `${name} (시장)`];
+
+  // Wikipedia opensearch로 실제 제목 찾기 → 연도형 disambiguation 처리
+  try {
+    const searchRes = await axios.get("https://ko.wikipedia.org/w/api.php", {
+      params: { action: "opensearch", search: `${name} 정치인`, limit: 3, format: "json" },
+      timeout: 5000,
+      headers: { "User-Agent": UA },
+    });
+    const titles: string[] = searchRes.data?.[1] ?? [];
+    for (const t of titles) {
+      if (!variants.includes(t)) variants.push(t);
+    }
+  } catch { /* opensearch 실패해도 계속 */ }
+
   for (const v of variants) {
     try {
       const r = await axios.get(
@@ -131,10 +146,13 @@ export async function getPoliticianPhotoUrl(name: string, context?: string): Pro
   }
 
   // 2. DB 캐시 확인 (서버 재시작 후에도 유지)
+  // context가 있으면 캐시된 null을 무시 — 컨텍스트 없는 잘못된 검색 결과를 덮어씀.
   const dbCached = await getFromDb(name);
   if (dbCached !== undefined) {
-    cache.set(cacheKey, { url: dbCached, fetchedAt: Date.now() });
-    return dbCached;
+    if (dbCached !== null || !context) {
+      cache.set(cacheKey, { url: dbCached, fetchedAt: Date.now() });
+      return dbCached;
+    }
   }
 
   // 3. 네이버/위키 크롤링 (DB 미스 시에만)
@@ -150,11 +168,11 @@ export async function getPoliticianPhotoUrl(name: string, context?: string): Pro
   return url;
 }
 
-export async function getBatchPhotoUrls(names: string[]): Promise<Record<string, string | null>> {
+export async function getBatchPhotoUrls(names: string[], contexts: Record<string, string> = {}): Promise<Record<string, string | null>> {
   const results: Record<string, string | null> = {};
   await Promise.allSettled(
     names.map(async (name) => {
-      results[name] = await getPoliticianPhotoUrl(name);
+      results[name] = await getPoliticianPhotoUrl(name, contexts[name]);
     })
   );
   return results;

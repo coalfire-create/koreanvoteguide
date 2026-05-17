@@ -43,6 +43,10 @@ export const POLITICIAN_PHOTOS: Record<string, string> = {
   "최기문": "https://search.pstatic.net/common?type=n&size=240x300&quality=100&direct=true&src=http%3A%2F%2Fsstatic.naver.net%2Fpeople%2F10%2F201902151842384271.gif",
   "김병삼": "https://search.pstatic.net/common?type=n&size=360x450&quality=100&direct=true&src=http%3A%2F%2Fsstatic.naver.net%2Fpeople%2F4%2F202308241801292351.jpg",
   "이정훈": "https://search.pstatic.net/common?type=n&size=240x300&quality=100&direct=true&src=http%3A%2F%2Fsstatic.naver.net%2Fpeople%2FprofileImg%2Ft%2Fa599004e-eba6-4136-8c2d-62e8d692c45d.png",
+  // 지방선거 주요 후보
+  "박수현": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Park_Soo-hyun_20170516.jpg/330px-Park_Soo-hyun_20170516.jpg",
+  "김영환": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Kim_Young-hwan_%2801119138%29.jpg/330px-Kim_Young-hwan_%2801119138%29.jpg",
+  "최민호": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Choi_Min-ho%27s_portrait_%282025.08%29.jpg",
   // ===== 동명이인 충돌 케이스 (검색 1순위가 다른 사람) =====
   // 황희: 조선시대 영의정 "황희정승"(1363-1452)이 검색 압도. 21·22대 더불어민주당 의원과 별개.
   "황희": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Korea_Colombia_Culture_Minister_Meeting_06.jpg/330px-Korea_Colombia_Culture_Minister_Meeting_06.jpg",

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { POLITICIAN_PHOTOS } from "@/lib/politician-photos";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -28,6 +28,16 @@ export function PoliticianPhoto({
     const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}`;
     return [hardcoded, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
   }, [photo, resolvedUrl, name, monaCd]);
+
+  // sources[0]이 바뀌면 (새 URL이 추가되면) srcIndex 리셋 — 이전에 실패한 인덱스로 고정되는 버그 방지.
+  const prevFirst = useRef(sources[0]);
+  useEffect(() => {
+    if (prevFirst.current !== sources[0]) {
+      prevFirst.current = sources[0];
+      setSrcIndex(0);
+      setImgLoaded(false);
+    }
+  }, [sources]);
 
   const src = srcIndex < sources.length ? sources[srcIndex] : null;
   const sizeStyle = size ? { width: size, height: size } : undefined;
