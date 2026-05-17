@@ -811,10 +811,110 @@ export async function registerRoutes(
   app.patch("/api/auth/favorite-regions", requireAuth, async (req, res) => {
     try {
       const { regions } = req.body;
-      if (!Array.isArray(regions)) {
-        return res.status(400).json({ error: "지역구 목록은 배열이어야 합니다" });
+      const userId = req.session.userId!;
+      
+      // 기존 관심 지역 조회 (해제된 지역 언팔로우 처리를 위해)
+      const prevUserRows = await db.select({ favoriteRegions: users.favoriteRegions }).from(users).where(eq(users.id, userId)).limit(1);
+      const prevRegions: any[] = (prevUserRows[0]?.favoriteRegions as any[]) || [];
+
+      const user = await storage.updateUserFavoriteRegions(userId, regions);
+
+      // --- 자동 팔로우 연동 로직 시작 ---
+      const allLegislators = await db.select().from(legislators);
+
+      // 1. 새 지역에 매칭되는 의원들
+      const newMatchingLegislators = allLegislators.filter((l) => {
+        return regions.some((reg: any) => {
+          const regName = reg.name;
+          if (!regName) return false;
+          return l.district.startsWith(regName) || l.district.includes(regName);
+        });
+      });
+
+      // 2. 삭제된 지역에 매칭되는 의원들
+      const deselectedRegions = prevRegions.filter(
+        (prev: any) => !regions.some((curr: any) => curr.code === prev.code)
+      );
+
+      if (deselectedRegions.length > 0) {
+        const deselectedMatchingLegislators = allLegislators.filter((l) => {
+          // 이전 지역엔 있었으나, 현재 지역엔 없는 의원
+          const matchesPrev = deselectedRegions.some((reg: any) => {
+            const regName = reg.name;
+            if (!regName) return false;
+            return l.district.startsWith(regName) || l.district.includes(regName);
+          });
+          const matchesNew = regions.some((reg: any) => {
+            const regName = reg.name;
+            if (!regName) return false;
+            return l.district.startsWith(regName) || l.district.includes(regName);
+          });
+          return matchesPrev && !matchesNew;
+        });
+
+        if (deselectedMatchingLegislators.length > 0) {
+          const deselectedMonaCodes = deselectedMatchingLegislators.map((l) => l.monaCd);
+          
+          const actuallyFollowed = await db
+            .select({ politicianId: userFollows.politicianId })
+            .from(userFollows)
+            .where(and(
+              eq(userFollows.userId, userId),
+              inArray(userFollows.politicianId, deselectedMonaCodes)
+            ));
+
+          if (actuallyFollowed.length > 0) {
+            const followedCodes = actuallyFollowed.map((f) => f.politicianId);
+            
+            await db
+              .delete(userFollows)
+              .where(and(
+                eq(userFollows.userId, userId),
+                inArray(userFollows.politicianId, followedCodes)
+              ));
+
+            await db
+              .update(legislators)
+              .set({ followerCount: dsql`GREATEST(${legislators.followerCount} - 1, 0)` })
+              .where(inArray(legislators.monaCd, followedCodes));
+          }
+        }
       }
-      const user = await storage.updateUserFavoriteRegions(req.session.userId!, regions);
+
+      // 3. 새 팔로우 처리
+      if (newMatchingLegislators.length > 0) {
+        const existingFollows = await db
+          .select({ politicianId: userFollows.politicianId })
+          .from(userFollows)
+          .where(eq(userFollows.userId, userId));
+
+        const existingSet = new Set(existingFollows.map((f) => f.politicianId));
+
+        const newLegislatorsToFollow = newMatchingLegislators.filter(
+          (l) => !existingSet.has(l.monaCd)
+        );
+
+        if (newLegislatorsToFollow.length > 0) {
+          const insertValues = newLegislatorsToFollow.map((l) => ({
+            userId,
+            politicianId: l.monaCd,
+            politicianType: "member" as const,
+          }));
+
+          await db
+            .insert(userFollows)
+            .values(insertValues)
+            .onConflictDoNothing();
+
+          const newMonaCodes = newLegislatorsToFollow.map((l) => l.monaCd);
+          await db
+            .update(legislators)
+            .set({ followerCount: dsql`${legislators.followerCount} + 1` })
+            .where(inArray(legislators.monaCd, newMonaCodes));
+        }
+      }
+      // --- 자동 팔로우 연동 로직 끝 ---
+
       const badges = await storage.getUserBadges(user.id);
       res.json({
         user: {
