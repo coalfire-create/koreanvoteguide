@@ -32,6 +32,15 @@ import {
   mapKakaoGender,
   mapKakaoBirthYear,
 } from "./utils/kakao-oauth";
+import {
+  loadNaverConfig,
+  buildAuthorizeUrl as buildNaverAuthorizeUrl,
+  exchangeCodeForToken as exchangeNaverCodeForToken,
+  fetchNaverProfile,
+  mapNaverAge,
+  mapNaverGender,
+  mapNaverBirthYear,
+} from "./utils/naver-oauth";
 import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
 import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
@@ -473,6 +482,8 @@ declare module "express-session" {
     userId: string;
     // Kakao OAuth CSRF 방지용 state 토큰. authorize 단계에서 set, callback에서 검증·삭제.
     kakaoOAuthState?: string;
+    // Naver OAuth CSRF 방지용 state 토큰.
+    naverOAuthState?: string;
   }
 }
 
@@ -1244,6 +1255,114 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
+    }
+  });
+
+  // ===== Naver OAuth (보조 로그인 경로) — Kakao와 동일 흐름 =====
+  //   1) FE /api/auth/naver → CSRF state 생성·세션 저장 → 네이버 인증창 redirect
+  //   2) 동의 후 네이버가 /api/auth/naver/callback?code=...&state=... 로 redirect
+  //   3) state 검증 → code↔access_token 교환 → /v1/nid/me 프로필 조회
+  //   4) naverId로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
+  //   5) req.session.userId 세팅 → 홈으로 redirect
+  app.get("/api/auth/naver", authLimiter, (req, res) => {
+    const config = loadNaverConfig();
+    if (!config) {
+      return res.status(503).json({
+        error: "Naver 로그인이 설정되지 않았습니다. (NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_REDIRECT_URI 환경변수 필요)",
+      });
+    }
+    const state = crypto.randomBytes(16).toString("hex");
+    req.session.naverOAuthState = state;
+    res.redirect(buildNaverAuthorizeUrl(config, state));
+  });
+
+  app.get("/api/auth/naver/callback", authLimiter, async (req, res) => {
+    const config = loadNaverConfig();
+    if (!config) {
+      return res.status(503).send("Naver 로그인이 설정되지 않았습니다.");
+    }
+
+    const { code, state, error: naverError } = req.query as Record<string, string | undefined>;
+    if (naverError) {
+      console.warn(`[naver] callback error: ${naverError}`);
+      return res.redirect(`/login?error=${encodeURIComponent(naverError)}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.status(400).send("Naver 인증 코드가 누락되었습니다.");
+    }
+    const expectedState = req.session.naverOAuthState;
+    if (!expectedState || expectedState !== state) {
+      return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
+    }
+    req.session.naverOAuthState = undefined;
+
+    try {
+      const tokenRes = await exchangeNaverCodeForToken(config, code, state as string);
+      const profile = await fetchNaverProfile(tokenRes.access_token);
+      const p = profile.response;
+
+      const naverIdStr = String(p.id);
+      const profileNickname = p.nickname ?? p.name ?? `naver_${naverIdStr.slice(-6)}`;
+      const profileImage = p.profile_image ?? null;
+      const email = p.email ?? null;
+      const ageGroup = mapNaverAge(p.age);
+      const gender = mapNaverGender(p.gender);
+      const birthYear = mapNaverBirthYear(p.birthyear);
+
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.naverId, naverIdStr))
+        .limit(1);
+
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+        await db
+          .update(users)
+          .set({
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            ageGroup: ageGroup ?? undefined,
+            gender: gender ?? undefined,
+            birthYear: birthYear ?? undefined,
+            realNameVerified: true,
+            realNameProvider: "naver",
+          })
+          .where(eq(users.id, existing.id));
+      } else {
+        const username = `naver_${naverIdStr}`;
+        const [created] = await db
+          .insert(users)
+          .values({
+            username,
+            password: "",
+            phone: "",
+            phoneHash: null,
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            naverId: naverIdStr,
+            ageGroup: ageGroup ?? undefined,
+            gender: gender ?? undefined,
+            birthYear: birthYear ?? undefined,
+            realNameVerified: true,
+            realNameProvider: "naver",
+            phoneVerified: false,
+            tosAcceptedAt: new Date(),
+            privacyAcceptedAt: new Date(),
+          })
+          .returning({ id: users.id });
+        userId = created.id;
+      }
+
+      req.session.userId = userId;
+      console.log(`[naver] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
+      res.redirect("/");
+    } catch (error: any) {
+      console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
+      res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
     }
   });
 
@@ -5076,7 +5195,14 @@ export async function registerRoutes(
           regionCode: sdName,
           electionType: electionType,
           districtName: item.sggName || item.wiwName || sdName,
-          photo: dbRow?.photo || item.photo || item.jpgLink || null,
+          photo: (() => {
+            const raw = dbRow?.photo || item.photo || item.jpgLink || null;
+            // info.nec.go.kr는 HTTP URL → 브라우저 mixed-content 차단. 서버 프록시 경유.
+            if (raw && /^https?:\/\/info\.nec\.go\.kr\//.test(raw)) {
+              return `/api/photo/nec?url=${encodeURIComponent(raw)}`;
+            }
+            return raw;
+          })(),
           job: dbRow?.job || item.job || null,
           career: dbRow?.career || null,
           career1: dbRow?.career1 || item.career1 || null,
@@ -5504,6 +5630,17 @@ export async function registerRoutes(
     const urls = await getBatchPhotoUrls(names);
     res.setHeader("Cache-Control", "public, max-age=3600");
     return res.json(urls);
+  });
+
+  // 선관위 후보자 공식 사진 프록시 (info.nec.go.kr — HTTP URL이라 브라우저 mixed-content 차단됨)
+  app.get("/api/photo/nec", async (req, res) => {
+    const url = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    if (!url || !/^https?:\/\/info\.nec\.go\.kr\//.test(url)) return res.status(400).end();
+    const result = await proxyImage(url);
+    if (!result) return res.status(404).end();
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(result.data);
   });
 
   // 국회의원 공식 사진 직접 프록시 (캐시 1일)

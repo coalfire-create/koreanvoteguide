@@ -4,8 +4,9 @@ import { politicianPhotoCache } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7일 (DB 캐시)
-const MEM_CACHE_TTL_MS = 60 * 60 * 1000;       // 1시간 (인메모리)
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;      // 7일 (DB 캐시 — 사진 있을 때)
+const NULL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;     // 1일 (DB 캐시 — 사진 없음 → 재시도 빠르게)
+const MEM_CACHE_TTL_MS = 60 * 60 * 1000;            // 1시간 (인메모리)
 
 interface CacheEntry {
   url: string | null;
@@ -22,7 +23,8 @@ async function getFromDb(name: string): Promise<string | null | undefined> {
     if (rows.length === 0) return undefined; // DB에 없음
     const row = rows[0];
     const age = Date.now() - row.fetchedAt.getTime();
-    if (age > CACHE_TTL_MS) return undefined; // 만료
+    const ttl = row.photoUrl === null ? NULL_CACHE_TTL_MS : CACHE_TTL_MS;
+    if (age > ttl) return undefined; // 만료
     return row.photoUrl; // null이면 "사진 없음" 확인된 것
   } catch {
     return undefined;
@@ -39,15 +41,22 @@ async function saveToDb(name: string, photoUrl: string | null): Promise<void> {
   }
 }
 
-// Extract stable Naver portrait URL from profileImg pattern
-function buildNaverPortraitUrl(uuid: string): string {
-  return `https://search.pstatic.net/common?type=n&size=360x450&quality=100&direct=true&src=http%3A%2F%2Fsstatic.naver.net%2Fpeople%2FprofileImg%2F${uuid}.jpg`;
+// sstatic.naver.net profileImg path → pstatic.net portrait URL 생성
+function buildNaverPortraitUrl(path: string, ext: string): string {
+  const encoded = encodeURIComponent(`http://sstatic.naver.net/people/profileImg/${path}.${ext}`);
+  return `https://search.pstatic.net/common?type=n&size=360x450&quality=100&direct=true&src=${encoded}`;
+}
+
+// sstatic.naver.net 숫자 경로 (/people/164/202308...jpg) → pstatic.net portrait URL
+function buildNaverNumericPortraitUrl(numericPath: string): string {
+  const encoded = encodeURIComponent(`http://sstatic.naver.net/people/${numericPath}`);
+  return `https://search.pstatic.net/common?type=n&size=360x450&quality=100&direct=true&src=${encoded}`;
 }
 
 async function fetchFromNaver(name: string, context?: string): Promise<string | null> {
   const queries = context
     ? [`${name} ${context}`, name]
-    : [name];
+    : [name, `${name} 정치인`];
 
   for (const query of queries) {
     try {
@@ -58,20 +67,35 @@ async function fetchFromNaver(name: string, context?: string): Promise<string | 
       });
       const html: string = r.data;
 
-      // Extract profileImg UUID — new-format portrait photo
-      const profileMatch = html.match(/sstatic\.naver\.net\/people\/profileImg\/([a-f0-9-]{36})\.(?:jpg|jpeg|png)/);
+      // 1) profileImg/t/UUID 또는 profileImg/UUID 형식 (t/ 서브디렉토리 포함)
+      const profileMatch = html.match(/sstatic\.naver\.net\/people\/profileImg\/((?:[a-z0-9]+\/)?[a-f0-9-]{36})\.(jpg|jpeg|png)/);
       if (profileMatch) {
-        return buildNaverPortraitUrl(profileMatch[1]);
+        return buildNaverPortraitUrl(profileMatch[1], profileMatch[2]);
       }
 
-      // type=n (portrait type) from pstatic — captures both /profileImg/ and /people/NN/ paths
+      // 2) type=n pstatic URL 전체 — /profileImg/ 및 /people/NN/ 경로 모두 커버
       const typeNMatch = html.match(/search\.pstatic\.net\/common\?type=n[^"'<\s]+sstatic\.naver\.net%2Fpeople%2F[^"'<\s]*/);
       if (typeNMatch) {
         const raw = typeNMatch[0].replace(/&amp;/g, "&");
-        // Skip URLs with expire= parameter as they may become invalid
         if (!raw.includes("expire=")) {
           return `https://${raw}`;
         }
+      }
+
+      // 3) sstatic.naver.net 숫자 경로 (/people/164/20230809...)
+      const numericMatch = html.match(/sstatic\.naver\.net\/people\/(\d+\/\d+\.(?:jpg|jpeg|png|gif))/);
+      if (numericMatch) {
+        return buildNaverNumericPortraitUrl(numericMatch[1]);
+      }
+
+      // 4) JSON 내부 profileImg URL (Naver 새 렌더링 방식 대응)
+      const jsonProfileMatch = html.match(/"profileImg"\s*:\s*"https?:\\?\/\\?\/sstatic\.naver\.net\\?\/people\\?\/profileImg\\?\/([^"\\]+)"/);
+      if (jsonProfileMatch) {
+        const rawPath = jsonProfileMatch[1].replace(/\\/g, "");
+        const extMatch = rawPath.match(/\.(jpg|jpeg|png)$/);
+        const ext = extMatch ? extMatch[1] : "jpg";
+        const pathWithoutExt = rawPath.replace(/\.(jpg|jpeg|png)$/, "");
+        return buildNaverPortraitUrl(pathWithoutExt, ext);
       }
     } catch {
       // try next query
@@ -148,6 +172,7 @@ const PHOTO_HOST_ALLOWLIST = new Set([
   "sstatic.naver.net",
   "upload.wikimedia.org",
   "open.assembly.go.kr",
+  "info.nec.go.kr",       // 선관위 후보자 공식 사진
 ]);
 
 function isAllowedPhotoUrl(rawUrl: string): boolean {

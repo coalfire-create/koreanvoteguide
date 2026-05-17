@@ -35,6 +35,8 @@ export const users = pgTable("users", {
   // ===== Kakao OAuth (메인 로그인 수단) =====
   // kakaoId: Kakao 사용자 고유 ID(숫자). 같은 사용자 재로그인 시 lookup 키.
   kakaoId: text("kakao_id"),
+  // naverId: Naver 사용자 고유 식별자(앱별 고유). 같은 사용자 재로그인 시 lookup 키.
+  naverId: text("naver_id"),
   // email: Kakao account_email scope에서 받은 이메일. 사용자 동의 시에만 채워짐.
   email: text("email"),
   // profileImageUrl: Kakao 프로필 이미지. 카카오톡 프로필 변경시 자동 반영되지 않음 — 로그인 때마다 갱신.
@@ -57,6 +59,8 @@ export const users = pgTable("users", {
   ciUniqIdx: uniqueIndex("users_ci_uniq").on(table.ci),
   // Kakao 사용자 재로그인용 lookup 키. NULL은 비-Kakao 계정.
   kakaoIdUniq: uniqueIndex("users_kakao_id_uniq").on(table.kakaoId),
+  // Naver 사용자 재로그인용 lookup 키. NULL은 비-Naver 계정.
+  naverIdUniq: uniqueIndex("users_naver_id_uniq").on(table.naverId),
   ageGroupIdx: index("users_age_group_idx").on(table.ageGroup),
 }));
 
