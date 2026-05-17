@@ -186,8 +186,8 @@ export default function CandidateDetail() {
           description: typeof p === "string" ? "" : p.description ?? "",
         })),
         pastActivities: sessionCandidate.pastActivities ?? [],
-        education: sessionCandidate.education,
-        career: sessionCandidate.career,
+        education: sessionCandidate.education ?? sessionCandidate.edu,
+        career: sessionCandidate.career ?? (sessionCandidate.career1 ? `${sessionCandidate.career1}${sessionCandidate.career2 ? `\n${sessionCandidate.career2}` : ""}` : undefined),
         timeline: sessionCandidate.timeline ?? [],
         ratings: sessionCandidate.ratings ?? [],
       } : null);
