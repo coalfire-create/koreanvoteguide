@@ -11,7 +11,6 @@ import { getPartyRank } from "@/lib/mock-data";
 import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailView";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
-import { StoryFeed } from "@/components/StoryFeed";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
 
 // 후보 영역 로딩용 Skeleton — 실제 카드와 같은 골격을 회색 펄스로 그린다.
@@ -463,11 +462,6 @@ function RegionView({
       <div className="px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
         {/* Story-style 관심 의원 피드 — 페이지 최상단 (election-home.tsx:13 import 후 실제 렌더링) */}
-        {user && (
-          <div className="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm py-3 mb-6 -mx-1">
-            <StoryFeed />
-          </div>
-        )}
 
         {/* Instagram-style 통합 활동 피드 — StoryFeed 바로 아래 (팔로우 + 추천 머지) */}
         <div className="max-w-[640px] mx-auto">
@@ -496,7 +490,7 @@ function RegionView({
             <div className="flex flex-col gap-4">
               <div className="relative flex flex-col items-center justify-center py-4">
                 <h1 className="text-4xl font-black text-gray-900 tracking-tight text-center">
-                  {`${region.name}시장 선거`}
+                  {`${MAYOR_RACES.find(r => r.regionCode === region.code)?.positionLabel || `${region.name}시장`} 선거`}
                 </h1>
                 <p className="text-gray-500 text-sm font-medium mt-2 text-center">제9회 전국동시지방선거 · 2026년 6월 3일</p>
                 
@@ -570,9 +564,11 @@ function RegionView({
                               </p>
                             )}
                             {candidate.candidateStatus && (
-                              <p className="text-[11px] font-medium text-gray-400 mt-1.5">
-                                {candidate.candidateStatus}
-                              </p>
+                              <div className="mt-2">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                                  {candidate.candidateStatus}
+                                </span>
+                              </div>
                             )}
                           </div>
                         </motion.div>
@@ -626,7 +622,12 @@ function RegionView({
                                 </div>
                               </div>
                               <h5 className="text-[16px] font-black text-gray-900 mb-1 group-hover:text-[#6D28D9] transition-colors">{candidate.name}</h5>
-                              <p className="text-[11px] text-gray-400 font-bold tracking-tight">{candidate.party}</p>
+                              <p className="text-[11px] text-gray-400 font-bold tracking-tight mb-1">{candidate.party}</p>
+                              {candidate.candidateStatus && (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                                  {candidate.candidateStatus}
+                                </span>
+                              )}
                             </div>
                           </motion.div>
                         );

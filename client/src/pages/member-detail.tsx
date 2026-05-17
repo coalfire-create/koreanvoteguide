@@ -45,6 +45,7 @@ function formatNewsTime(pubDate: string): string {
   if (!pubDate) return "";
   try {
     const date = new Date(pubDate);
+    if (isNaN(date.getTime())) return "";
     const diff = Date.now() - date.getTime();
     const hours = Math.floor(diff / 3600000);
     if (hours < 1) return "방금";
@@ -53,6 +54,28 @@ function formatNewsTime(pubDate: string): string {
   } catch {
     return "";
   }
+}
+
+// ─── 학력 정규화 ─────────────────────────────────────────────────────────────
+// API가 학력을 문자열("서울대학교 …")로 주든, 배열(["…","…"])로 주든,
+// null/"정보 없음"/공백이든 안전하게 표시용 라인 배열로 변환한다.
+const EDU_EMPTY_TOKENS = new Set(["", "-", "정보 없음", "정보없음", "없음", "null", "undefined"]);
+
+function normalizeEducation(edu: unknown): string[] {
+  const collect = (v: unknown): string[] => {
+    if (v == null) return [];
+    if (Array.isArray(v)) return v.flatMap(collect);
+    const s = String(v).trim();
+    if (!s) return [];
+    // 줄바꿈 / 세미콜론 / 가운뎃점이 아닌 일반 구분자로 멀티라인 분리
+    return s
+      .split(/\r?\n|；|;/g)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  };
+  return collect(edu).filter(
+    (line) => !EDU_EMPTY_TOKENS.has(line.toLowerCase()),
+  );
 }
 
 interface StanceData {
@@ -1120,11 +1143,38 @@ export default function MemberDetail() {
                 </div>
                 {isDetailLoading ? (
                   <Skeleton className="h-5 w-64" />
-                ) : (
-                  <p className="text-sm font-semibold text-foreground" data-testid="text-education">
-                    {detail?.education ?? "정보 없음"}
-                  </p>
-                )}
+                ) : (() => {
+                  const eduLines = normalizeEducation(detail?.education);
+                  if (eduLines.length === 0) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-2" data-testid="text-education">
+                        <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 font-medium">
+                          학력 정보 미등록
+                        </Badge>
+                        {detail && !detail.necDetailSyncedAt && (
+                          <span className="text-xs text-muted-foreground">· 선관위 데이터 동기화 전</span>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (eduLines.length === 1) {
+                    return (
+                      <p className="text-sm font-semibold text-foreground" data-testid="text-education">
+                        {eduLines[0]}
+                      </p>
+                    );
+                  }
+                  return (
+                    <ul className="space-y-1.5" data-testid="text-education">
+                      {eduLines.map((line, i) => (
+                        <li key={i} className="text-sm font-semibold text-foreground flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
 
                 {/* 동문 의원 섹션 */}
                 {alumni && alumni.length > 0 && (

@@ -14,7 +14,7 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { analyzeLegislator } from "./legislator-analysis";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema } from "@shared/schema";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
@@ -1666,7 +1666,8 @@ export async function registerRoutes(
         legislatorDetailCache.clear();
         console.log(
           `[sync/nec-detail] 완료: ${result.synced}명 갱신, ` +
-          `매핑 실패 ${result.notFound.length}명, 오류 ${result.errors.length}건`
+          `매핑 실패 ${result.notFound.length}명, 오류 ${result.errors.length}건, ` +
+          `학력 추가보강 ${result.eduFilled}명, 학력 끝까지 미보유 ${result.eduStillMissing.length}명`
         );
       })
       .catch((e) => console.error("[sync/nec-detail] 실패:", e.message));
@@ -4891,7 +4892,6 @@ export async function registerRoutes(
       }
 
       const axios2 = (await import("axios")).default;
-      const baseUrl = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPofelcddRegistSttusInfoInqire";
       const params = {
         serviceKey: apiKey,
         pageNo: "1",
@@ -4902,16 +4902,40 @@ export async function registerRoutes(
         resultType: "json"
       };
 
-      // 3. API Response Logging
-      const urlWithParams = `${baseUrl}?serviceKey=${apiKey}&pageNo=${params.pageNo}&numOfRows=${params.numOfRows}&sgId=${params.sgId}&sgTypecode=${params.sgTypecode}&sdName=${encodeURIComponent(params.sdName)}&resultType=${params.resultType}`;
-      console.log(`[NEC API Request] URL: ${urlWithParams.replace(apiKey, 'HIDDEN_KEY')}`);
+      // 1) 정식 후보자 API
+      const candidateUrl = "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPofelcddRegistSttusInfoInqire";
+      // 2) 예비 후보자 API
+      const preCandidateUrl = "https://apis.data.go.kr/9760000/PreCandidateRegSttusInfoInqireService/getPreCandidateRegSttusInfoInqire";
 
-      const response = await axios2.get(baseUrl, { params, timeout: 15000 });
-      console.log(`[NEC API Response Raw Data for ${sdName}]:`, JSON.stringify(response.data).substring(0, 500) + '...');
+      let items: any[] = [];
 
-      const body = response.data?.response?.body ?? {};
-      const rawItems = body?.items?.item ?? [];
-      const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+      try {
+        const response = await axios2.get(candidateUrl, { params, timeout: 15000 });
+        const body = response.data?.response?.body ?? {};
+        const rawItems = body?.items?.item ?? [];
+        const candidateItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+        items = [...items, ...candidateItems.map((item: any) => ({ ...item, _isPre: false }))];
+        console.log(`[NEC API] 정식후보자 ${candidateItems.length}건 수신`);
+      } catch (err: any) {
+        console.error("[NEC API] 정식후보자 API 오류:", err.message);
+      }
+
+      try {
+        const response = await axios2.get(preCandidateUrl, { params, timeout: 15000 });
+        const body = response.data?.response?.body ?? {};
+        const rawItems = body?.items?.item ?? [];
+        const preCandidateItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+        console.log(`[NEC API] 예비후보자 ${preCandidateItems.length}건 수신`);
+        
+        // 정식 후보에 없는 예비후보만 추가
+        for (const preItem of preCandidateItems) {
+          if (!items.some(item => item.name === preItem.name)) {
+            items.push({ ...preItem, _isPre: true });
+          }
+        }
+      } catch (err: any) {
+        console.error("[NEC API] 예비후보자 API 오류:", err.message);
+      }
 
       // 프론트엔드 호환성을 위해 DB 모델 포맷으로 변환
       // DB에 enrich:pledges로 적재된 실 공약이 있으면 그것을 사용, 없으면 빈 배열
@@ -4942,11 +4966,13 @@ export async function registerRoutes(
           ? dbRow.pledges
           : [];
 
+        const status = item._isPre ? "예비후보" : (item.status || item.regStatus || item.sttuscode || "등록");
+
         return {
           id: dbRow?.id || item.huboid || `${item.sgId}_${item.name}`,
           name: item.name,
           party: item.jdName || "무소속",
-          candidateStatus: item.status || item.regStatus || item.sttuscode || "등록",
+          candidateStatus: status,
           regionCode: sdName,
           electionType: electionType,
           districtName: item.sggName || item.wiwName || sdName,
@@ -5105,7 +5131,6 @@ export async function registerRoutes(
       const { id, pledgeId } = req.params;
       const { rating } = req.body;
       const userId = req.session.userId!;
-      const { pledgeRatings } = await import("@shared/schema");
 
       if (typeof rating !== 'number' || rating < 1 || rating > 5) {
         return res.status(400).json({ error: "별점은 1~5점 사이여야 합니다." });
@@ -5147,7 +5172,7 @@ export async function registerRoutes(
       const { id, pledgeId } = req.params;
       const { content } = req.body;
       const userId = req.session.userId!;
-      const { pledgeComments } = await import("@shared/schema");
+
 
       if (!content || typeof content !== 'string' || content.trim().length === 0) {
         return res.status(400).json({ error: "내용을 입력해주세요." });

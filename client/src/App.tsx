@@ -93,7 +93,7 @@ function MainApp() {
       
       <main className={`flex-1 w-full ${!hideHeaderNav ? "md:pl-[260px]" : ""}`}>
         {/* Full width content area for desktop, matching Stitch design */}
-        <div className="w-full min-h-screen pb-[60px] md:pb-10">
+        <div className="w-full min-h-screen pb-[80px] md:pb-10">
           <Router />
         </div>
       </main>

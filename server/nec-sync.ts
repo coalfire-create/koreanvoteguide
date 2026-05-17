@@ -589,6 +589,8 @@ export async function syncNec22ndDetailsToLegislators(): Promise<{
   synced: number;
   notFound: string[];
   errors: string[];
+  eduFilled: number;
+  eduStillMissing: string[];
 }> {
   console.log("[nec-sync] 국회의원 테이블에 선관위 당선인 정보 반영 시작...");
 
@@ -598,8 +600,15 @@ export async function syncNec22ndDetailsToLegislators(): Promise<{
 
   const detailMap = await fetchNec22ndAssemblyDetails();
   if (detailMap.size === 0) {
-    console.warn("[nec-sync] 당선인 데이터 0건 — DB 반영 건너뜀.");
-    return { synced: 0, notFound: [], errors: ["선관위 API에서 데이터를 가져오지 못했습니다."] };
+    console.warn("[nec-sync] 당선인 데이터 0건 — 후보자 등록정보 학력 보강만 시도.");
+    const enrich = await enrichLegislatorEducationFromCandidates();
+    return {
+      synced: 0,
+      notFound: [],
+      errors: ["당선인 API에서 데이터를 가져오지 못했습니다."],
+      eduFilled: enrich.filled,
+      eduStillMissing: enrich.stillMissing,
+    };
   }
 
   const allLegislators = await db
@@ -610,12 +619,15 @@ export async function syncNec22ndDetailsToLegislators(): Promise<{
     const detail = detailMap.get(normalizeName(leg.name));
     if (!detail) { notFound.push(leg.name); continue; }
 
+    const hasEdu = !!detail.education && !EDU_EMPTY.has(detail.education.trim());
     try {
       await db
         .update(legislators)
         .set({
-          education: detail.education,
-          career: detail.career || null,
+          // 당선인 API edu 가 비면 기존 학력을 보존(이후 후보자 보강이 채움).
+          // 좋은 학력을 "정보 없음"으로 덮어쓰지 않도록 한다.
+          education: hasEdu ? detail.education : sql`${legislators.education}`,
+          career: detail.career ? detail.career : sql`${legislators.career}`,
           necDetailSyncedAt: new Date(),
         })
         .where(eq(legislators.monaCd, leg.monaCd));
@@ -625,9 +637,175 @@ export async function syncNec22ndDetailsToLegislators(): Promise<{
     }
   }
 
-  console.log(`[nec-sync] 완료: ${synced}명 갱신, 미매핑 ${notFound.length}명, 오류 ${errors.length}건`);
+  // 당선인 API(edu sparse)로 채우지 못한 학력을 후보자 등록정보로 보강
+  const enrich = await enrichLegislatorEducationFromCandidates();
+
+  console.log(
+    `[nec-sync] 완료: ${synced}명 갱신, 미매핑 ${notFound.length}명, 오류 ${errors.length}건, ` +
+    `학력 추가보강 ${enrich.filled}명, 학력 끝까지 미보유 ${enrich.stillMissing.length}명`,
+  );
   if (notFound.length > 0) {
     console.log(`[nec-sync] 미매핑(${notFound.length}): ${notFound.slice(0, 15).join(", ")}${notFound.length > 15 ? " ..." : ""}`);
   }
-  return { synced, notFound, errors };
+  return {
+    synced,
+    notFound,
+    errors,
+    eduFilled: enrich.filled,
+    eduStillMissing: enrich.stillMissing,
+  };
+}
+
+// ============================================================
+// 22대 총선(2024-04-10) 국회의원 "후보자 등록정보"로 학력 보강
+// 당선인 API(WinnerInfoInqireService2)의 edu 가 빈 의원을, edu 가 풍부한
+// 후보자 등록 API(PofelcddInfoInqireService, sgTypecode=2)로 채운다.
+// ============================================================
+
+const ASSEMBLY_22ND_SG_ID = "20240410";
+const EDU_EMPTY = new Set(["", "정보 없음", "정보없음", "없음", "-"]);
+
+interface NecCandidateEdu {
+  name: string;
+  education: string | null;
+  career: string | null;
+  party: string;
+  district: string;
+}
+
+export async function fetch22ndAssemblyCandidates(): Promise<Map<string, NecCandidateEdu[]>> {
+  if (!SERVICE_KEY) throw new Error("DATA_GO_KR_API_KEY 환경변수가 설정되지 않았습니다.");
+
+  console.log("[nec-sync] 22대 총선 국회의원 후보자 학력 조회 시작 (PofelcddInfoInqireService)...");
+  const byName = new Map<string, NecCandidateEdu[]>();
+  const NUM_OF_ROWS = 100;
+
+  // 2: 지역구 국회의원, 7: 비례대표 국회의원 — 둘 다 조회해야 295명 전원 커버
+  for (const sgTypecode of ["2", "7"]) {
+    const typeLabel = sgTypecode === "7" ? "비례대표" : "지역구";
+    let pageNo = 1;
+
+    while (true) {
+      try {
+        const resp = await axios.get(
+          `${CANDIDATE_API_BASE}/getPofelcddRegistSttusInfoInqire`,
+          {
+            params: {
+              serviceKey: SERVICE_KEY,
+              pageNo: String(pageNo),
+              numOfRows: String(NUM_OF_ROWS),
+              sgId: ASSEMBLY_22ND_SG_ID,
+              sgTypecode,
+              resultType: "json",
+            },
+            timeout: 30000,
+          },
+        );
+
+        const body = resp.data?.response?.body ?? {};
+        const rawItems = body?.items?.item ?? [];
+        const items: any[] = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+        if (items.length === 0) break;
+
+        for (const item of items) {
+          const name = normalizeName(item.name || "");
+          if (!name) continue;
+          const career = [item.career1, item.career2]
+            .map((c: string | undefined) => (c || "").trim())
+            .filter(Boolean)
+            .join("\n");
+          const arr = byName.get(name) ?? [];
+          arr.push({
+            name,
+            education: toNullable(item.edu),
+            career: career || null,
+            party: (item.jdName || "").trim(),
+            district: (item.sggName || item.wiwName || "").trim(),
+          });
+          byName.set(name, arr);
+        }
+
+        console.log(`[nec-sync] 후보자(${typeLabel}) 페이지 ${pageNo}: ${items.length}건 (누계 이름 ${byName.size}개)`);
+        if (items.length < NUM_OF_ROWS) break;
+        pageNo++;
+        await new Promise((r) => setTimeout(r, 400));
+      } catch (err: any) {
+        console.error(`[nec-sync] 후보자(${typeLabel}) 페이지 ${pageNo} 오류:`, err.message);
+        break;
+      }
+    }
+  }
+
+  console.log(`[nec-sync] 22대 후보자 조회 완료: 이름 ${byName.size}개`);
+  return byName;
+}
+
+export async function enrichLegislatorEducationFromCandidates(): Promise<{
+  filled: number;
+  stillMissing: string[];
+}> {
+  const rows = await db
+    .select({
+      monaCd: legislators.monaCd,
+      name: legislators.name,
+      party: legislators.party,
+      district: legislators.district,
+      education: legislators.education,
+    })
+    .from(legislators);
+
+  const missing = rows.filter(
+    (r) => !r.education || EDU_EMPTY.has(r.education.trim()),
+  );
+  if (missing.length === 0) {
+    console.log("[nec-sync] 학력 미보유 의원 없음 — 후보자 보강 생략");
+    return { filled: 0, stillMissing: [] };
+  }
+  console.log(`[nec-sync] 학력 미보유 의원 ${missing.length}명 → 후보자 등록정보로 보강 시도`);
+
+  const byName = await fetch22ndAssemblyCandidates();
+  let filled = 0;
+  const stillMissing: string[] = [];
+
+  for (const leg of missing) {
+    const cands = byName.get(normalizeName(leg.name)) ?? [];
+    const withEdu = cands.filter(
+      (c) => c.education && !EDU_EMPTY.has(c.education.trim()),
+    );
+    if (withEdu.length === 0) {
+      stillMissing.push(leg.name);
+      continue;
+    }
+
+    // 동명이인 disambiguation: 정당 일치 > 지역구 부분일치 > 첫 결과
+    const legParty = (leg.party || "").replace(/\s+/g, "");
+    const pick =
+      withEdu.find((c) => legParty && c.party && c.party.replace(/\s+/g, "") === legParty) ||
+      withEdu.find((c) => leg.district && c.district && leg.district.includes(c.district)) ||
+      withEdu[0];
+
+    try {
+      await db
+        .update(legislators)
+        .set({
+          education: pick.education!,
+          // 경력이 비어있던 경우에만 후보자 경력으로 보충
+          career: sql`COALESCE(NULLIF(${legislators.career}, ''), ${pick.career})`,
+          necDetailSyncedAt: new Date(),
+        })
+        .where(eq(legislators.monaCd, leg.monaCd));
+      filled++;
+    } catch (err: any) {
+      console.error(`[nec-sync] 학력 보강 실패 (${leg.name}):`, err.message);
+      stillMissing.push(leg.name);
+    }
+  }
+
+  console.log(
+    `[nec-sync] 학력 보강 완료: ${filled}명 채움, 끝까지 미보유 ${stillMissing.length}명` +
+      (stillMissing.length
+        ? ` (${stillMissing.slice(0, 15).join(", ")}${stillMissing.length > 15 ? " ..." : ""})`
+        : ""),
+  );
+  return { filled, stillMissing };
 }
