@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -17,60 +17,57 @@ import { FeedCard, type FeedItem } from "@/components/FeedCard";
 // 헤더/사이드 위젯은 그대로 두고 이 부분만 데이터 도착 시 교체된다.
 function CandidatesSkeleton() {
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden animate-pulse">
+    <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden animate-pulse">
       <div className="px-8 pt-8 pb-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="h-6 w-56 bg-gray-200 rounded" />
-          <div className="h-6 w-28 bg-gray-100 rounded-full" />
-        </div>
-
+        <div className="h-6 w-48 bg-muted rounded mb-8" />
         {/* VS Matchup Skeleton */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 py-4">
-          {[0, 1].map((i) => (
-            <React.Fragment key={i}>
-              <div className="flex flex-col items-center w-full max-w-[280px]">
-                <div className="w-[180px] h-[180px] md:w-[220px] md:h-[220px] rounded-full bg-gray-200" />
-                <div className="h-7 w-32 bg-gray-200 rounded mt-8" />
-                <div className="h-4 w-24 bg-gray-100 rounded mt-3" />
-              </div>
-              {i === 0 && (
-                <div className="flex flex-col items-center justify-center py-4 md:py-0">
-                  <div className="w-12 h-12 rounded-full bg-gray-200" />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
+          <div className="flex flex-col items-center">
+            <div className="w-[180px] h-[180px] md:w-[220px] md:h-[220px] rounded-full bg-muted mb-6" />
+            <div className="w-24 h-6 bg-muted rounded mb-2" />
+            <div className="w-16 h-4 bg-muted/60 rounded" />
+          </div>
+          <div className="hidden md:flex flex-col items-center justify-center py-4">
+            <div className="w-12 h-12 rounded-full bg-muted" />
+            <div className="h-12 w-px bg-muted mt-4" />
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="w-[180px] h-[180px] md:w-[220px] md:h-[220px] rounded-full bg-muted mb-6" />
+            <div className="w-24 h-6 bg-muted rounded mb-2" />
+            <div className="w-16 h-4 bg-muted/60 rounded" />
+          </div>
         </div>
-
         {/* Minor Candidates Skeleton */}
-        <div className="mt-12 pt-8 border-t border-gray-100">
-          <div className="h-4 w-44 bg-gray-200 rounded mb-6" />
+        <div className="mt-12 pt-8 border-t border-border/30">
+          <div className="h-4 w-40 bg-muted rounded mb-6" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-gray-50 rounded-[2rem] p-5 border border-gray-100">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-[2rem] p-5 border border-border/30">
                 <div className="flex flex-col items-center">
-                  <div className="w-[90px] h-[90px] rounded-full bg-gray-200" />
-                  <div className="h-4 w-20 bg-gray-200 rounded mt-5" />
-                  <div className="h-3 w-16 bg-gray-100 rounded mt-2" />
+                  <div className="w-[90px] h-[90px] rounded-full bg-muted mb-4" />
+                  <div className="w-16 h-4 bg-muted rounded mb-2" />
+                  <div className="w-12 h-3 bg-muted/60 rounded" />
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-
+      {/* Divider */}
+      <div className="mx-8 border-t border-border/30" />
       {/* Pledge Skeleton */}
-      <div className="mx-8 border-t border-gray-100" />
       <div className="p-8">
-        <div className="h-6 w-48 bg-gray-200 rounded mb-8" />
-        <div className="flex flex-col gap-10">
-          {Array.from({ length: 3 }).map((_, t) => (
-            <div key={t} className="flex flex-col gap-4">
-              <div className="h-7 w-40 bg-gray-200 rounded" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="h-32 bg-gray-100 rounded-[2rem]" />
-                <div className="h-32 bg-gray-100 rounded-[2rem]" />
-              </div>
+        <div className="h-6 w-40 bg-muted rounded mb-8" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-4">
+              <div className="h-4 w-32 bg-muted rounded mb-2" />
+              {Array.from({ length: 3 }).map((_, j) => (
+                <div key={j} className="bg-card p-5 rounded-2xl border border-border/30">
+                  <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+                  <div className="h-3 w-1/2 bg-muted/60 rounded" />
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -96,17 +93,17 @@ function TimelineFeed() {
     return (
       <div className="flex flex-col gap-6 mb-8">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
+          <div key={i} className="bg-card rounded-2xl border border-border/30 p-5 animate-pulse">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-full bg-gray-100" />
+              <div className="w-11 h-11 rounded-full bg-muted" />
               <div className="flex-1 space-y-1.5">
-                <div className="h-3 w-32 bg-gray-100 rounded" />
-                <div className="h-2 w-20 bg-gray-50 rounded" />
+                <div className="h-3 w-32 bg-muted rounded" />
+                <div className="h-2 w-20 bg-muted/60 rounded" />
               </div>
             </div>
-            <div className="h-4 w-3/4 bg-gray-100 rounded mb-2" />
-            <div className="h-3 w-full bg-gray-50 rounded mb-1.5" />
-            <div className="h-3 w-5/6 bg-gray-50 rounded" />
+            <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+            <div className="h-3 w-full bg-muted/60 rounded mb-1.5" />
+            <div className="h-3 w-5/6 bg-muted/60 rounded" />
           </div>
         ))}
       </div>
@@ -389,8 +386,7 @@ function RegionView({
   const [candidatesForAnalysis, setCandidatesForAnalysis] = useState<any[]>([]);
 
 
-  // keepPreviousData 제거 — 클릭 즉시 새 데이터로 전환, 로딩 중에는 Skeleton.
-  // staleTime은 짧게 두어 같은 지역 재방문 시 캐시 즉시 사용.
+  // keepPreviousData 복구 — 부드러운 화면 전환을 위해 활성화
   const { data: candidates, isLoading, isFetching, isSuccess } = useQuery<any[]>({
     queryKey: ["/api/election/candidates", region.code],
     queryFn: async ({ signal }) => {
@@ -401,6 +397,7 @@ function RegionView({
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // 정렬/필터 — 데이터가 있을 때만 계산. region.code 바뀌면 빈 배열로 즉시 리셋되어 옛 데이터가 안 보임.
@@ -446,10 +443,10 @@ function RegionView({
     enabled: !!allCandidateNames,
   });
 
-  // 로딩 판정 — region.code가 바뀌면 isLoading=true로 즉시 진입(keepPreviousData 없으니).
-  // isFetching은 백그라운드 refetch 포함.
-  const showSkeleton = isLoading || isFetching || !isSuccess;
-  const showEmpty = isSuccess && !isFetching && vsCandidates.length === 0;
+  // 로딩 판정 — keepPreviousData가 있으므로 탭 전환 시 isLoading은 false임.
+  // 첫 로딩시에만 skeleton 표시.
+  const showSkeleton = isLoading;
+  const showEmpty = isSuccess && !isLoading && vsCandidates.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full pb-20 text-foreground">
@@ -515,8 +512,9 @@ function RegionView({
             ) : showEmpty ? (
               <EmptyState regionName={region.name} />
             ) : (
-            <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden">
-              <div className="px-8 pt-8 pb-8">
+            <div className={`transition-opacity duration-300 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
+              <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden">
+                <div className="px-8 pt-8 pb-8">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="text-lg font-black text-foreground flex items-center gap-2">
                     주요 정당 핵심 정책 대결
@@ -805,6 +803,7 @@ function RegionView({
                   );
                 })()}
               </div>
+            </div>
             </div>
             )}
 
