@@ -1187,7 +1187,7 @@ export default function MemberDetail() {
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {alumni.map((person) => (
-                        <Link key={person.monaCd} href={`/member/${person.monaCd}`}>
+                        <Link key={person.monaCd} href={`/members/${person.monaCd}`}>
                           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 border border-blue-100/50 transition-all cursor-pointer group">
                             {person.photoUrl ? (
                               <div className="w-8 h-8 rounded-lg overflow-hidden border border-white shadow-sm shrink-0">

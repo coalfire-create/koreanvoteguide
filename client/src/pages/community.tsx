@@ -146,27 +146,27 @@ export default function Community() {
   function switchBoard(b: BoardId) { navigate(`/community?board=${b}`); }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC] flex flex-col font-sans">
+    <div className="min-h-screen bg-background flex flex-col font-sans text-foreground">
       {/* TopAppBar */}
-      <header className="sticky top-0 z-40 h-[72px] w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 flex justify-between items-center px-6 md:px-8 shadow-sm">
+      <header className="sticky top-0 z-40 h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-6 md:px-8 shadow-sm">
         <div className="flex items-center gap-6 flex-1 max-w-2xl">
           <div className="relative w-full group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#6D28D9] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input
-              className="w-full h-11 bg-slate-50 border border-slate-100 focus:bg-white focus:border-[#6D28D9]/30 focus:shadow-[0_0_0_4px_rgba(109,40,217,0.05)] rounded-[14px] pl-11 pr-4 py-2 text-[14px] transition-all text-slate-900 outline-none placeholder:text-slate-400 font-medium"
+              className="w-full h-11 bg-muted border border-border/30 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_4px_rgba(var(--primary),0.05)] rounded-[14px] pl-11 pr-4 py-2 text-[14px] transition-all text-foreground outline-none placeholder:text-muted-foreground font-medium"
               placeholder="토론, 주제 또는 의원 검색..."
               value={searchQuery}
               onChange={handleSearchChange}
             />
             {searchQuery && (
               <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} className="absolute right-4 top-1/2 -translate-y-1/2">
-                <X className="w-4 h-4 text-slate-400 hover:text-slate-900 transition-colors" />
+                <X className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
               </button>
             )}
           </div>
         </div>
         <div className="hidden md:block">
-           <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold px-5 py-2.5 rounded-[12px] transition-all active:scale-95 shadow-sm shadow-indigo-500/20 text-[14px]">
+           <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary hover:opacity-90 text-primary-foreground font-bold px-5 py-2.5 rounded-[12px] transition-all active:scale-95 shadow-sm shadow-indigo-500/20 text-[14px]">
              글쓰기
            </button>
         </div>
@@ -179,13 +179,13 @@ export default function Community() {
         <div className="col-span-1 md:col-span-8 space-y-8">
           
           {/* Tab Bar */}
-          <div className="flex gap-2 p-1.5 bg-slate-200/50 rounded-2xl overflow-x-auto scrollbar-hide w-max">
+          <div className="flex gap-2 p-1.5 bg-muted rounded-2xl overflow-x-auto scrollbar-hide w-max">
             {BOARDS.map(b => (
               <button
                 key={b.id}
                 onClick={() => switchBoard(b.id)}
                 className={`px-5 py-2.5 rounded-xl font-bold text-[14px] transition-all whitespace-nowrap ${
-                  board === b.id ? "bg-white text-indigo-600 shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                  board === b.id ? "bg-card text-primary shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
                 {b.label}
@@ -197,7 +197,7 @@ export default function Community() {
 
           <div className="flex items-center justify-between mt-4">
              <Select value={sort} onValueChange={(v) => { const next = new URLSearchParams(search); next.set("sort", v); navigate(`/community?${next.toString()}`); }}>
-               <SelectTrigger className="w-32 h-10 rounded-full bg-white border-slate-200 text-[13px] font-bold shadow-sm">
+               <SelectTrigger className="w-32 h-10 rounded-full bg-card border-border/30 text-[13px] font-bold shadow-sm">
                  <SelectValue />
                </SelectTrigger>
                <SelectContent>
@@ -209,7 +209,7 @@ export default function Community() {
 
              {/* Mobile Write Button */}
              <div className="md:hidden">
-               <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold px-4 py-2 rounded-[12px] transition-all active:scale-95 shadow-sm text-[13px]">
+               <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary text-primary-foreground font-bold px-4 py-2 rounded-[12px] transition-all active:scale-95 shadow-sm text-[13px]">
                  <Edit className="w-4 h-4 inline-block mr-1" />글쓰기
                </button>
              </div>
@@ -218,22 +218,22 @@ export default function Community() {
           <AnimatePresence>
             {isWriteOpen && board === "free" && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm mb-6">
+                <div className="bg-card p-6 rounded-[24px] border border-border/30 shadow-sm mb-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-slate-900">{BOARDS.find(b=>b.id===board)?.label}에 글쓰기</h3>
-                    <button onClick={() => setIsWriteOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-900" /></button>
+                    <h3 className="text-lg font-bold text-foreground">{BOARDS.find(b=>b.id===board)?.label}에 글쓰기</h3>
+                    <button onClick={() => setIsWriteOpen(false)}><X className="w-5 h-5 text-muted-foreground hover:text-foreground" /></button>
                   </div>
                   
                   {/* Write form details */}
                   <div className="space-y-4">
-                     <Input placeholder="제목을 입력하세요" value={writeTitle} onChange={(e) => setWriteTitle(e.target.value)} className="h-12 bg-slate-50 text-[15px] border-slate-200 focus:border-indigo-500 rounded-[12px]" />
+                     <Input placeholder="제목을 입력하세요" value={writeTitle} onChange={(e) => setWriteTitle(e.target.value)} className="h-12 bg-muted text-[15px] border-border/30 focus:border-primary rounded-[12px]" />
                      <PostEditor content={writeContent} onChange={setWriteContent} attachments={writeAttachments} onAttachmentsChange={setWriteAttachments} />
                      <div className="flex justify-between items-center pt-2">
-                        <select className="bg-slate-50 border border-slate-200 rounded-[12px] px-4 py-2.5 text-[13px] font-bold text-slate-700 outline-none" value={writeAuthorType} onChange={e=>setWriteAuthorType(e.target.value as any)}>
+                        <select className="bg-muted border border-border/30 rounded-[12px] px-4 py-2.5 text-[13px] font-bold text-foreground outline-none" value={writeAuthorType} onChange={e=>setWriteAuthorType(e.target.value as any)}>
                            <option value="anonymous">익명</option>
                            <option value="nickname" disabled={!user?.nickname}>닉네임</option>
                         </select>
-                        <Button onClick={() => createPostMutation.mutate()} disabled={!writeTitle.trim() || !writeContent.trim() || createPostMutation.isPending} className="rounded-[12px] px-8 py-2.5 h-auto bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-bold shadow-sm shadow-indigo-500/20">
+                        <Button onClick={() => createPostMutation.mutate()} disabled={!writeTitle.trim() || !writeContent.trim() || createPostMutation.isPending} className="rounded-[12px] px-8 py-2.5 h-auto bg-primary text-primary-foreground font-bold shadow-sm shadow-indigo-500/20">
                            {createPostMutation.isPending ? "등록 중..." : "등록"}
                         </Button>
                      </div>
@@ -245,15 +245,15 @@ export default function Community() {
 
           {/* Empty State */}
           {!postsLoading && filteredPosts.length === 0 && (
-            <div className="bg-white rounded-[24px] p-12 border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center space-y-6">
-              <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center">
-                <PenSquare className="text-indigo-600 w-8 h-8" />
+            <div className="bg-card rounded-[24px] p-12 border border-border/30 shadow-sm flex flex-col items-center justify-center text-center space-y-6">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                <PenSquare className="text-primary w-8 h-8" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-[18px] font-bold text-slate-900">아직 등록된 게시글이 없습니다</h3>
-                <p className="text-[14px] text-slate-500 max-w-xs mx-auto">첫 번째 의견을 나누고 커뮤니티와 대화를 시작해 보세요.</p>
+                <h3 className="text-[18px] font-bold text-foreground">아직 등록된 게시글이 없습니다</h3>
+                <p className="text-[14px] text-muted-foreground max-w-xs mx-auto">첫 번째 의견을 나누고 커뮤니티와 대화를 시작해 보세요.</p>
               </div>
-              <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold px-8 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95">
+              <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary/15 text-primary hover:bg-primary/20 font-bold px-8 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95">
                 <Edit className="w-4 h-4" /> 글쓰기
               </button>
             </div>
@@ -262,33 +262,33 @@ export default function Community() {
           {/* Posts List */}
           <div className="space-y-4">
             {postsLoading ? (
-              Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 bg-white rounded-[24px] border border-slate-100 animate-pulse" />)
+              Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 bg-card rounded-[24px] border border-border/30 animate-pulse" />)
             ) : (
               filteredPosts.map(post => (
-                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-white border border-slate-100 rounded-[24px] p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-indigo-100 transition-all cursor-pointer flex flex-col gap-3 group">
+                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-card border border-border/30 rounded-[24px] p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-primary/20 transition-all cursor-pointer flex flex-col gap-3 group">
                   <div className="flex justify-between items-start">
-                     <h3 className="text-[16px] font-extrabold text-slate-900 group-hover:text-[#6D28D9] transition-colors line-clamp-2 leading-snug">{post.title}</h3>
+                     <h3 className="text-[16px] font-extrabold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">{post.title}</h3>
                      {post.tagName && (
-                        <span className="shrink-0 ml-4 inline-flex items-center px-2 py-1 rounded-md bg-slate-50 text-[11px] font-bold text-slate-500 border border-slate-100">
+                        <span className="shrink-0 ml-4 inline-flex items-center px-2 py-1 rounded-md bg-muted text-[11px] font-bold text-muted-foreground border border-border/30">
                            {post.tagName}
                         </span>
                      )}
                   </div>
-                  <p className="text-[14px] text-slate-600 line-clamp-2 leading-relaxed">{post.content.replace(/<[^>]*>/g, ' ')}</p>
+                  <p className="text-[14px] text-muted-foreground line-clamp-2 leading-relaxed">{post.content.replace(/<[^>]*>/g, ' ')}</p>
                   
                   {post.topComment && (
-                    <div className="mt-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 relative before:absolute before:-top-2 before:left-6 before:w-3 before:h-3 before:bg-indigo-50/50 before:rotate-45 before:border-l before:border-t before:border-indigo-100/50">
+                    <div className="mt-2 p-3 bg-primary/5 rounded-2xl border border-primary/10 relative before:absolute before:-top-2 before:left-6 before:w-3 before:h-3 before:bg-primary/5 before:rotate-45 before:border-l before:border-t before:border-primary/10">
                       <div className="flex items-center gap-2 mb-1.5 relative z-10">
-                        <span className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-indigo-50"><Flame className="w-3 h-3 text-orange-500" /> 베스트 댓글</span>
-                        <span className="text-[12px] font-bold text-slate-700 ml-1">{post.topComment.displayName || "익명"}</span>
-                        <span className="text-[11px] text-indigo-600 font-bold ml-auto flex items-center gap-1 bg-white px-1.5 py-0.5 rounded-md"><ThumbsUp className="w-3 h-3" /> {post.topCommentLikes || 0}</span>
+                        <span className="text-[10px] font-bold text-primary bg-background px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-primary/5"><Flame className="w-3 h-3 text-orange-500" /> 베스트 댓글</span>
+                        <span className="text-[12px] font-bold text-foreground ml-1">{post.topComment.displayName || "익명"}</span>
+                        <span className="text-[11px] text-primary font-bold ml-auto flex items-center gap-1 bg-background px-1.5 py-0.5 rounded-md"><ThumbsUp className="w-3 h-3" /> {post.topCommentLikes || 0}</span>
                       </div>
-                      <p className="text-[13px] text-slate-600 line-clamp-2 relative z-10 pl-1">{post.topComment.content}</p>
+                      <p className="text-[13px] text-muted-foreground line-clamp-2 relative z-10 pl-1">{post.topComment.content}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mt-3 pt-4 border-t border-slate-50">
-                     <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
+                  <div className="flex items-center justify-between mt-3 pt-4 border-t border-border/30">
+                     <div className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
                         <AuthorDisplay displayName={post.displayName} authorType={post.authorType} isVerified={post.isVerified} />
                         <span>·</span>
                         <span>{formatRelativeTime(post.createdAt)}</span>
@@ -296,10 +296,10 @@ export default function Community() {
                         <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
                      </div>
                      <div className="flex items-center gap-4">
-                        <button onClick={(e) => { e.stopPropagation(); quickReactMutation.mutate({ postId: post.id, type: "like" }); }} className="flex items-center gap-1 text-[12px] font-bold text-slate-400 hover:text-indigo-600 transition-colors">
-                           <ThumbsUp className={`w-4 h-4 ${post.likes > 0 ? "fill-indigo-600 text-indigo-600" : ""}`} /> {post.likes ?? 0}
+                        <button onClick={(e) => { e.stopPropagation(); quickReactMutation.mutate({ postId: post.id, type: "like" }); }} className="flex items-center gap-1 text-[12px] font-bold text-muted-foreground hover:text-primary transition-colors">
+                           <ThumbsUp className={`w-4 h-4 ${post.likes > 0 ? "fill-primary text-primary" : ""}`} /> {post.likes ?? 0}
                         </button>
-                        <span className="flex items-center gap-1 text-[12px] font-bold text-slate-400">
+                        <span className="flex items-center gap-1 text-[12px] font-bold text-muted-foreground">
                            <MessageCircle className="w-4 h-4" /> {post.commentCount ?? 0}
                         </span>
                      </div>
@@ -313,33 +313,33 @@ export default function Community() {
         {/* Right Sidebar: Trending & Popular Posts (Desktop only) */}
         <div className="col-span-1 md:col-span-4 space-y-6 hidden md:block">
           {/* Trending Searches Section */}
-          <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm space-y-5">
+          <div className="bg-card p-6 rounded-[24px] border border-border/30 shadow-sm space-y-5">
             <div className="flex items-center justify-between">
-              <h4 className="text-[16px] font-black text-slate-900">실시간 인기 급상승 검색어</h4>
-              <TrendingUp className="text-[#6D28D9] w-5 h-5" />
+              <h4 className="text-[16px] font-black text-foreground">실시간 인기 급상승 검색어</h4>
+              <TrendingUp className="text-primary w-5 h-5" />
             </div>
             <ol className="space-y-4">
               {topTrending.map((item, idx) => (
                 <li key={item.memberId} className="flex items-center gap-4 group cursor-pointer" onClick={() => { setSearchQuery(item.member.name); setDebouncedQuery(item.member.name); }}>
-                  <span className="font-black text-[#6D28D9] text-lg w-4">{idx + 1}</span>
-                  <span className="text-slate-800 font-bold group-hover:text-[#6D28D9] transition-colors">{item.member.name}</span>
-                  <span className="ml-auto text-[11px] font-bold text-slate-400 flex items-center gap-0.5"><ArrowUp className="w-3 h-3 text-red-400" />{item.count}</span>
+                  <span className="font-black text-primary text-lg w-4">{idx + 1}</span>
+                  <span className="text-foreground font-bold group-hover:text-primary transition-colors">{item.member.name}</span>
+                  <span className="ml-auto text-[11px] font-bold text-muted-foreground flex items-center gap-0.5"><ArrowUp className="w-3 h-3 text-red-400" />{item.count}</span>
                 </li>
               ))}
             </ol>
           </div>
 
-          {/* Glassmorphism Suggested Topics (Visual interest) */}
+          {/* Suggested Topics */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-orange-50/50 p-4 rounded-[20px] border border-orange-100 text-center cursor-pointer hover:bg-orange-50 transition-colors group">
+            <div className="bg-orange-500/10 p-4 rounded-[20px] border border-orange-500/20 text-center cursor-pointer hover:bg-orange-500/20 transition-colors group">
               <Flame className="text-orange-500 mx-auto mb-2 w-6 h-6 group-hover:scale-110 transition-transform" />
               <p className="text-[11px] font-bold text-orange-400/80 mb-1">인기 주제</p>
               <p className="font-black text-orange-600 text-[14px]">#경제활성화</p>
             </div>
-            <div className="bg-blue-50/50 p-4 rounded-[20px] border border-blue-100 text-center cursor-pointer hover:bg-blue-50 transition-colors group">
-              <Sparkles className="text-blue-500 mx-auto mb-2 w-6 h-6 group-hover:scale-110 transition-transform" />
-              <p className="text-[11px] font-bold text-blue-400/80 mb-1">최신 화제</p>
-              <p className="font-black text-blue-600 text-[14px]">#기후위기</p>
+            <div className="bg-primary/10 p-4 rounded-[20px] border border-primary/20 text-center cursor-pointer hover:bg-primary/20 transition-colors group">
+              <Sparkles className="text-primary mx-auto mb-2 w-6 h-6 group-hover:scale-110 transition-transform" />
+              <p className="text-[11px] font-bold text-primary/80 mb-1">최신 화제</p>
+              <p className="font-black text-primary text-[14px]">#기후위기</p>
             </div>
           </div>
         </div>

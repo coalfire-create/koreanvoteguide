@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
@@ -168,6 +169,50 @@ function formatDemographic(ageGroup?: number | null, gender?: string | null): st
 export default function More() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+
+  const handleThemeToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    if (
+      !document.startViewTransition ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setTheme(nextTheme);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        setTheme(nextTheme);
+      });
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`
+          ],
+        },
+        {
+          duration: 450,
+          easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+          pseudoElement: "::view-transition-new(root)",
+        }
+      );
+    });
+  };
+
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -249,14 +294,14 @@ export default function More() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] pb-28">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-gray-100/50">
-        <h1 className="text-xl font-bold text-gray-900">마이페이지</h1>
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-border/40">
+        <h1 className="text-xl font-bold text-foreground">마이페이지</h1>
         {user && (
           <button
             onClick={() => setNicknameSheetOpen(true)}
-            className="p-2 text-gray-400 hover:text-indigo-500 transition-colors rounded-xl hover:bg-indigo-50"
+            className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-xl hover:bg-primary/10"
           >
             <Settings className="w-6 h-6" />
           </button>
@@ -271,21 +316,21 @@ export default function More() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50 relative overflow-hidden"
+            className="bg-card rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border/30 relative overflow-hidden"
           >
             <div className="flex items-start justify-between mb-8">
               <div className="flex items-center gap-5">
                 <div className="relative">
-                  <Avatar className="w-[88px] h-[88px] border-4 border-indigo-50">
-                    <AvatarFallback className="bg-indigo-100 text-indigo-600 text-2xl font-bold">
+                  <Avatar className="w-[88px] h-[88px] border-4 border-muted">
+                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
                       {displayName?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full shadow-sm" />
+                  <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-card rounded-full shadow-sm" />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-2xl font-bold text-gray-900">{displayName} 님</h2>
+                    <h2 className="text-2xl font-bold text-foreground">{displayName} 님</h2>
                     {user.realNameVerified && (
                       <BadgeCheck
                         className="w-6 h-6 text-blue-500"
@@ -294,7 +339,7 @@ export default function More() {
                       />
                     )}
                   </div>
-                  <p className="text-sm text-gray-400">@{user.username}</p>
+                  <p className="text-sm text-muted-foreground">@{user.username}</p>
                   {(() => {
                     const demo = formatDemographic(user.ageGroup, user.gender);
                     return demo ? (
@@ -308,34 +353,34 @@ export default function More() {
               </div>
               <button
                 onClick={() => setNicknameSheetOpen(true)}
-                className="flex items-center gap-1.5 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 border border-gray-100 rounded-xl px-3 py-2 text-sm font-bold transition-all"
+                className="flex items-center gap-1.5 bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary border border-border/40 rounded-xl px-3 py-2 text-sm font-bold transition-all"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 수정
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-50">
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border/30">
               <div className="text-center space-y-1">
-                <p className="text-xl font-bold text-gray-900">{favoriteMemberIds.length}</p>
-                <p className="text-[12px] font-medium text-gray-400">관심 의원</p>
+                <p className="text-xl font-bold text-foreground">{favoriteMemberIds.length}</p>
+                <p className="text-[12px] font-medium text-muted-foreground">관심 의원</p>
               </div>
               <div className="text-center space-y-1">
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-foreground">
                   {activityQuery.isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : votedBills.length}
                 </p>
-                <p className="text-[12px] font-medium text-gray-400">참여 투표</p>
+                <p className="text-[12px] font-medium text-muted-foreground">참여 투표</p>
               </div>
               <div className="text-center space-y-1">
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-foreground">
                   {activityQuery.isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : (activity?.comments?.length ?? 0) + (activity?.posts?.length ?? 0)}
                 </p>
-                <p className="text-[12px] font-medium text-gray-400">작성 글</p>
+                <p className="text-[12px] font-medium text-muted-foreground">작성 글</p>
               </div>
             </div>
 
             {/* ===== 본인인증 (PortOne/PASS 연동 전 mock 테스트 버튼) ===== */}
-            <div className="mt-5 pt-5 border-t border-gray-50">
+            <div className="mt-5 pt-5 border-t border-border/30">
               {user.realNameVerified ? (
                 <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 border border-blue-100 rounded-2xl py-3 px-4">
                   <ShieldCheck className="w-4 h-4" />
@@ -363,7 +408,7 @@ export default function More() {
 
         {/* 관심 의원 — Story 스타일 */}
         {user && (
-          <section className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-50 py-3 -mx-1">
+          <section className="bg-card rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border/30 py-3 -mx-1">
             <StoryFeed />
           </section>
         )}
@@ -372,12 +417,12 @@ export default function More() {
         {user && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <h3 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-fuchsia-500" />
                 내 관심 의원 실시간 활동
               </h3>
               {followCount > 0 && (
-                <span className="text-[11px] font-bold text-gray-400">
+                <span className="text-[11px] font-bold text-muted-foreground">
                   {followCount}명 팔로잉
                 </span>
               )}
@@ -385,25 +430,25 @@ export default function More() {
 
             {feedQuery.isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-[24px] p-5 h-24 animate-pulse border border-gray-50" />
+                <div key={i} className="bg-card rounded-[24px] p-5 h-24 animate-pulse border border-border/30" />
               ))
             ) : followCount === 0 ? (
-              <div className="bg-white rounded-[24px] p-7 text-center border border-gray-50 space-y-3">
+              <div className="bg-card rounded-[24px] p-7 text-center border border-border/30 space-y-3">
                 <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-fuchsia-50 to-rose-50 flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-fuchsia-500" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold text-gray-700">팔로우한 의원이 없어요</p>
-                  <p className="text-[11px] text-gray-400 mt-1">의원을 팔로우하면 발의·표결 활동이 실시간으로 표시됩니다</p>
+                  <p className="text-[13px] font-bold text-foreground">팔로우한 의원이 없어요</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">의원을 팔로우하면 발의·표결 활동이 실시간으로 표시됩니다</p>
                 </div>
                 <Link href="/members">
-                  <button className="text-[12px] font-bold text-white bg-[#6D28D9] hover:bg-[#5B21B6] transition px-4 py-2 rounded-xl">
+                  <button className="text-[12px] font-bold text-white bg-primary hover:opacity-90 transition px-4 py-2 rounded-xl">
                     의원 탐색하기
                   </button>
                 </Link>
               </div>
             ) : feedItems.length === 0 ? (
-              <div className="bg-white rounded-[24px] p-6 text-center text-sm text-gray-400 border border-gray-50">
+              <div className="bg-card rounded-[24px] p-6 text-center text-sm text-muted-foreground border border-border/30">
                 아직 새로운 활동이 없습니다.
               </div>
             ) : (
@@ -418,20 +463,20 @@ export default function More() {
                   <motion.div
                     key={item.id}
                     whileHover={{ y: -2 }}
-                    className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex items-start gap-4"
+                    className="bg-card rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-border/30 flex items-start gap-4"
                   >
                     <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 ring-2 ring-white shadow-sm bg-gray-100">
                       <PoliticianPhoto
                         name={item.politicianName}
                         monaCd={item.politicianId}
                         photo={item.photo ?? undefined}
-                        avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-sm font-bold"
+                        avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-sm font-bold"
                       />
                     </div>
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link href={`/members/${item.politicianId}`}>
-                          <span className="text-[13px] font-bold text-gray-900 hover:text-indigo-600 cursor-pointer">
+                          <span className="text-[13px] font-bold text-foreground hover:text-primary cursor-pointer">
                             {item.politicianName}
                           </span>
                         </Link>
@@ -440,7 +485,7 @@ export default function More() {
                           {isBill ? "법안 발의" : "표결"}
                         </span>
                       </div>
-                      <p className="text-[13px] font-semibold text-gray-700 leading-snug line-clamp-2">
+                      <p className="text-[13px] font-semibold text-foreground leading-snug line-clamp-2">
                         {item.title}
                       </p>
                       <div className="flex items-center justify-between text-[11px] text-gray-400">
@@ -459,20 +504,20 @@ export default function More() {
         {user && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-lg font-bold text-gray-900 tracking-tight">내 투표 결과</h3>
+              <h3 className="text-lg font-bold text-foreground tracking-tight">내 투표 결과</h3>
               <Link href="/bills">
-                <span className="text-xs font-semibold text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer">전체보기</span>
+                <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">전체보기</span>
               </Link>
             </div>
 
             {activityQuery.isLoading ? (
               Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-[24px] p-6 h-24 animate-pulse border border-gray-50" />
+                <div key={i} className="bg-card rounded-[24px] p-6 h-24 animate-pulse border border-border/30" />
               ))
             ) : recentVotes.length === 0 ? (
-              <div className="bg-white rounded-[24px] p-6 text-center text-sm text-gray-400 border border-gray-50">
+              <div className="bg-card rounded-[24px] p-6 text-center text-sm text-muted-foreground border border-border/30">
                 아직 투표한 법안이 없습니다.{" "}
-                <Link href="/bills"><span className="text-indigo-500 font-bold cursor-pointer">법안 보기</span></Link>
+                <Link href="/bills"><span className="text-primary font-bold cursor-pointer">법안 보기</span></Link>
               </div>
             ) : (
               recentVotes.map((vote, idx) => {
@@ -481,10 +526,10 @@ export default function More() {
                   <motion.div
                     key={vote.id ?? idx}
                     whileHover={{ y: -2 }}
-                    className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50"
+                    className="bg-card rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-border/30"
                   >
                     <div className="flex items-start justify-between gap-3 mb-4">
-                      <h4 className="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">
+                      <h4 className="text-[14px] font-bold text-foreground leading-snug line-clamp-2">
                         {vote.billName}
                       </h4>
                       <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] font-bold shrink-0 ${
@@ -511,43 +556,43 @@ export default function More() {
         {user && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-lg font-bold text-gray-900 tracking-tight">최근 활동</h3>
+              <h3 className="text-lg font-bold text-foreground tracking-tight">최근 활동</h3>
               <Link href="/community">
-                <span className="text-xs font-semibold text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer">커뮤니티</span>
+                <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">커뮤니티</span>
               </Link>
             </div>
 
             {activityQuery.isLoading ? (
               Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-[20px] p-5 h-20 animate-pulse border border-gray-50" />
+                <div key={i} className="bg-card rounded-[20px] p-5 h-20 animate-pulse border border-border/30" />
               ))
             ) : recentActivities.length === 0 ? (
-              <div className="bg-white rounded-[24px] p-6 text-center text-sm text-gray-400 border border-gray-50">
+              <div className="bg-card rounded-[24px] p-6 text-center text-sm text-muted-foreground border border-border/30">
                 아직 활동 내역이 없습니다.
               </div>
             ) : (
               recentActivities.map((act, idx) => (
                 <motion.div
                   key={idx}
-                  className="bg-white rounded-[20px] p-5 flex items-center gap-4 shadow-[0_4px_15px_rgb(0,0,0,0.02)] border border-gray-50"
+                  className="bg-card rounded-[20px] p-5 flex items-center gap-4 shadow-[0_4px_15px_rgb(0,0,0,0.02)] border border-border/30"
                 >
                   <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                    act.type === "post" ? "bg-indigo-50" : "bg-gray-50"
+                    act.type === "post" ? "bg-primary/10" : "bg-muted"
                   }`}>
                     {act.type === "post"
-                      ? <FileText className="w-5 h-5 text-indigo-500" />
-                      : <MessageSquare className="w-5 h-5 text-gray-400" />
+                      ? <FileText className="w-5 h-5 text-primary" />
+                      : <MessageSquare className="w-5 h-5 text-muted-foreground" />
                     }
                   </div>
                   <div className="flex-1 min-w-0 space-y-0.5">
-                    <p className="text-[13px] text-gray-700 leading-snug truncate">
+                    <p className="text-[13px] text-foreground leading-snug truncate">
                       {act.type === "post" ? (
-                        <><span className="font-bold text-indigo-500">게시글</span> {act.text}</>
+                        <><span className="font-bold text-primary">게시글</span> {act.text}</>
                       ) : (
                         <><span className="font-bold">댓글:</span> {act.text}</>
                       )}
                     </p>
-                    <p className="text-[11px] font-medium text-gray-300">{timeAgo(act.time)}</p>
+                    <p className="text-[11px] font-medium text-muted-foreground/60">{timeAgo(act.time)}</p>
                   </div>
                 </motion.div>
               ))
@@ -557,62 +602,62 @@ export default function More() {
 
         {/* 설정 */}
         <section className="space-y-4 pb-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">설정</h3>
-          <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-50 divide-y divide-gray-50 overflow-hidden">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">설정</h3>
+          <div className="bg-card rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border/30 divide-y divide-border/30 overflow-hidden">
             {/* 지역 설정 */}
             <button
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50/50 transition-colors text-left group"
+              className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
               onClick={() => setLocation("/onboarding")}
             >
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
                   <MapPin className="w-5 h-5" />
                 </div>
-                <span className="text-[15px] font-bold text-gray-700">지역 설정</span>
+                <span className="text-[15px] font-bold text-foreground">지역 설정</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-200 group-hover:text-indigo-400 transition-colors" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
             </button>
 
             {/* 공지사항 */}
             <button
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50/50 transition-colors text-left group"
+              className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
               onClick={() => toast({ title: "공지사항", description: "현재 등록된 공지사항이 없습니다." })}
             >
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+                <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
                   <Bell className="w-5 h-5" />
                 </div>
-                <span className="text-[15px] font-bold text-gray-700">공지사항</span>
+                <span className="text-[15px] font-bold text-foreground">공지사항</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-200 group-hover:text-indigo-400 transition-colors" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
             </button>
 
             {/* FAQ */}
             <button
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50/50 transition-colors text-left group"
+              className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
               onClick={() => toast({ title: "자주 묻는 질문", description: "준비 중입니다. 문의: coalfireant@gmail.com" })}
             >
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+                <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
                   <CircleHelp className="w-5 h-5" />
                 </div>
-                <span className="text-[15px] font-bold text-gray-700">자주 묻는 질문</span>
+                <span className="text-[15px] font-bold text-foreground">자주 묻는 질문</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-200 group-hover:text-indigo-400 transition-colors" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
             </button>
 
             {/* 다크모드 */}
             <div className="w-full flex items-center justify-between p-5">
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-[#1D1E2C] flex items-center justify-center text-white">
+                <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center text-foreground">
                   {theme === "dark" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                 </div>
-                <span className="text-[15px] font-bold text-gray-700">다크 모드</span>
+                <span className="text-[15px] font-bold text-foreground">다크 모드</span>
               </div>
               <Switch
                 checked={theme === "dark"}
-                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-                className="data-[state=checked]:bg-indigo-500"
+                onClick={handleThemeToggle}
+                className="data-[state=checked]:bg-primary"
               />
             </div>
 
@@ -636,9 +681,9 @@ export default function More() {
 
         {/* 법적 고지 */}
         <section className="space-y-2 pb-4">
-          <div className="bg-white rounded-[24px] shadow-[0_4px_15px_rgb(0,0,0,0.02)] border border-gray-50 divide-y divide-gray-50 overflow-hidden text-sm">
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-gray-50/50 text-gray-600">이용약관</a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-gray-50/50 text-gray-600">개인정보처리방침</a>
+          <div className="bg-card rounded-[24px] shadow-[0_4px_15px_rgb(0,0,0,0.02)] border border-border/30 divide-y divide-border/30 overflow-hidden text-sm">
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-muted/50 text-muted-foreground">이용약관</a>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="block px-5 py-4 hover:bg-muted/50 text-muted-foreground">개인정보처리방침</a>
             {user && (
               <button
                 className="w-full text-left px-5 py-4 hover:bg-red-50/40 text-red-500"

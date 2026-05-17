@@ -83,53 +83,53 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255,255,255, .15);
+  --badge-outline: rgba(255,255,255, .08);
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-2: rgba(255,255,255, .08);
 
-  /* Lyu Unified System Dark Colors */
-  --background: 217 30% 12%; /* #151c27 */
-  --foreground: 240 100% 99%; /* #f9f9ff */
-  --card: 216 18% 20%; /* #2a313d (inverse-surface) */
-  --card-foreground: 240 100% 99%;
-  --popover: 216 18% 20%;
-  --popover-foreground: 240 100% 99%;
+  /* Instagram-like Pure Black System Colors */
+  --background: 0 0% 0%; /* Pure black #000000 */
+  --foreground: 0 0% 98%; /* Off-white #f5f5f5 */
+  --card: 0 0% 4%; /* Extremely dark grey #0a0a0a */
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 6%; /* Very dark grey #0f0f0f */
+  --popover-foreground: 0 0% 98%;
 
-  --primary: 261 100% 86%; /* #d3bbff (inverse-primary) */
-  --primary-foreground: 265 100% 17%; /* #250059 (on-primary-fixed) */
+  --primary: 263 80% 65%; /* Vibrant violet to pop on pure black */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 25 100% 72%; /* #ffb783 (secondary-fixed-dim) */
-  --secondary-foreground: 25 100% 9%; /* #301400 (on-secondary-fixed) */
+  --secondary: 25 100% 68%; /* Vibrant warm orange */
+  --secondary-foreground: 0 0% 10%;
 
-  --muted: 226 22% 84%; /* #dce2f3 (surface-variant) */
-  --muted-foreground: 224 100% 96%; /* #ebf1ff (inverse-on-surface) */
+  --muted: 0 0% 8%; /* Dark surface for list items #141414 */
+  --muted-foreground: 0 0% 65%; /* Soft grey text */
 
-  --accent: 25 100% 88%; /* #ffdcc5 (secondary-fixed) */
-  --accent-foreground: 26 100% 22%; /* #713700 (on-secondary-fixed-variant) */
+  --accent: 0 0% 12%; /* #1f1f1f hover state surface */
+  --accent-foreground: 0 0% 98%;
 
-  --destructive: 3 100% 88%; /* #ffdad6 (error-container) */
-  --destructive-foreground: 356 100% 29%; /* #93000a (on-error-container) */
+  --destructive: 0 85% 60%; /* Vivid red for error / danger */
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 267 17% 80%; /* #ccc3d7 (outline-variant) */
-  --input: 264 6% 50%; /* #7b7486 (outline) */
-  --ring: 261 100% 86%;
+  --border: 0 0% 15%; /* Sleek thin borders #262626 */
+  --input: 0 0% 12%; /* Input dark fill #1f1f1f */
+  --ring: 263 80% 65%;
 
-  --sidebar: 216 18% 20%;
-  --sidebar-foreground: 240 100% 99%;
-  --sidebar-border: 267 17% 80%;
-  --sidebar-primary: 261 100% 86%;
-  --sidebar-primary-foreground: 265 100% 17%;
-  --sidebar-accent: 226 22% 84%;
-  --sidebar-accent-foreground: 240 100% 99%;
-  --sidebar-ring: 261 100% 86%;
+  --sidebar: 0 0% 0%; /* Pure black sidebar */
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 15%; /* #262626 border */
+  --sidebar-primary: 263 80% 65%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 8%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-ring: 263 80% 65%;
 
-  --chart-1: 261 100% 86%;
-  --chart-2: 25 100% 72%;
-  --chart-3: 333 100% 85%;
-  --chart-4: 3 100% 88%;
-  --chart-5: 226 22% 84%;
+  --chart-1: 263 80% 65%;
+  --chart-2: 25 100% 68%;
+  --chart-3: 333 100% 80%;
+  --chart-4: 0 85% 60%;
+  --chart-5: 0 0% 12%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
@@ -148,6 +148,20 @@
   --muted-border: hsl(var(--muted));
   --accent-border: hsl(var(--accent));
   --destructive-border: hsl(var(--destructive));
+}
+
+/* Instagram-like Circular Theme Switch Animation (View Transitions API) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
 }
 
 @layer base {

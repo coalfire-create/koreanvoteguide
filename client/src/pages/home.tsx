@@ -8,6 +8,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { useAuth } from "@/lib/auth";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAssemblyMembers } from "@/lib/api-data";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -63,29 +64,29 @@ export default function Home() {
   const finalBills = displayBills.length > 0 ? displayBills : (billsData || []);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full h-[72px] bg-white border-b border-gray-100 flex items-center px-8">
+      <header className="sticky top-0 z-40 w-full h-[72px] bg-background/80 backdrop-blur-md border-b border-border/40 flex items-center px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#6D28D9] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input
-              className="w-full h-10 pl-11 pr-12 bg-gray-50 border border-gray-100 rounded-xl text-[14px] focus:bg-white focus:border-[#6D28D9]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              className="w-full h-10 pl-11 pr-12 bg-muted border border-border/30 rounded-xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
               placeholder="국회의원 이름으로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-100 rounded shadow-sm">
-              <span className="text-[10px] font-bold text-gray-400">⌘K</span>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-background border border-border/30 rounded shadow-sm">
+              <span className="text-[10px] font-bold text-muted-foreground">⌘K</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors relative">
+          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background"></span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shadow-sm cursor-pointer"></div>
+          <div className="w-8 h-8 rounded-full bg-muted border border-border/30 shadow-sm cursor-pointer"></div>
         </div>
       </header>
 
@@ -100,7 +101,7 @@ export default function Home() {
               ))
             ) : (
               finalBills.map((bill: any, idx: number) => (
-                <div key={bill.billId} className="bg-white border border-gray-100 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <div key={bill.billId} className="bg-card border border-border/30 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   {/* Card Header */}
                   <div className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -110,18 +111,18 @@ export default function Home() {
                           photo={members.find(m => m.name === bill.proposer)?.photo || ""}
                           monaCd={members.find(m => m.name === bill.proposer)?.id || ""}
                           className="w-full h-full object-cover"
-                          avatarClassName="text-[12px] font-black bg-gray-100 text-gray-400"
+                          avatarClassName="text-[12px] font-black bg-muted text-muted-foreground"
                         />
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[14px] font-black text-gray-900">{bill.proposer || "의원 이름"}</span>
-                          <span className="text-[14px] text-gray-400 font-medium">의원</span>
+                          <span className="text-[14px] font-black text-foreground">{bill.proposer || "의원 이름"}</span>
+                          <span className="text-[14px] text-muted-foreground font-medium">의원</span>
                         </div>
-                        <p className="text-[11px] font-bold text-gray-400">{bill.party || "더불어민주당"} · {bill.committee || "전북 익산시을"}</p>
+                        <p className="text-[11px] font-bold text-muted-foreground">{bill.party || "더불어민주당"} · {bill.committee || "전북 익산시을"}</p>
                       </div>
                     </div>
-                    <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors">
+                    <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
                       <MoreHorizontal className="w-5 h-5" />
                     </button>
                   </div>
@@ -129,39 +130,39 @@ export default function Home() {
                   {/* Card Content */}
                   <div className="px-6 pb-2">
                     <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-[12px] font-bold text-blue-500">법안 발의</span>
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      <span className="text-[12px] font-bold text-primary">법안 발의</span>
                     </div>
-                    <h2 className="text-[20px] font-black text-gray-900 mb-2 leading-tight">
+                    <h2 className="text-[20px] font-black text-foreground mb-2 leading-tight">
                       {bill.billName}
                     </h2>
-                    <p className="text-[14px] text-gray-500 font-medium leading-relaxed mb-4">
+                    <p className="text-[14px] text-muted-foreground font-medium leading-relaxed mb-4">
                       제출 · {bill.committee || "국토교통위원회"} 회부
                     </p>
                   </div>
 
                   {/* Card Interactions */}
-                  <div className="px-6 py-4 flex items-center justify-between border-t border-gray-50">
+                  <div className="px-6 py-4 flex items-center justify-between border-t border-border/30">
                     <div className="flex items-center gap-5">
-                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-red-500 transition-colors">
+                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-red-500 transition-colors">
                         <Heart className="w-5 h-5" />
                       </button>
-                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-[#6D28D9] transition-colors">
+                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
                         <MessageCircle className="w-5 h-5" />
                       </button>
-                      <button className="flex items-center gap-1.5 text-gray-400 hover:text-green-500 transition-colors">
+                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-green-500 transition-colors">
                         <Share2 className="w-5 h-5" />
                       </button>
                     </div>
-                    <button className="text-gray-400 hover:text-gray-900 transition-colors">
+                    <button className="text-muted-foreground hover:text-foreground transition-colors">
                       <Bookmark className="w-5 h-5" />
                     </button>
                   </div>
                   
                   <div className="px-6 pb-6 pt-0">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[13px] font-black text-gray-900">좋아요 {Math.floor(Math.random() * 2000).toLocaleString()}개</span>
-                      <span className="text-[11px] font-bold text-gray-300 uppercase tracking-tight">{idx + 2}시간 전</span>
+                      <span className="text-[13px] font-black text-foreground">좋아요 {Math.floor(Math.random() * 2000).toLocaleString()}개</span>
+                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">{idx + 2}시간 전</span>
                     </div>
                   </div>
                 </div>
@@ -173,26 +174,26 @@ export default function Home() {
         {/* Right Sidebar Section */}
         <aside className="hidden lg:block w-[320px] space-y-8">
           {/* User Account Summary */}
-          <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm">
+          <div className="bg-card border border-border/30 rounded-[24px] p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                <div className="w-14 h-14 rounded-full bg-muted border border-border/30 flex items-center justify-center overflow-hidden">
                   {user ? (
-                    <div className="w-full h-full bg-[#6D28D9] flex items-center justify-center text-white font-black">
+                    <div className="w-full h-full bg-primary flex items-center justify-center text-primary-foreground font-black">
                       {user.name.charAt(0)}
                     </div>
                   ) : (
-                    <span className="text-gray-200"><Plus className="w-8 h-8" /></span>
+                    <span className="text-muted-foreground/35"><Plus className="w-8 h-8" /></span>
                   )}
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-black text-gray-900">{user ? user.name : "내 계정"}</h3>
-                  <p className="text-[12px] font-bold text-gray-400">{followedIds.length}명 팔로우 중</p>
+                  <h3 className="text-[15px] font-black text-foreground">{user ? user.name : "내 계정"}</h3>
+                  <p className="text-[12px] font-bold text-muted-foreground">{followedIds.length}명 팔로우 중</p>
                 </div>
               </div>
               {!user && (
                 <Link href="/login">
-                  <button className="text-[12px] font-black text-[#6D28D9] hover:underline">로그인</button>
+                  <button className="text-[12px] font-black text-primary hover:underline">로그인</button>
                 </Link>
               )}
             </div>
@@ -201,8 +202,8 @@ export default function Home() {
           {/* Recommended Members */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-[14px] font-black text-gray-400">추천 의원</h3>
-              <button className="text-[12px] font-black text-gray-900 hover:underline">모두 보기</button>
+              <h3 className="text-[14px] font-black text-muted-foreground">추천 의원</h3>
+              <button className="text-[12px] font-black text-foreground hover:underline">모두 보기</button>
             </div>
             
             <div className="space-y-4">
@@ -218,12 +219,12 @@ export default function Home() {
                           photo={member.photo}
                           monaCd={member.id}
                           className="w-full h-full object-cover"
-                          avatarClassName="text-[12px] font-black bg-gray-100 text-gray-400"
+                          avatarClassName="text-[12px] font-black bg-muted text-muted-foreground"
                         />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-[13px] font-black text-gray-900 truncate group-hover:text-[#6D28D9] transition-colors">{member.name}</h4>
-                        <p className="text-[11px] font-bold text-gray-400 truncate">{member.party} · {member.district.split(' ')[0]}</p>
+                        <h4 className="text-[13px] font-black text-foreground truncate group-hover:text-primary transition-colors">{member.name}</h4>
+                        <p className="text-[11px] font-bold text-muted-foreground truncate">{member.party} · {member.district.split(' ')[0]}</p>
                       </div>
                     </Link>
                     <button 
@@ -235,7 +236,7 @@ export default function Home() {
                         followMutation.mutate(member.id);
                       }}
                       disabled={followMutation.isPending}
-                      className="text-[12px] font-black text-[#6D28D9] hover:text-[#5B21B6] transition-colors pl-2 disabled:opacity-50"
+                      className="text-[12px] font-black text-primary hover:text-primary/80 transition-colors pl-2 disabled:opacity-50"
                     >
                       팔로우
                     </button>

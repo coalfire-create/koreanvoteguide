@@ -81,7 +81,7 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.3) }}
-      className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+      className="bg-card rounded-3xl border border-border/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
     >
       {/* 헤더: 작성자 */}
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
@@ -98,12 +98,12 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <Link href={`/members/${item.politicianId}`}>
-              <span className="text-[14px] font-bold text-gray-900 hover:text-[#6D28D9] transition-colors truncate">
+              <span className="text-[14px] font-bold text-foreground hover:text-primary transition-colors truncate">
                 {item.politicianName}
               </span>
             </Link>
             {item.isRecommended && (
-              <span className="text-[9px] font-bold text-[#6D28D9] bg-[#6D28D9]/10 px-1.5 py-0.5 rounded-full shrink-0">
+              <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
                 추천
               </span>
             )}
@@ -112,8 +112,8 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${partyChip(item.party)}`}>
               {item.party || "무소속"}
             </span>
-            <span className="text-[11px] text-gray-300">·</span>
-            <span className="text-[11px] text-gray-400 font-medium">{timeAgo(item.occurredAt)}</span>
+            <span className="text-[11px] text-muted-foreground/30">·</span>
+            <span className="text-[11px] text-muted-foreground font-medium">{timeAgo(item.occurredAt)}</span>
           </div>
         </div>
         <span
@@ -128,12 +128,12 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
 
       {/* 본문 */}
       <div className="px-5 pb-4">
-        <div className="bg-gray-50/70 rounded-2xl p-4 border border-gray-100/70">
-          <p className="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">
+        <div className="bg-muted/70 rounded-2xl p-4 border border-border/30">
+          <p className="text-[14px] font-bold text-foreground leading-snug line-clamp-2">
             {item.title}
           </p>
           {item.summary && item.summary !== item.title && (
-            <p className="text-[12.5px] text-gray-500 leading-relaxed mt-2 line-clamp-3">
+            <p className="text-[12.5px] text-muted-foreground leading-relaxed mt-2 line-clamp-3">
               {item.summary}
             </p>
           )}
@@ -144,24 +144,24 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
               </span>
             )}
             {item.subtitle && (
-              <span className="text-[11px] font-medium text-gray-400">{item.subtitle}</span>
+              <span className="text-[11px] font-medium text-muted-foreground">{item.subtitle}</span>
             )}
           </div>
         </div>
       </div>
 
       {/* 푸터 */}
-      <div className="flex items-center border-t border-gray-50">
+      <div className="flex items-center border-t border-border/30">
         <Link
           href={`/members/${item.politicianId}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-gray-500 hover:text-[#6D28D9] hover:bg-gray-50/60 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors"
         >
           <Users className="w-3.5 h-3.5" /> 의원 프로필
         </Link>
-        <div className="w-px h-5 bg-gray-100" />
+        <div className="w-px h-5 bg-border/30" />
         <Link
           href={`/bills?q=${encodeURIComponent(item.title)}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-gray-500 hover:text-[#6D28D9] hover:bg-gray-50/60 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors"
         >
           <FileText className="w-3.5 h-3.5" /> 법안 보기
         </Link>
@@ -172,7 +172,7 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
 
 function FeedSkeleton() {
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+    <div className="bg-card rounded-3xl border border-border/30 p-5 space-y-4">
       <div className="flex items-center gap-3">
         <Skeleton className="w-11 h-11 rounded-full" />
         <div className="flex-1 space-y-2">
@@ -264,28 +264,28 @@ export default function Members() {
   const feedItems = timeline?.items ?? [];
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC] font-sans text-slate-900">
+    <div className="min-h-screen bg-background font-sans text-foreground">
       {/* ── 상단 헤더 ── */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="max-w-2xl mx-auto px-5 pt-5 pb-3">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-[26px] font-black text-gray-900 tracking-tight flex items-center gap-2">
-              <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#6D28D9] to-[#4F1AB8] flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
+            <h1 className="text-[26px] font-black text-foreground tracking-tight flex items-center gap-2">
+              <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary-foreground" />
               </span>
               인물
             </h1>
             <Link href="/more">
-              <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#6D28D9] transition-colors">
+              <div className="w-9 h-9 rounded-full bg-muted border border-border/30 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors">
                 <Heart className="w-4 h-4" />
               </div>
             </Link>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
-              className="w-full h-11 pl-11 pr-4 bg-gray-50 border border-gray-100 rounded-2xl text-[14px] focus:bg-white focus:border-[#6D28D9]/30 outline-none transition-all placeholder:text-gray-400 font-medium"
+              className="w-full h-11 pl-11 pr-4 bg-muted border border-border/30 rounded-2xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
               placeholder="국회의원 이름·정당·지역구 검색"
               value={searchQuery}
               onChange={(e) => {
@@ -308,7 +308,7 @@ export default function Members() {
                   key={key}
                   onClick={() => setTab(key as "feed" | "discover")}
                   className={`relative flex items-center gap-1.5 px-4 py-3 text-[14px] font-bold transition-colors ${
-                    active ? "text-[#6D28D9]" : "text-gray-400 hover:text-gray-600"
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -316,7 +316,7 @@ export default function Members() {
                   {active && (
                     <motion.div
                       layoutId="memberTabUnderline"
-                      className="absolute bottom-0 left-3 right-3 h-1 bg-[#6D28D9] rounded-t-full"
+                      className="absolute bottom-0 left-3 right-3 h-1 bg-primary rounded-t-full"
                     />
                   )}
                 </button>
@@ -347,19 +347,19 @@ export default function Members() {
                   <FeedSkeleton />
                 </div>
               ) : feedItems.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-gray-100 py-16 px-6 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-3xl bg-[#6D28D9]/10 flex items-center justify-center mx-auto">
-                    <Sparkles className="w-8 h-8 text-[#6D28D9]" />
+                <div className="bg-card rounded-3xl border border-border/30 py-16 px-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-8 h-8 text-primary" />
                   </div>
                   <div className="space-y-1.5">
-                    <p className="text-[16px] font-black text-gray-900">아직 피드가 비어있어요</p>
-                    <p className="text-[13px] text-gray-400 font-medium leading-relaxed">
+                    <p className="text-[16px] font-black text-foreground">아직 피드가 비어있어요</p>
+                    <p className="text-[13px] text-muted-foreground font-medium leading-relaxed">
                       관심 있는 의원을 팔로우하면<br />법안 발의·표결 활동이 여기에 모입니다.
                     </p>
                   </div>
                   <button
                     onClick={() => setTab("discover")}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#6D28D9] text-white rounded-2xl text-[14px] font-bold hover:bg-[#5B21B6] transition-colors shadow-lg shadow-indigo-500/20"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl text-[14px] font-bold hover:opacity-90 transition-colors shadow-lg shadow-indigo-500/20"
                   >
                     <Compass className="w-4 h-4" /> 의원 탐색하기
                   </button>
@@ -367,16 +367,16 @@ export default function Members() {
               ) : (
                 <div className="space-y-5">
                   {!user && (
-                    <div className="bg-gradient-to-br from-[#6D28D9] to-[#4F1AB8] rounded-3xl p-5 text-white flex items-center gap-4">
+                    <div className="bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-5 text-primary-foreground flex items-center gap-4">
                       <Sparkles className="w-8 h-8 shrink-0" />
                       <div className="flex-1">
                         <p className="text-[14px] font-black">로그인하고 나만의 피드를 만드세요</p>
-                        <p className="text-[12px] text-white/80 font-medium mt-0.5">
+                        <p className="text-[12px] text-primary-foreground/80 font-medium mt-0.5">
                           지금은 추천 활동을 보여드리고 있어요.
                         </p>
                       </div>
                       <Link href="/login">
-                        <span className="px-4 py-2 bg-white text-[#6D28D9] rounded-xl text-[12px] font-black whitespace-nowrap">
+                        <span className="px-4 py-2 bg-background text-primary rounded-xl text-[12px] font-black whitespace-nowrap">
                           로그인
                         </span>
                       </Link>
@@ -413,8 +413,8 @@ export default function Members() {
                       }}
                       className={`shrink-0 px-4 py-2 rounded-full text-[12px] font-bold border transition-all ${
                         active
-                          ? "bg-[#6D28D9] text-white border-[#6D28D9] shadow-md shadow-indigo-500/20"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-[#6D28D9]/40"
+                          ? "bg-primary text-primary-foreground border-primary shadow-md shadow-indigo-500/20"
+                          : "bg-card text-muted-foreground border-border/30 hover:border-primary/40"
                       }`}
                     >
                       {p}
@@ -429,7 +429,7 @@ export default function Members() {
                   Array.from({ length: 6 }).map((_, i) => (
                     <div
                       key={i}
-                      className="aspect-[3/4] bg-white rounded-3xl animate-pulse border border-gray-100"
+                      className="aspect-[3/4] bg-card rounded-3xl animate-pulse border border-border/30"
                     />
                   ))
                 ) : visibleMembers.length > 0 ? (
@@ -441,22 +441,22 @@ export default function Members() {
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
-                        className="bg-white rounded-3xl border border-gray-100 p-5 flex flex-col items-center hover:shadow-lg hover:shadow-indigo-500/5 transition-all"
+                        className="bg-card rounded-3xl border border-border/30 p-5 flex flex-col items-center hover:shadow-lg hover:shadow-indigo-500/5 transition-all"
                       >
                         <Link
                           href={`/members/${m.id}`}
-                          className="w-20 h-20 rounded-full overflow-hidden mb-3 ring-4 ring-gray-50 shadow-sm"
+                          className="w-20 h-20 rounded-full overflow-hidden mb-3 ring-4 ring-muted shadow-sm"
                         >
                           <PoliticianPhoto
                             name={m.name}
                             photo={m.photo}
                             monaCd={m.id}
                             className="w-full h-full object-cover"
-                            avatarClassName="text-[22px] font-black bg-gray-50 text-gray-300"
+                            avatarClassName="text-[22px] font-black bg-muted text-muted-foreground/40"
                           />
                         </Link>
                         <Link href={`/members/${m.id}`}>
-                          <h3 className="text-[15px] font-black text-gray-900 hover:text-[#6D28D9] transition-colors text-center">
+                          <h3 className="text-[15px] font-black text-foreground hover:text-primary transition-colors text-center">
                             {m.name}
                           </h3>
                         </Link>
@@ -468,7 +468,7 @@ export default function Members() {
                           >
                             {m.party}
                           </span>
-                          <span className="text-[11px] font-medium text-gray-400 text-center line-clamp-1">
+                          <span className="text-[11px] font-medium text-muted-foreground text-center line-clamp-1">
                             {m.district}
                           </span>
                         </div>
@@ -477,8 +477,8 @@ export default function Members() {
                           disabled={followMutation.isPending}
                           className={`w-full py-2.5 rounded-2xl text-[12.5px] font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-60 ${
                             followed
-                              ? "bg-gray-100 text-gray-500 border border-gray-200"
-                              : "bg-[#6D28D9] text-white hover:bg-[#5B21B6] shadow-md shadow-indigo-500/20"
+                              ? "bg-muted text-muted-foreground border border-border/30"
+                              : "bg-primary text-primary-foreground hover:opacity-90 shadow-md shadow-indigo-500/20"
                           }`}
                         >
                           {followed ? (
@@ -496,14 +496,14 @@ export default function Members() {
                   })
                 ) : (
                   <div className="col-span-2 py-20 text-center space-y-3">
-                    <Users className="w-10 h-10 text-gray-200 mx-auto" />
-                    <p className="text-gray-400 font-medium">조건에 맞는 의원이 없습니다.</p>
+                    <Users className="w-10 h-10 text-muted-foreground/30 mx-auto" />
+                    <p className="text-muted-foreground font-medium">조건에 맞는 의원이 없습니다.</p>
                     <button
                       onClick={() => {
                         setSelectedParty("전체");
                         setSearchQuery("");
                       }}
-                      className="text-[#6D28D9] font-bold hover:underline text-[13px]"
+                      className="text-primary font-bold hover:underline text-[13px]"
                     >
                       필터 초기화
                     </button>
@@ -515,10 +515,10 @@ export default function Members() {
                 <div className="flex justify-center pt-2">
                   <button
                     onClick={() => setVisibleCount((v) => v + 12)}
-                    className="px-8 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl text-[13px] font-bold hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2 group"
+                    className="px-8 py-3 bg-card border border-border/30 text-foreground rounded-2xl text-[13px] font-bold hover:bg-muted/50 transition-all shadow-sm flex items-center gap-2 group"
                   >
                     더 많은 의원 보기
-                    <ChevronDown className="w-4 h-4 text-gray-400 group-hover:translate-y-0.5 transition-transform" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground group-hover:translate-y-0.5 transition-transform" />
                   </button>
                 </div>
               )}

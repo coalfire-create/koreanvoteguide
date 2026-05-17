@@ -30,25 +30,25 @@ function StoryAvatar({ p }: { p: FollowedPolitician }) {
             className={
               p.hasRecentUpdate
                 ? "p-[2.5px] rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.45)]"
-                : "p-[2.5px] rounded-full bg-gray-100"
+                : "p-[2.5px] rounded-full bg-muted"
             }
           >
-            <div className="p-[2px] rounded-full bg-white">
-              <div className="w-[68px] h-[68px] rounded-full overflow-hidden bg-gray-100 transition-transform group-hover:scale-[1.04]">
+            <div className="p-[2px] rounded-full bg-card">
+              <div className="w-[68px] h-[68px] rounded-full overflow-hidden bg-muted transition-transform group-hover:scale-[1.04]">
                 <PoliticianPhoto
                   name={p.name}
                   monaCd={p.id}
                   photo={p.photo ?? undefined}
-                  avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-lg font-bold"
+                  avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-lg font-bold"
                 />
               </div>
             </div>
           </div>
           {p.hasRecentUpdate && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-white" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-background" />
           )}
         </div>
-        <span className="text-[11px] font-semibold text-gray-700 tracking-tight max-w-[72px] truncate">
+        <span className="text-[11px] font-semibold text-foreground tracking-tight max-w-[72px] truncate">
           {p.name}
         </span>
       </div>
@@ -60,14 +60,14 @@ function AddTile() {
   return (
     <Link href="/members">
       <div className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group">
-        <div className="p-[2.5px] rounded-full bg-gray-50">
-          <div className="p-[2px] rounded-full bg-white">
-            <div className="w-[68px] h-[68px] rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 group-hover:border-indigo-300 group-hover:text-indigo-400 transition-colors">
+        <div className="p-[2.5px] rounded-full bg-muted">
+          <div className="p-[2px] rounded-full bg-card">
+            <div className="w-[68px] h-[68px] rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground group-hover:border-primary group-hover:text-primary transition-colors">
               <Plus className="w-7 h-7 stroke-[1.5]" />
             </div>
           </div>
         </div>
-        <span className="text-[11px] font-semibold text-gray-300">추가</span>
+        <span className="text-[11px] font-semibold text-muted-foreground">추가</span>
       </div>
     </Link>
   );
@@ -76,8 +76,8 @@ function AddTile() {
 function SkeletonTile() {
   return (
     <div className="flex flex-col items-center gap-2 shrink-0">
-      <div className="w-[78px] h-[78px] rounded-full bg-gray-100 animate-pulse" />
-      <div className="w-10 h-2.5 rounded bg-gray-100 animate-pulse" />
+      <div className="w-[78px] h-[78px] rounded-full bg-muted animate-pulse" />
+      <div className="w-10 h-2.5 rounded bg-muted animate-pulse" />
     </div>
   );
 }
@@ -107,10 +107,10 @@ export function StoryFeed({ className = "" }: { className?: string }) {
       className={`px-5 pt-3 ${className}`}
     >
       <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-[13px] font-bold text-gray-800 tracking-tight flex items-center gap-1.5">
+        <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-1.5">
           관심 의원
           {hasUpdates && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded-full">
               <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse" />
               NEW
             </span>
@@ -118,7 +118,7 @@ export function StoryFeed({ className = "" }: { className?: string }) {
         </h3>
         {follows.length > 0 && (
           <Link href="/more">
-            <span className="text-[11px] font-semibold text-gray-400 hover:text-indigo-500 cursor-pointer">
+            <span className="text-[11px] font-semibold text-muted-foreground hover:text-primary cursor-pointer">
               전체보기
             </span>
           </Link>
@@ -137,7 +137,7 @@ export function StoryFeed({ className = "" }: { className?: string }) {
           <>
             <AddTile />
             <div className="flex-1 min-w-0 self-center">
-              <p className="text-[12px] text-gray-400 leading-snug">
+              <p className="text-[12px] text-muted-foreground leading-snug">
                 관심 의원을 팔로우하면<br />여기에서 활동을 바로 확인할 수 있어요.
               </p>
             </div>

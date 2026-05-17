@@ -88,7 +88,7 @@ function MainApp() {
   const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage;
 
   return (
-    <div className="flex min-h-screen w-full bg-white">
+    <div className="flex min-h-screen w-full bg-background text-foreground">
       {!hideHeaderNav && <SideNav />}
       
       <main className={`flex-1 w-full ${!hideHeaderNav ? "md:pl-[260px]" : ""}`}>

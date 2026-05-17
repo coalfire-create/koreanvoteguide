@@ -30,6 +30,10 @@ import { eq, sql, isNull, or, desc, lt } from "drizzle-orm";
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
 const API_KEY = process.env.OPEN_ASSEMBLY_API_KEY || process.env.ASSEMBLY_API_KEY;
 
+// nojepdqqaweusdfbi(본회의 표결) API는 AGE(대수)가 필수 인자.
+// 누락 시 ERROR-300("필수 값이 누락") 으로 0건 반환됨. 22대 국회 = "22".
+const ASSEMBLY_AGE = "22";
+
 const CONFIG = {
   CONCURRENCY: 5,
   PAGE_SIZE: 100,
@@ -85,6 +89,7 @@ async function fetchBillVotesAllPages(billId: string): Promise<MemberVoteRow[]> 
         params: {
           Key: API_KEY,
           Type: "json",
+          AGE: ASSEMBLY_AGE,
           BILL_ID: billId,
           pIndex: String(pIndex),
           pSize: String(CONFIG.PAGE_SIZE),

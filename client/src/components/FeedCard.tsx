@@ -49,10 +49,10 @@ function timeAgo(iso: string): string {
 
 function VoteBadge({ result }: { result: string }) {
   const cls = result.includes("찬")
-    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
     : result.includes("반")
-      ? "bg-rose-50 text-rose-600 border-rose-100"
-      : "bg-gray-50 text-gray-500 border-gray-100";
+      ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+      : "bg-muted text-muted-foreground border-border/30";
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${cls}`}>
       <Vote className="w-3 h-3" /> {result}
@@ -93,20 +93,20 @@ export function FeedCard({ item }: { item: FeedItem }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_12px_rgb(0,0,0,0.03)] overflow-hidden"
+      className="bg-card rounded-2xl border border-border/30 shadow-[0_2px_12px_rgb(0,0,0,0.03)] overflow-hidden text-foreground"
     >
       {/* === Header: avatar + name + party + time === */}
       <header className="flex items-center gap-3 px-5 pt-4 pb-3">
         <Link href={`/members/${item.politicianId}`}>
           <div className="relative cursor-pointer shrink-0">
             <div className="p-[2px] rounded-full bg-gradient-to-tr from-fuchsia-400 via-rose-400 to-amber-300">
-              <div className="p-[1.5px] rounded-full bg-white">
-                <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-100">
+              <div className="p-[1.5px] rounded-full bg-card">
+                <div className="w-11 h-11 rounded-full overflow-hidden bg-muted">
                   <PoliticianPhoto
                     name={item.politicianName}
                     monaCd={item.politicianId}
                     photo={item.photo ?? undefined}
-                    avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-base font-bold"
+                    avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-base font-bold"
                   />
                 </div>
               </div>
@@ -117,7 +117,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Link href={`/members/${item.politicianId}`}>
-              <span className="text-[14px] font-bold text-gray-900 hover:text-indigo-600 cursor-pointer truncate">
+              <span className="text-[14px] font-bold text-foreground hover:text-primary cursor-pointer truncate">
                 {item.politicianName}
               </span>
             </Link>
@@ -127,18 +127,18 @@ export function FeedCard({ item }: { item: FeedItem }) {
               </span>
             )}
             {item.isRecommended && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                 <Sparkles className="w-2.5 h-2.5" />
                 추천
               </span>
             )}
           </div>
-          <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
             {timeAgo(item.occurredAt)} · {item.subtitle}
           </p>
         </div>
 
-        <button className="text-gray-300 hover:text-gray-500 transition-colors p-1" aria-label="더보기">
+        <button className="text-muted-foreground hover:text-foreground transition-colors p-1" aria-label="더보기">
           <MoreHorizontal className="w-5 h-5" />
         </button>
       </header>
@@ -147,7 +147,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
       <div className="px-5 pb-4">
         <div className="flex items-center gap-2 mb-2">
           <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md ${
-            isBill ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+            isBill ? "bg-primary/10 text-primary" : "bg-emerald-500/10 text-emerald-500"
           }`}>
             {isBill ? <FileText className="w-3 h-3" /> : <Vote className="w-3 h-3" />}
             {isBill ? "법안 발의" : "표결"}
@@ -155,23 +155,23 @@ export function FeedCard({ item }: { item: FeedItem }) {
           {!isBill && item.voteResult && <VoteBadge result={item.voteResult} />}
         </div>
 
-        <h3 className="text-[15px] font-bold text-gray-900 leading-snug mb-1.5 line-clamp-2">
+        <h3 className="text-[15px] font-bold text-foreground leading-snug mb-1.5 line-clamp-2">
           {item.title}
         </h3>
         {item.summary && item.summary !== item.title && (
-          <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-3">
+          <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-3">
             {item.summary}
           </p>
         )}
       </div>
 
       {/* === Footer: action bar === */}
-      <footer className="px-5 py-3 border-t border-gray-50 flex items-center gap-1">
+      <footer className="px-5 py-3 border-t border-border/30 flex items-center gap-1">
         <button
           onClick={handleLike}
           aria-pressed={liked}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors ${
-            liked ? "text-rose-500" : "text-gray-500 hover:text-rose-500 hover:bg-rose-50"
+            liked ? "text-rose-500" : "text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10"
           }`}
         >
           <Heart className={`w-5 h-5 transition-transform ${liked ? "fill-rose-500 scale-110" : ""}`} />
@@ -179,7 +179,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
         </button>
 
         <Link href={isBill && item.billId ? `/bills?id=${item.billId}` : `/members/${item.politicianId}`}>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 transition-colors">
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
             <MessageCircle className="w-5 h-5" />
             <span className="text-[12px] font-bold tabular-nums">{commentCount}</span>
           </button>
@@ -187,7 +187,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors ml-auto"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors ml-auto"
           aria-label="공유"
         >
           <Share2 className="w-5 h-5" />

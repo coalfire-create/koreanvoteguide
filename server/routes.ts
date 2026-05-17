@@ -528,7 +528,7 @@ export async function registerRoutes(
         maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: isProduction,
-        sameSite: isProduction ? "strict" : "lax",
+        sameSite: "lax",
       },
     })
   );
@@ -2575,7 +2575,7 @@ export async function registerRoutes(
       // 대표발의만 필터링 (DB 연결 실패 시 fallback)
       let memberName = "";
       try {
-        const [member] = await db.select().from(legislators).where(eq(legislators.id, monaCode));
+        const [member] = await db.select().from(legislators).where(eq(legislators.monaCd, monaCode));
         memberName = member?.name ?? "";
       } catch {
         memberName = "";
