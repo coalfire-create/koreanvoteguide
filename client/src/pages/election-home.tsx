@@ -567,6 +567,7 @@ function RegionView({
                                 name={candidate.name}
                                 photo={candidate.photo}
                                 resolvedUrl={candidatePhotos[candidate.name]}
+                                context={candidate.party}
                                 avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-4xl font-black`}
                               />
                             </div>
@@ -634,6 +635,7 @@ function RegionView({
                                     name={candidate.name}
                                     photo={candidate.photo}
                                     resolvedUrl={candidatePhotos[candidate.name]}
+                                    context={candidate.party}
                                     avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-xl font-black`}
                                   />
                                 </div>

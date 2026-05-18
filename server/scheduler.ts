@@ -204,5 +204,17 @@ export function startScheduler(): void {
   // 시작 1분 뒤 1회 즉시 실행
   setTimeout(() => cleanupExpiredRows(), 60 * 1000);
 
+  // ===== 2026 지방선거 후보자 자동 동기화 =====
+  // 서버 시작 2분 뒤 1회 즉시 실행 후, 매일 06:00에 정기 갱신.
+  const runElectionSync = () => {
+    import("./nec-sync")
+      .then((m) => m.syncElectionCandidates())
+      .then((r) => log(`선거 후보자 동기화 완료: ${r.inserted}건 신규, ${r.updated}건 갱신, ${r.errors}건 오류`, "election-sync"))
+      .catch((e) => log(`선거 후보자 동기화 실패: ${e.message}`, "election-sync"));
+  };
+
+  setTimeout(runElectionSync, 2 * 60 * 1000);
+  cron.schedule("0 6 * * *", runElectionSync);
+
   void sql;
 }

@@ -7,6 +7,7 @@ export interface PoliticianPhotoProps {
   photo?: string | null;
   resolvedUrl?: string | null; // pre-fetched from /api/politician-photos/batch
   monaCd?: string | null;
+  context?: string | null;     // disambiguation hint (e.g. "국민의힘") for the fallback API
   size?: number;
   className?: string;       // extra classes applied to the <img>
   avatarClassName?: string; // classes for the fallback/background avatar div
@@ -14,7 +15,7 @@ export interface PoliticianPhotoProps {
 }
 
 export function PoliticianPhoto({
-  name, photo, resolvedUrl, monaCd, size,
+  name, photo, resolvedUrl, monaCd, context, size,
   className, avatarClassName, lazy = true,
 }: PoliticianPhotoProps) {
   const [srcIndex, setSrcIndex] = useState(0);
@@ -25,7 +26,8 @@ export function PoliticianPhoto({
   // 하드코딩에 없는 이름은 자연스럽게 기존 우선순위(photo prop → resolvedUrl → server fallback)로 fall through.
   const sources = useMemo(() => {
     const hardcoded = POLITICIAN_PHOTOS[name] ?? null;
-    const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}`;
+    const ctxParam = context ? `&context=${encodeURIComponent(context)}` : (monaCd ? "" : "");
+    const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}${ctxParam}`;
     return [hardcoded, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
   }, [photo, resolvedUrl, name, monaCd]);
 

@@ -1260,14 +1260,7 @@ export async function registerRoutes(
 
       req.session.userId = userId;
       console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-
-      req.session.save((err) => {
-        if (err) {
-          console.error("[kakao] session save failed after login:", err);
-          return res.redirect(`/login?error=${encodeURIComponent("로그인 세션 저장에 실패했습니다.")}`);
-        }
-        res.redirect("/");
-      });
+      res.redirect("/");
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -1381,14 +1374,7 @@ export async function registerRoutes(
 
       req.session.userId = userId;
       console.log(`[naver] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-
-      req.session.save((err) => {
-        if (err) {
-          console.error("[naver] session save failed after login:", err);
-          return res.redirect(`/login?error=${encodeURIComponent("로그인 세션 저장에 실패했습니다.")}`);
-        }
-        res.redirect("/");
-      });
+      res.redirect("/");
     } catch (error: any) {
       console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -5731,12 +5717,13 @@ export async function registerRoutes(
   app.get("/api/politician-photo", async (req, res) => {
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
     const monaCd = typeof req.query.monaCd === "string" ? req.query.monaCd.trim() : undefined;
+    const contextParam = typeof req.query.context === "string" ? req.query.context.trim() : undefined;
 
     if (!name && !monaCd) return res.status(400).end();
 
-    // monaCd로 party 조회 — disambiguation context로 사용. 실패해도 무시.
-    let context: string | undefined;
-    if (monaCd) {
+    // context 우선순위: 직접 전달 > monaCd로 DB 조회
+    let context: string | undefined = contextParam;
+    if (!context && monaCd) {
       try {
         const [row] = await db
           .select({ party: legislators.party })

@@ -145,26 +145,22 @@ export async function getPoliticianPhotoUrl(name: string, context?: string): Pro
     return cached.url;
   }
 
-  // 2. DB 캐시 확인 (서버 재시작 후에도 유지)
-  // context가 있으면 캐시된 null을 무시 — 컨텍스트 없는 잘못된 검색 결과를 덮어씀.
-  const dbCached = await getFromDb(name);
+  // 2. DB 캐시 확인 (서버 재시작 후에도 유지) — cacheKey 기준으로 조회해 동명이인 혼용 방지
+  const dbCached = await getFromDb(cacheKey);
   if (dbCached !== undefined) {
-    if (dbCached !== null || !context) {
-      cache.set(cacheKey, { url: dbCached, fetchedAt: Date.now() });
-      return dbCached;
-    }
+    cache.set(cacheKey, { url: dbCached, fetchedAt: Date.now() });
+    return dbCached;
   }
 
   // 3. 네이버/위키 크롤링 (DB 미스 시에만)
   let url = await fetchFromNaver(name, context);
 
-  // 2. Fall back to Wikipedia
   if (!url) {
     url = await fetchFromWikipedia(name);
   }
 
   cache.set(cacheKey, { url, fetchedAt: Date.now() });
-  await saveToDb(name, url);
+  await saveToDb(cacheKey, url);
   return url;
 }
 
