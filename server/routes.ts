@@ -1468,6 +1468,20 @@ export async function registerRoutes(
     res.json(info);
   });
 
+  app.get("/api/debug-session", (req, res) => {
+    try {
+      (req.session as any).testVal = "hello_" + Date.now();
+      req.session.save((err) => {
+        if (err) {
+          return res.json({ success: false, error: err.message, stack: err.stack });
+        }
+        res.json({ success: true, testVal: (req.session as any).testVal });
+      });
+    } catch (e: any) {
+      res.json({ success: false, error: e.message, stack: e.stack });
+    }
+  });
+
   app.get("/api/status", async (_req, res) => {
     try {
       const status = await storage.getSchedulerStatus();
