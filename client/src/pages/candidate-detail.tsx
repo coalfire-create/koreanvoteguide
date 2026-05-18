@@ -29,6 +29,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { candidates as mockCandidates, getPartyColor } from "@/lib/mock-data";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
+import { CandidateEvaluationReport } from "@/components/CandidateEvaluationReport";
 import PledgeDetailView, { analyzeFeasibility } from "@/components/PledgeDetailView";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 
@@ -365,6 +366,14 @@ export default function CandidateDetail() {
                 </div>
               </>
             )}
+          </section>
+
+          {/* ── 객관 평가 리포트 (앱 실데이터 기반) ── */}
+          <section className="px-6 pb-2">
+            <CandidateEvaluationReport
+              candidateName={candidate.name}
+              party={candidate.party || undefined}
+            />
           </section>
 
           {/* ── 활동 이력 ── */}

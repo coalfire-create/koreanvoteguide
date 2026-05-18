@@ -5,7 +5,7 @@ import createMemoryStore from "memorystore";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema } from "@shared/schema";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
 import { pool, db } from "./db";
@@ -14,6 +14,11 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { analyzeLegislator } from "./legislator-analysis";
+import {
+  generateCandidateReport,
+  CandidateNotFoundError,
+  InsufficientDataError,
+} from "./candidate-report";
 import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
@@ -474,7 +479,7 @@ export function hashPhone(phone: string): string {
   if (!pepper && isProduction) {
     throw new Error("프로덕션에서는 PHONE_PEPPER 환경변수가 반드시 필요합니다.");
   }
-  return crypto.createHmac("sha256", pepper || "dev-pepper").update(phone).digest("hex");
+  return createHmac("sha256", pepper || "dev-pepper").update(phone).digest("hex");
 }
 
 declare module "express-session" {
@@ -1150,10 +1155,16 @@ export async function registerRoutes(
       });
     }
     // CSRF — 랜덤 state를 세션에 저장하고 callback에서 일치 확인
-    const state = crypto.randomBytes(16).toString("hex");
+    const state = randomBytes(16).toString("hex");
     req.session.kakaoOAuthState = state;
     const url = buildAuthorizeUrl(config, state);
-    res.redirect(url);
+    req.session.save((err) => {
+      if (err) {
+        console.error("[kakao] session save failed:", err);
+        return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
+      }
+      res.redirect(url);
+    });
   });
 
   app.get("/api/auth/kakao/callback", authLimiter, async (req, res) => {
@@ -1250,8 +1261,13 @@ export async function registerRoutes(
       req.session.userId = userId;
       console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
 
-      // 신규/기존 무관하게 홈으로
-      res.redirect("/");
+      req.session.save((err) => {
+        if (err) {
+          console.error("[kakao] session save failed after login:", err);
+          return res.redirect(`/login?error=${encodeURIComponent("로그인 세션 저장에 실패했습니다.")}`);
+        }
+        res.redirect("/");
+      });
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -1271,9 +1287,15 @@ export async function registerRoutes(
         error: "Naver 로그인이 설정되지 않았습니다. (NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_REDIRECT_URI 환경변수 필요)",
       });
     }
-    const state = crypto.randomBytes(16).toString("hex");
+    const state = randomBytes(16).toString("hex");
     req.session.naverOAuthState = state;
-    res.redirect(buildNaverAuthorizeUrl(config, state));
+    req.session.save((err) => {
+      if (err) {
+        console.error("[naver] session save failed:", err);
+        return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
+      }
+      res.redirect(buildNaverAuthorizeUrl(config, state));
+    });
   });
 
   app.get("/api/auth/naver/callback", authLimiter, async (req, res) => {
@@ -1359,7 +1381,14 @@ export async function registerRoutes(
 
       req.session.userId = userId;
       console.log(`[naver] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-      res.redirect("/");
+
+      req.session.save((err) => {
+        if (err) {
+          console.error("[naver] session save failed after login:", err);
+          return res.redirect(`/login?error=${encodeURIComponent("로그인 세션 저장에 실패했습니다.")}`);
+        }
+        res.redirect("/");
+      });
     } catch (error: any) {
       console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -3239,7 +3268,7 @@ export async function registerRoutes(
         : file.mimetype === "image/webp" ? ".webp"
         : file.mimetype === "image/gif" ? ".gif"
         : ".jpg";
-      cb(null, crypto.randomBytes(16).toString("hex") + ext);
+      cb(null, randomBytes(16).toString("hex") + ext);
     },
   });
   const upload = multer({
@@ -4806,6 +4835,34 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[ai/evaluate] error:", error);
       res.status(500).json({ error: error.message ?? "AI 평가 실패" });
+    }
+  });
+
+  // ===== 후보 객관 평가 리포트 (앱 실데이터 기반) =====
+  // GET /api/candidates/evaluation-report?name=<후보명>&party=<선택>
+  //   국회 경력자  → 표결 기록 + 대표발의 법안 + 소속 상임위 (assembly_votes/bills)
+  //   비국회(행정가·법조인) → 선관위 등록 경력 + 공약 + 행보 (election_candidates/statements)
+  // LLM은 수집된 FACTS 안에서만 서술하며, 근거 없는 항목은 dataGaps로 명시한다.
+  app.get("/api/candidates/evaluation-report", async (req, res) => {
+    try {
+      const name = String(req.query.name ?? "").trim();
+      const party = req.query.party ? String(req.query.party).trim() : undefined;
+      if (!name) return res.status(400).json({ error: "name 쿼리 파라미터가 필요합니다." });
+      if (!process.env.GROQ_API_KEY) {
+        return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+      }
+
+      const envelope = await generateCandidateReport(name, party);
+      return res.json(envelope);
+    } catch (err: any) {
+      if (err instanceof CandidateNotFoundError) return res.status(404).json({ error: err.message });
+      if (err instanceof InsufficientDataError) return res.status(422).json({ error: err.message });
+      if (err instanceof LLMParseError) return res.status(500).json({ error: "리포트 파싱 실패" });
+      if (err instanceof LLMTransientError) {
+        return res.status(503).json({ error: "AI 서비스가 일시적으로 응답하지 않습니다." });
+      }
+      console.error("[candidates/evaluation-report] error:", err);
+      return res.status(500).json({ error: err?.message ?? "리포트 생성 실패" });
     }
   });
 
