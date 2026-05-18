@@ -360,11 +360,7 @@ export default function More() {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border/30">
-              <div className="text-center space-y-1">
-                <p className="text-xl font-bold text-foreground">{favoriteMemberIds.length}</p>
-                <p className="text-[12px] font-medium text-muted-foreground">관심 의원</p>
-              </div>
+            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-border/30">
               <div className="text-center space-y-1">
                 <p className="text-xl font-bold text-foreground">
                   {activityQuery.isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : votedBills.length}
@@ -404,100 +400,6 @@ export default function More() {
               )}
             </div>
           </motion.div>
-        )}
-
-        {/* 관심 의원 — Story 스타일 */}
-        {user && (
-          <section className="bg-card rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border/30 py-3 -mx-1">
-            <StoryFeed />
-          </section>
-        )}
-
-        {/* 내 관심 의원 실시간 활동 — 개인화 타임라인 */}
-        {user && (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-fuchsia-500" />
-                내 관심 의원 실시간 활동
-              </h3>
-              {followCount > 0 && (
-                <span className="text-[11px] font-bold text-muted-foreground">
-                  {followCount}명 팔로잉
-                </span>
-              )}
-            </div>
-
-            {feedQuery.isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-card rounded-[24px] p-5 h-24 animate-pulse border border-border/30" />
-              ))
-            ) : followCount === 0 ? (
-              <div className="bg-card rounded-[24px] p-7 text-center border border-border/30 space-y-3">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-fuchsia-50 to-rose-50 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-fuchsia-500" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-bold text-foreground">팔로우한 의원이 없어요</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">의원을 팔로우하면 발의·표결 활동이 실시간으로 표시됩니다</p>
-                </div>
-                <Link href="/members">
-                  <button className="text-[12px] font-bold text-white bg-primary hover:opacity-90 transition px-4 py-2 rounded-xl">
-                    의원 탐색하기
-                  </button>
-                </Link>
-              </div>
-            ) : feedItems.length === 0 ? (
-              <div className="bg-card rounded-[24px] p-6 text-center text-sm text-muted-foreground border border-border/30">
-                아직 새로운 활동이 없습니다.
-              </div>
-            ) : (
-              feedItems.slice(0, 12).map((item) => {
-                const isBill = item.type === "bill";
-                const accent = isBill
-                  ? "from-indigo-50 to-purple-50 text-indigo-500"
-                  : item.voteResult?.includes("찬")
-                    ? "from-emerald-50 to-teal-50 text-emerald-500"
-                    : "from-orange-50 to-rose-50 text-orange-500";
-                return (
-                  <motion.div
-                    key={item.id}
-                    whileHover={{ y: -2 }}
-                    className="bg-card rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-border/30 flex items-start gap-4"
-                  >
-                    <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 ring-2 ring-white shadow-sm bg-gray-100">
-                      <PoliticianPhoto
-                        name={item.politicianName}
-                        monaCd={item.politicianId}
-                        photo={item.photo ?? undefined}
-                        avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-sm font-bold"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link href={`/members/${item.politicianId}`}>
-                          <span className="text-[13px] font-bold text-foreground hover:text-primary cursor-pointer">
-                            {item.politicianName}
-                          </span>
-                        </Link>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r ${accent} text-[10px] font-black uppercase tracking-wide`}>
-                          {isBill ? <FileText className="w-2.5 h-2.5" /> : <Vote className="w-2.5 h-2.5" />}
-                          {isBill ? "법안 발의" : "표결"}
-                        </span>
-                      </div>
-                      <p className="text-[13px] font-semibold text-foreground leading-snug line-clamp-2">
-                        {item.title}
-                      </p>
-                      <div className="flex items-center justify-between text-[11px] text-gray-400">
-                        <span className="truncate">{item.subtitle}</span>
-                        <span className="shrink-0 ml-2">{timeAgo(item.occurredAt)}</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })
-            )}
-          </section>
         )}
 
         {/* 내 투표 결과 */}
