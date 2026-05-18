@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -416,6 +417,13 @@ function RegionView({
     enabled: !!allCandidateNames,
   });
 
+  // 홈 "가장 인기있는 토론" 위젯 — 오늘 가장 좋아요가 많은 게시물
+  const { data: topLikedPost } = useQuery<{ id: string; title: string; likes: number } | null>({
+    queryKey: ["/api/community/top-liked"],
+    queryFn: () => apiRequest("GET", "/api/community/top-liked").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
   // 로딩 판정 — keepPreviousData가 있으므로 탭 전환 시 isLoading은 false임.
   // 첫 로딩시에만 skeleton 표시.
   const showSkeleton = isLoading;
@@ -793,9 +801,17 @@ function RegionView({
               
 
               <h3 className="font-bold text-[15px] mb-3">가장 인기있는 토론 참여</h3>
-              <p className="text-xs text-primary-foreground/95 leading-relaxed mb-6 opacity-90">
-                현재 수많은 유권자가 이번 선거 쟁점에 대해 열띤 토론 중입니다. 지금 참여하여 의견을 나누세요.
-              </p>
+              {topLikedPost ? (
+                <p className="text-xs text-primary-foreground/95 leading-relaxed mb-6 opacity-90">
+                  <span className="font-bold">🔥 오늘 가장 인기있는 글</span>
+                  <br />
+                  “{topLikedPost.title}”
+                </p>
+              ) : (
+                <p className="text-xs text-primary-foreground/95 leading-relaxed mb-6 opacity-90">
+                  현재 수많은 유권자가 이번 선거 쟁점에 대해 열띤 토론 중입니다. 지금 참여하여 의견을 나누세요.
+                </p>
+              )}
               
               <div className="flex items-center gap-2 mb-6">
                 <div className="flex -space-x-2">
@@ -808,9 +824,11 @@ function RegionView({
 
               <Button
                 className="w-full bg-primary-foreground text-primary hover:opacity-90 h-12 rounded-xl font-bold shadow-lg"
-                onClick={() => setLocation("/community?board=candidate")}
+                onClick={() =>
+                  setLocation(topLikedPost?.id ? `/community/${topLikedPost.id}` : "/community?board=candidate")
+                }
               >
-                토론방 입장하기 <ChevronRight className="w-4 h-4 ml-1" />
+                {topLikedPost ? "인기글 보러가기" : "토론방 입장하기"} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
 

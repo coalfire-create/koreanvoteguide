@@ -140,7 +140,7 @@ export default function CommunityDetail() {
   });
 
   function handleReact(type: string) {
-    if (!user && type !== "agree" && type !== "disagree") { requireLoginToast(); return; }
+    // 좋아요/싫어요/찬반 모두 비로그인 허용 (서버가 세션 기반으로 중복 방지)
     reactMutation.mutate(type);
   }
 

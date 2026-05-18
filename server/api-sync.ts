@@ -19,8 +19,8 @@ function buildPhotoUrl(monaCd: string, hnmA?: string): string {
   if (hnmA) {
     return `https://open.assembly.go.kr/portal/assm/assmpic/${hnmA}`;
   }
-  // MONA_CD가 숫자 ID일 때만 표준 국회 이미지 주소 사용
-  if (/^\d+$/.test(monaCd)) {
+  // monaCd가 있으면 항상 공식 국회 이미지 주소 사용 (동명이인 혼용 방지)
+  if (monaCd) {
     return `https://www.assembly.go.kr/static/portal/img/open_assm/${monaCd}.jpg`;
   }
   return "";

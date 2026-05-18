@@ -1,4 +1,4 @@
-// Google Login 버튼 — 구글 로그인 가이드의 브랜드 디자인 규격 적용.
+// Google Login 버튼 — 구글 로그인 가이드의 브랜드 스타일을 준수한 버튼.
 // 클릭 시 /api/auth/google 로 이동 → 서버가 구글 authorize URL로 redirect.
 // 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
@@ -8,23 +8,23 @@ interface Props {
   next?: string;
 }
 
-export function GoogleLoginButton({ className = "", label = "Google로 로그인", next }: Props) {
+export function GoogleLoginButton({ className = "", label = "구글 계정으로 로그인", next }: Props) {
   const href = next ? `/api/auth/google?next=${encodeURIComponent(next)}` : "/api/auth/google";
 
   return (
     <a
       href={href}
       data-testid="google-login-button"
-      className={`relative flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-white border border-slate-200 hover:bg-[#F8F9FA] active:bg-[#F1F3F4] transition-colors shadow-sm text-[#3C4043] font-bold text-[15px] ${className}`}
+      className={`relative flex items-center justify-center gap-3 w-full h-14 rounded-2xl bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors border border-[#e0e0e0] shadow-sm text-gray-700 font-bold text-[15px] ${className}`}
       aria-label="구글 계정으로 로그인"
     >
-      <GoogleMarkIcon className="w-5 h-5 mr-1" />
+      <GoogleMarkIcon className="w-5 h-5" />
       <span>{label}</span>
     </a>
   );
 }
 
-// 구글 공식 G 심볼 (컬러). 외부 이미지 의존 없이 SVG inline.
+// 구글 공식 'G' 로고. 외부 이미지 의존 없이 SVG inline.
 function GoogleMarkIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg

@@ -162,6 +162,10 @@ const apiLimiter = rateLimit({
 let newsCache: { items: NewsItem[]; grouped: NewsGroup[]; cachedAt: number } | null = null;
 const NEWS_CACHE_TTL = 15 * 60 * 1000;
 
+// ===== 선거 후보 목록 캐시 (10분) — DB 우선, 외부 NEC API 폴백 결과도 캐시 =====
+const electionCandidateCache = new Map<string, { data: any[]; cachedAt: number }>();
+const ELECTION_CANDIDATE_TTL = 10 * 60 * 1000;
+
 // ===== 표결 사전 로드 진행 상태 =====
 let prefetchProgress = { total: 0, done: 0, running: false, completedAt: 0 };
 
@@ -464,6 +468,30 @@ function getOrCreateNickname(userId: string): string {
   return userNicknameCache.get(userId)!;
 }
 
+// 로그인 사용자는 userId, 비로그인은 안정적 anon:<uuid> 를 반환.
+// 비로그인 시 req.session.anonId 를 1회 생성·저장(세션 modified → 쿠키 발급)
+// 하여 이후 요청에서 동일 식별자가 유지되도록 한다.
+function getActorId(req: Request): string {
+  if (req.session.userId) return req.session.userId;
+  if (!req.session.anonId) {
+    req.session.anonId = randomBytes(16).toString("hex");
+  }
+  return `anon:${req.session.anonId}`;
+}
+
+// 읽기 전용 — 세션을 새로 만들지 않는다(단순 열람자마다 세션 row 생성 방지).
+// 이미 식별자가 있을 때만 반환, 없으면 null(아직 아무 액션도 안 한 익명).
+function peekActorId(req: Request): string | null {
+  if (req.session.userId) return req.session.userId;
+  if (req.session.anonId) return `anon:${req.session.anonId}`;
+  return null;
+}
+
+// anon:* / "anonymous" 는 users 테이블에 없으므로 뱃지 조회를 건너뛴다.
+function isAnonId(id: string): boolean {
+  return id === "anonymous" || id.startsWith("anon:");
+}
+
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string): Promise<string> {
@@ -496,6 +524,10 @@ export function hashPhone(phone: string): string {
 declare module "express-session" {
   interface SessionData {
     userId: string;
+    // 비로그인(익명) 사용자의 안정적 식별자. saveUninitialized:false 라
+    // req.sessionID 는 매 요청 바뀌므로, 익명 좋아요/댓글 중복방지·작성자판별·
+    // 닉네임 고정을 위해 첫 익명 액션 시 1회 생성해 세션에 저장(쿠키 고정).
+    anonId?: string;
     // Kakao OAuth CSRF 방지용 state 토큰. authorize 단계에서 set, callback에서 검증·삭제.
     kakaoOAuthState?: string;
     // Naver OAuth CSRF 방지용 state 토큰.
@@ -1620,18 +1652,50 @@ export async function registerRoutes(
     try {
       const membersMissingPhoto = await db.select().from(legislators).where(eq(legislators.photoUrl, "")).limit(400);
       let fixedCount = 0;
-      
+
       console.log(`[admin] Fixing photos for ${membersMissingPhoto.length} members...`);
-      
+
       for (const m of membersMissingPhoto) {
-        const photoUrl = await getPoliticianPhotoUrl(m.name, m.monaCd);
+        const context = [m.party, m.district, "국회의원"].filter(Boolean).join(" ");
+        const photoUrl = await getPoliticianPhotoUrl(m.name, context);
         if (photoUrl) {
           await db.update(legislators).set({ photoUrl }).where(eq(legislators.monaCd, m.monaCd));
           fixedCount++;
         }
       }
-      
+
       res.json({ success: true, fixedCount, totalMissing: membersMissingPhoto.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 전체 의원 사진을 정당+지역구 컨텍스트로 재수집 (동명이인 수정용)
+  app.post("/api/admin/resync-photos", requireAdmin, async (_req, res) => {
+    try {
+      const allMembers = await db
+        .select({ monaCd: legislators.monaCd, name: legislators.name, party: legislators.party, district: legislators.district })
+        .from(legislators)
+        .limit(400);
+
+      // 캐시 무효화: context 없이 저장된 기존 잘못된 사진 캐시 제거
+      const { politicianPhotoCache } = await import("@shared/schema");
+      const { notLike } = await import("drizzle-orm");
+      await db.delete(politicianPhotoCache).where(notLike(politicianPhotoCache.name, "%::%"));
+
+      let updated = 0;
+      for (const m of allMembers) {
+        const context = [m.party, m.district, "국회의원"].filter(Boolean).join(" ");
+        const photoUrl = await getPoliticianPhotoUrl(m.name, context);
+        if (photoUrl) {
+          await db.update(legislators).set({ photoUrl }).where(eq(legislators.monaCd, m.monaCd));
+          updated++;
+        }
+        // 과부하 방지
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      res.json({ success: true, updated, total: allMembers.length });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2957,44 +3021,46 @@ export async function registerRoutes(
         .limit(1);
       if (!member) return res.status(404).json({ error: "의원을 찾을 수 없습니다" });
 
-      // 표결: 최근 20건 샘플 + 카운트
-      const [voteAgg] = await db
-        .select({ c: dsql<number>`count(*)::int` })
-        .from(assemblyVotes)
-        .where(eq(assemblyVotes.legislatorId, monaCd));
-
-      const recentVotes = await db
-        .select({
-          billId: assemblyVotes.billId,
-          billName: assemblyBills.billName,
-          committee: assemblyBills.committee,
-          voteResult: assemblyVotes.voteResult,
-          proposeDate: assemblyBills.proposeDate,
-        })
-        .from(assemblyVotes)
-        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
-        .where(eq(assemblyVotes.legislatorId, monaCd))
-        .orderBy(desc(assemblyBills.proposeDate))
-        .limit(20);
-
-      // 발의 법안: DB(assembly_bills.proposer)에서 의원 이름이 RST_PROPOSER로 시작하는 건 카운트
-      const proposedRows = await db
-        .select({
-          billId: assemblyBills.billId,
-          billName: assemblyBills.billName,
-          proposeDate: assemblyBills.proposeDate,
-          result: assemblyBills.result,
-          committee: assemblyBills.committee,
-        })
-        .from(assemblyBills)
-        .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`)
-        .orderBy(desc(assemblyBills.proposeDate))
-        .limit(20);
-
-      const [{ c: proposedCount }] = await db
-        .select({ c: dsql<number>`count(*)::int` })
-        .from(assemblyBills)
-        .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`);
+      // 표결 카운트·최근 표결·발의 법안·발의 카운트는 서로 독립 →
+      // 직렬 4-round-trip 대신 Promise.all 단일 round-trip으로.
+      const [[voteAgg], recentVotes, proposedRows, [{ c: proposedCount }]] =
+        await Promise.all([
+          db
+            .select({ c: dsql<number>`count(*)::int` })
+            .from(assemblyVotes)
+            .where(eq(assemblyVotes.legislatorId, monaCd)),
+          db
+            .select({
+              billId: assemblyVotes.billId,
+              billName: assemblyBills.billName,
+              committee: assemblyBills.committee,
+              voteResult: assemblyVotes.voteResult,
+              proposeDate: assemblyBills.proposeDate,
+            })
+            .from(assemblyVotes)
+            .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+            .where(eq(assemblyVotes.legislatorId, monaCd))
+            .orderBy(desc(assemblyBills.proposeDate))
+            .limit(20),
+          // 발의 법안: assembly_bills.proposer 가 의원 이름으로 시작하는 건
+          // (bills_proposer_prefix_idx — text_pattern_ops 인덱스 사용)
+          db
+            .select({
+              billId: assemblyBills.billId,
+              billName: assemblyBills.billName,
+              proposeDate: assemblyBills.proposeDate,
+              result: assemblyBills.result,
+              committee: assemblyBills.committee,
+            })
+            .from(assemblyBills)
+            .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`)
+            .orderBy(desc(assemblyBills.proposeDate))
+            .limit(20),
+          db
+            .select({ c: dsql<number>`count(*)::int` })
+            .from(assemblyBills)
+            .where(dsql`${assemblyBills.proposer} LIKE ${member.name + "%"}`),
+        ]);
 
       // in-memory 표결 인덱스 (DB가 비어있어도 분석 가능한 폴백)
       const indexedVotes = legislatorVotesIndex.get(monaCd) ?? [];
@@ -3499,6 +3565,48 @@ export async function registerRoutes(
     }
   });
 
+  // 오늘 가장 좋아요가 많은 게시물 1건 (홈 "가장 인기있는 토론" 위젯). 오늘 글이 없으면 전체 기간 최다 추천글로 폴백.
+  app.get("/api/community/top-liked", async (_req, res) => {
+    try {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const baseConditions = [
+        notInArray(communityPosts.boardType, ["members"]),
+        isNull(communityPosts.hiddenAt),
+      ];
+
+      const selectCols = {
+        id: communityPosts.id,
+        title: communityPosts.title,
+        likes: communityPosts.likes,
+        boardType: communityPosts.boardType,
+        createdAt: communityPosts.createdAt,
+      };
+
+      let rows = await db
+        .select(selectCols)
+        .from(communityPosts)
+        .where(and(...baseConditions, gte(communityPosts.createdAt, startOfToday)))
+        .orderBy(desc(communityPosts.likes), desc(communityPosts.createdAt))
+        .limit(1);
+
+      if (rows.length === 0) {
+        rows = await db
+          .select(selectCols)
+          .from(communityPosts)
+          .where(and(...baseConditions))
+          .orderBy(desc(communityPosts.likes), desc(communityPosts.createdAt))
+          .limit(1);
+      }
+
+      res.json(rows[0] ?? null);
+    } catch (e: any) {
+      console.error("[top-liked] error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/community/posts", async (req, res) => {
 
     try {
@@ -3549,7 +3657,7 @@ export async function registerRoutes(
       const comments = await storage.getComments(post.id);
       let userReactions: { sentiment: string | null; stance: string | null } = { sentiment: null, stance: null };
       let isBookmarked = false;
-      const activeUserId = req.session.userId || req.sessionID;
+      const activeUserId = peekActorId(req);
       if (activeUserId) {
         userReactions = await storage.getUserReactions(post.id, activeUserId);
       }
@@ -3594,7 +3702,7 @@ export async function registerRoutes(
       let authorType = "anonymous";
       let displayName: string | null = "익명";
       let isVerified = false;
-      const nickname = getOrCreateNickname(req.session.userId || req.sessionID);
+      const nickname = getOrCreateNickname(getActorId(req));
 
       if (userId) {
         const user = await storage.getUser(userId);
@@ -3620,8 +3728,8 @@ export async function registerRoutes(
           }
         }
       } else {
-        // 비로그인 게시
-        userId = "anonymous";
+        // 비로그인 게시 — 안정적 anon:<uuid> 로 저장(자기 글 작성자 판별 가능)
+        userId = getActorId(req);
         authorType = "anonymous";
         displayName = "익명";
       }
@@ -3655,7 +3763,7 @@ export async function registerRoutes(
         "rich",
         result.data.hasPoll ?? false,
       );
-      const authorBadges = userId !== "anonymous" ? await storage.getUserBadges(userId) : [];
+      const authorBadges = !isAnonId(userId) ? await storage.getUserBadges(userId) : [];
       res.json(sanitizePost({ ...post, authorBadges, authorName: "" }));
     } catch (error) {
       console.error("Create post error:", error);
@@ -3694,8 +3802,8 @@ export async function registerRoutes(
       if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
 
       const requestedAuthorType = (req.body.authorType as string) || "anonymous";
-      let userId = req.session.userId || "anonymous";
-      const anonNickname = getOrCreateNickname(req.session.userId || req.sessionID);
+      const userId = getActorId(req);
+      const anonNickname = getOrCreateNickname(userId);
       let authorType = "anonymous";
       let displayName: string | null = "익명";
       let isVerified = false;
@@ -4241,7 +4349,7 @@ export async function registerRoutes(
   app.post("/api/community/posts/:id/react", async (req, res) => {
     try {
       const { type } = req.body;
-      const userId = req.session.userId || req.sessionID;
+      const userId = getActorId(req);
       if (!["like", "dislike", "agree", "disagree"].includes(type)) {
         return res.status(400).json({ error: "잘못된 반응 유형입니다" });
       }
@@ -5459,6 +5567,55 @@ export async function registerRoutes(
       if (electionType === "district-council") sgTypecode = "6";
       if (electionType === "superintendent") sgTypecode = "11";
 
+      // NEC HTTP 사진 URL → 서버 프록시 경유 (mixed-content 차단 회피)
+      const proxyPhoto = (raw: string | null | undefined) => {
+        if (raw && /^https?:\/\/info\.nec\.go\.kr\//.test(raw)) {
+          return `/api/photo/nec?url=${encodeURIComponent(raw)}`;
+        }
+        return raw || null;
+      };
+
+      // ───────── DB 우선 경로 ─────────
+      // 후보자 등록 데이터는 election_candidates 테이블이 정본(Deep Sync로 적재).
+      // 외부 NEC API를 매 요청마다 2번 직렬 호출(최대 30s)하던 것을 제거하고
+      // DB에서 즉시 응답 + 10분 메모리 캐시. (region_code+election_type 인덱스 사용)
+      const cacheKey = `${sdName}:${electionType}`;
+      const cached = electionCandidateCache.get(cacheKey);
+      if (cached && Date.now() - cached.cachedAt < ELECTION_CANDIDATE_TTL) {
+        return res.json(cached.data);
+      }
+
+      const dbRows = await db
+        .select()
+        .from(electionCandidates)
+        .where(eq(electionCandidates.sdName, sdName));
+
+      if (dbRows.length > 0) {
+        const payload = dbRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          party: row.party || "무소속",
+          candidateStatus: row.candidateStatus || row.status || "등록",
+          regionCode: sdName,
+          electionType,
+          districtName: row.districtName || row.sggName || sdName,
+          photo: proxyPhoto(row.photo),
+          job: row.job || null,
+          career: row.career || null,
+          career1: row.career1 || null,
+          career2: row.career2 || null,
+          edu: row.edu || null,
+          age: row.age || null,
+          pledges: Array.isArray(row.pledges) ? row.pledges : [],
+          promises: Array.isArray(row.pledges) ? row.pledges : [],
+          supportCount: 0,
+          myVote: false,
+        }));
+        electionCandidateCache.set(cacheKey, { data: payload, cachedAt: Date.now() });
+        return res.json(payload);
+      }
+
+      // ───────── DB 비어있을 때만 외부 NEC API 폴백 ─────────
       const apiKey = process.env.DATA_GO_KR_API_KEY;
       if (!apiKey) {
         return res.status(503).json({ error: "DATA_GO_KR_API_KEY 없음" });
@@ -5482,32 +5639,36 @@ export async function registerRoutes(
 
       let items: any[] = [];
 
-      try {
-        const response = await axios2.get(candidateUrl, { params, timeout: 15000 });
-        const body = response.data?.response?.body ?? {};
+      // 정식·예비 후보 API는 서로 독립 → 직렬(최대 30s) 대신 병렬(최대 15s)로 호출.
+      const [mainRes, preRes] = await Promise.allSettled([
+        axios2.get(candidateUrl, { params, timeout: 15000 }),
+        axios2.get(preCandidateUrl, { params, timeout: 15000 }),
+      ]);
+
+      if (mainRes.status === "fulfilled") {
+        const body = mainRes.value.data?.response?.body ?? {};
         const rawItems = body?.items?.item ?? [];
         const candidateItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
         items = [...items, ...candidateItems.map((item: any) => ({ ...item, _isPre: false }))];
         console.log(`[NEC API] 정식후보자 ${candidateItems.length}건 수신`);
-      } catch (err: any) {
-        console.error("[NEC API] 정식후보자 API 오류:", err.message);
+      } else {
+        console.error("[NEC API] 정식후보자 API 오류:", mainRes.reason?.message);
       }
 
-      try {
-        const response = await axios2.get(preCandidateUrl, { params, timeout: 15000 });
-        const body = response.data?.response?.body ?? {};
+      if (preRes.status === "fulfilled") {
+        const body = preRes.value.data?.response?.body ?? {};
         const rawItems = body?.items?.item ?? [];
         const preCandidateItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
         console.log(`[NEC API] 예비후보자 ${preCandidateItems.length}건 수신`);
-        
+
         // 정식 후보에 없는 예비후보만 추가
         for (const preItem of preCandidateItems) {
           if (!items.some(item => item.name === preItem.name)) {
             items.push({ ...preItem, _isPre: true });
           }
         }
-      } catch (err: any) {
-        console.error("[NEC API] 예비후보자 API 오류:", err.message);
+      } else {
+        console.error("[NEC API] 예비후보자 API 오류:", preRes.reason?.message);
       }
 
       // 프론트엔드 호환성을 위해 DB 모델 포맷으로 변환
@@ -5570,6 +5731,7 @@ export async function registerRoutes(
         };
       });
 
+      electionCandidateCache.set(cacheKey, { data: candidates, cachedAt: Date.now() });
       res.json(candidates);
     } catch (e: any) {
       console.error("[CANDIDATES API ERROR]", e.message);
@@ -6031,16 +6193,19 @@ export async function registerRoutes(
 
     if (!name && !monaCd) return res.status(400).end();
 
-    // context 우선순위: 직접 전달 > monaCd로 DB 조회
+    // context 우선순위: 직접 전달 > monaCd로 DB 조회 (정당+지역구 포함해 동명이인 구분)
     let context: string | undefined = contextParam;
     if (!context && monaCd) {
       try {
         const [row] = await db
-          .select({ party: legislators.party })
+          .select({ party: legislators.party, district: legislators.district })
           .from(legislators)
           .where(eq(legislators.monaCd, monaCd))
           .limit(1);
-        if (row?.party) context = `${row.party} 국회의원`;
+        if (row?.party) {
+          const parts = [row.party, row.district, "국회의원"].filter(Boolean);
+          context = parts.join(" ");
+        }
       } catch {
         // ignore — context 없이도 진행 가능
       }

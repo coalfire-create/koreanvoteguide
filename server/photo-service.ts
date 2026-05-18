@@ -104,22 +104,38 @@ async function fetchFromNaver(name: string, context?: string): Promise<string | 
   return null;
 }
 
-async function fetchFromWikipedia(name: string): Promise<string | null> {
-  // 기본 변형
-  const variants = [name, `${name} (정치인)`, `${name} (국회의원)`, `${name} (도지사)`, `${name} (시장)`];
+async function fetchFromWikipedia(name: string, context?: string): Promise<string | null> {
+  const isPolitician = context?.includes("국회의원") || context?.includes("정치인") || context?.includes("의원");
 
-  // Wikipedia opensearch로 실제 제목 찾기 → 연도형 disambiguation 처리
+  // 국회의원 컨텍스트: 정치인 disambiguation 페이지 우선, 연도형 다음, 원래 이름은 마지막
+  const variants: string[] = isPolitician
+    ? [`${name} (정치인)`, `${name} (국회의원)`]
+    : [name, `${name} (정치인)`, `${name} (국회의원)`, `${name} (도지사)`, `${name} (시장)`];
+
+  // 연도/직함 disambiguation 자동 탐색: "황희 (1967년)" 형태 포함
   try {
     const searchRes = await axios.get("https://ko.wikipedia.org/w/api.php", {
-      params: { action: "opensearch", search: `${name} 정치인`, limit: 3, format: "json" },
+      params: { action: "opensearch", search: name, limit: 10, format: "json" },
       timeout: 5000,
       headers: { "User-Agent": UA },
     });
     const titles: string[] = searchRes.data?.[1] ?? [];
+    const NON_POLITICAL = /배우|가수|방송|음악|소설|스포츠|운동|선수|학자|역사|조선|고려/;
     for (const t of titles) {
-      if (!variants.includes(t)) variants.push(t);
+      if (variants.includes(t)) continue;
+      if (NON_POLITICAL.test(t)) continue;
+      // 연도형 "(YYYY년)" 또는 정치 관련 suffix는 현역 정치인일 가능성 높음
+      if (/\(\d{4}년\)|\(도지사\)|\(시장\)|\(국회의원\)|\(정치인\)/.test(t)) {
+        isPolitician ? variants.splice(variants.length, 0, t) : variants.push(t);
+      }
     }
+    // 평문 이름 (동명이인 위험) — 정치인 모드에서는 맨 뒤로
+    if (isPolitician && !variants.includes(name)) variants.push(name);
   } catch { /* opensearch 실패해도 계속 */ }
+
+  if (!isPolitician && !variants.includes(`${name} (도지사)`)) {
+    variants.push(`${name} (도지사)`, `${name} (시장)`);
+  }
 
   for (const v of variants) {
     try {
@@ -127,8 +143,12 @@ async function fetchFromWikipedia(name: string): Promise<string | null> {
         `https://ko.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(v)}`,
         { timeout: 6000, headers: { "User-Agent": UA } }
       );
+      const desc: string = r.data?.description ?? "";
       const thumb = r.data?.thumbnail?.source ?? null;
-      if (thumb) return thumb;
+      if (!thumb) continue;
+      // 정치인 컨텍스트에서 역사적 인물 페이지는 건너뜀
+      if (isPolitician && /조선|고려|\d{3,4}년 ?~/.test(desc)) continue;
+      return thumb;
     } catch {
       // try next
     }
@@ -156,7 +176,7 @@ export async function getPoliticianPhotoUrl(name: string, context?: string): Pro
   let url = await fetchFromNaver(name, context);
 
   if (!url) {
-    url = await fetchFromWikipedia(name);
+    url = await fetchFromWikipedia(name, context);
   }
 
   cache.set(cacheKey, { url, fetchedAt: Date.now() });
@@ -186,6 +206,7 @@ const PHOTO_HOST_ALLOWLIST = new Set([
   "sstatic.naver.net",
   "upload.wikimedia.org",
   "open.assembly.go.kr",
+  "www.assembly.go.kr",   // monaCd 기반 공식 의원 사진
   "info.nec.go.kr",       // 선관위 후보자 공식 사진
 ]);
 

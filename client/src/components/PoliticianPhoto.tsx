@@ -21,14 +21,15 @@ export function PoliticianPhoto({
   const [srcIndex, setSrcIndex] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  // Source priority: hardcoded override > explicit prop > batch-resolved > server-side fallback.
-  // 하드코딩이 가장 우선 — DB(legislators.photoUrl)에 잘못된 사진이 들어가도(동명이인 등) 손으로 박은 정답이 이김.
-  // 하드코딩에 없는 이름은 자연스럽게 기존 우선순위(photo prop → resolvedUrl → server fallback)로 fall through.
+  // Source priority: hardcoded override > assembly official (monaCd) > explicit prop > batch-resolved > name-based fallback.
+  // monaCd 기반 공식 국회 사진이 두 번째 — 동명이인이 있어도 monaCd는 유일하므로 항상 본인 사진.
+  // DB(photo prop)나 name 검색(동명이인 위험)보다 앞에 위치.
   const sources = useMemo(() => {
     const hardcoded = POLITICIAN_PHOTOS[name] ?? null;
-    const ctxParam = context ? `&context=${encodeURIComponent(context)}` : (monaCd ? "" : "");
+    const assemblyPhoto = monaCd ? `/api/photo/assembly/${monaCd}` : null;
+    const ctxParam = context ? `&context=${encodeURIComponent(context)}` : "";
     const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}${ctxParam}`;
-    return [hardcoded, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
+    return [hardcoded, assemblyPhoto, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
   }, [photo, resolvedUrl, name, monaCd, context]);
 
   // sources[0]이 바뀌면 (새 URL이 추가되면) srcIndex 리셋 — 이전에 실패한 인덱스로 고정되는 버그 방지.

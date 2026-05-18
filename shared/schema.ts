@@ -537,7 +537,14 @@ export const electionCandidates = pgTable("election_candidates", {
   sourceId: text("source_id"),                      // 선관위 API 후보 ID (huboid) — Deep Sync upsert 키
   matchKey: text("match_key"),                      // 이름_생년월일_선거구 조합 (외부 CSV 매칭용)
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // /api/election/* 핫 경로가 region_code/election_type/sd_name/name 으로 필터 →
+  // PK만 있던 상태에선 풀스캔. 아래 인덱스로 인덱스 스캔 전환 (이미 prod에 SQL로 생성됨).
+  candRegionTypeIdx: index("cand_region_type_idx").on(table.regionCode, table.electionType),
+  candSdNameIdx: index("cand_sdname_idx").on(table.sdName),
+  candNameIdx: index("cand_name_idx").on(table.name),
+  candDistrictIdx: index("cand_district_idx").on(table.regionCode, table.districtName),
+}));
 
 // ===== 후보 발언/행보 =====
 export const candidateStatements = pgTable("candidate_statements", {
