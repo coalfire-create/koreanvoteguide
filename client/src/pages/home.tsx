@@ -172,7 +172,7 @@ export default function Home() {
                   
                   <div className="px-6 pb-6 pt-0">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[13px] font-black text-foreground">좋아요 {Math.floor(Math.random() * 2000).toLocaleString()}개</span>
+                      <span className="text-[13px] font-black text-foreground">좋아요 {(((bill.billId?.charCodeAt(0) ?? idx) * 137 + idx * 41) % 1900 + 100).toLocaleString()}개</span>
                       <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">{idx + 2}시간 전</span>
                     </div>
                   </div>

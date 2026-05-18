@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Heart, MessageCircle, Share2, Sparkles, FileText, Vote, MoreHorizontal } from "lucide-react";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { timeAgo, getPartyTextBg } from "@/lib/utils";
 
 export interface FeedItem {
   type: "bill" | "vote";
@@ -20,32 +21,6 @@ export interface FeedItem {
   isRecommended: boolean;
 }
 
-const partyColor = (party: string | null) => {
-  if (!party) return "text-gray-500 bg-gray-50";
-  if (party.includes("더불어민주당")) return "text-[#3A6BFF] bg-blue-50";
-  if (party.includes("국민의힘")) return "text-[#FF3B3B] bg-red-50";
-  if (party.includes("조국혁신당")) return "text-blue-800 bg-blue-50";
-  if (party.includes("개혁신당")) return "text-[#FF8C00] bg-orange-50";
-  if (party.includes("진보당")) return "text-[#D60024] bg-red-50";
-  if (party.includes("무소속")) return "text-gray-500 bg-gray-50";
-  return "text-gray-600 bg-gray-50";
-};
-
-// "2026-05-12" or ISO → "2시간 전" / "3일 전" / "5월 12일"
-function timeAgo(iso: string): string {
-  if (!iso) return "";
-  const date = new Date(iso.length === 8 ? `${iso.slice(0, 4)}-${iso.slice(4, 6)}-${iso.slice(6, 8)}` : iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const diffMs = Date.now() - date.getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "방금 전";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}일 전`;
-  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
-}
 
 function VoteBadge({ result }: { result: string }) {
   const cls = result.includes("찬")
@@ -65,7 +40,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
   const [likeCount, setLikeCount] = useState(() => Math.floor(Math.random() * 80) + 12);
   const [commentCount] = useState(() => Math.floor(Math.random() * 30) + 2);
 
-  const partyCls = partyColor(item.party);
+  const partyCls = getPartyTextBg(item.party);
   const isBill = item.type === "bill";
 
   const handleLike = () => {

@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssemblyMembers } from "@/lib/api-data";
 import { getPartyRank } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth";
+import { timeAgo } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
@@ -51,20 +52,6 @@ function partyChip(party: string | null | undefined): string {
   return "bg-gray-50 text-gray-500 border-gray-100";
 }
 
-function timeAgo(date: string): string {
-  if (!date) return "";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  const diff = Date.now() - d.getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "방금";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}일 전`;
-  return `${Math.floor(day / 30)}개월 전`;
-}
 
 function voteColor(result?: string): string {
   if (!result) return "bg-gray-100 text-gray-600";
@@ -454,7 +441,7 @@ export default function Members() {
                             name={m.name}
                             photo={m.photo}
                             monaCd={m.id}
-                            context={m.party}
+                            context={[m.party, m.district, "국회의원"].filter(Boolean).join(" ")}
                             className="w-full h-full object-cover"
                             avatarClassName="text-[22px] font-black bg-muted text-muted-foreground/40"
                           />

@@ -5,6 +5,48 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** ISO / YYYYMMDD 날짜 문자열 → "N분 전" / "N시간 전" / "N일 전" / "M월 D일" */
+export function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const normalized =
+    dateStr.length === 8
+      ? `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`
+      : dateStr;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  const diff = Date.now() - date.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "방금 전";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}일 전`;
+  return date.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+}
+
+/** 정당명 → 차트/SVG 용 hex 색상 */
+export function getPartyHex(party: string): string {
+  if (party?.includes("더불어민주당")) return "#3A6BFF";
+  if (party?.includes("국민의힘")) return "#FF3B3B";
+  if (party?.includes("조국혁신당")) return "#1e3a8a";
+  if (party?.includes("개혁신당")) return "#FF8C00";
+  if (party?.includes("진보당")) return "#D60024";
+  return "#6D28D9";
+}
+
+/** 정당명 → Tailwind 텍스트+배경 클래스 (인라인 배지용) */
+export function getPartyTextBg(party: string | null | undefined): string {
+  if (!party) return "text-gray-500 bg-gray-50";
+  if (party.includes("더불어민주당")) return "text-[#3A6BFF] bg-blue-50";
+  if (party.includes("국민의힘")) return "text-[#FF3B3B] bg-red-50";
+  if (party.includes("조국혁신당")) return "text-blue-800 bg-blue-50";
+  if (party.includes("개혁신당")) return "text-[#FF8C00] bg-orange-50";
+  if (party.includes("진보당")) return "text-[#D60024] bg-red-50";
+  if (party.includes("무소속")) return "text-gray-500 bg-gray-50";
+  return "text-gray-600 bg-gray-50";
+}
+
 export function getBillEmoji(billName: string, committee?: string): string {
   return "";
 }

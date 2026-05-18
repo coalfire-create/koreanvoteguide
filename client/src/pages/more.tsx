@@ -10,6 +10,7 @@ import { useAssemblyMembers } from "@/lib/api-data";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { timeAgo } from "@/lib/utils";
 import {
   Settings, ChevronRight, Bell, CircleHelp, Moon, Sun,
   Plus, MessageSquare, CheckCircle2, LogOut, MapPin,
@@ -56,17 +57,6 @@ interface FeedResponse {
   followCount: number;
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "방금 전";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}일 전`;
-  return new Date(dateStr).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
-}
 
 function GuestPrompt() {
   const [, setLocation] = useLocation();

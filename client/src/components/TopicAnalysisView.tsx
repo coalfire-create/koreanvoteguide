@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Sparkles, AlertCircle, Quote, CheckCircle2, Lightbulb } from "lucide-react";
+import { getPartyHex } from "@/lib/utils";
 
 interface CandidatePledge {
   name: string;
@@ -29,14 +30,6 @@ interface TopicAnalysisResult {
   voterTip: string;
 }
 
-function partyColor(party: string): string {
-  if (party?.includes("더불어민주당")) return "#3A6BFF";
-  if (party?.includes("국민의힘")) return "#FF3B3B";
-  if (party?.includes("조국혁신당")) return "#1e3a8a";
-  if (party?.includes("개혁신당")) return "#FF8C00";
-  if (party?.includes("진보당")) return "#D60024";
-  return "#6D28D9";
-}
 
 export default function TopicAnalysisView({
   topic,
@@ -159,7 +152,7 @@ export default function TopicAnalysisView({
                     <h4 className="text-[15px] font-black text-gray-900 ml-2">후보별 차별화 지점</h4>
                     <div className="grid grid-cols-1 gap-4">
                       {result.candidateAnalyses.map((ca, idx) => {
-                        const color = partyColor(ca.party);
+                        const color = getPartyHex(ca.party);
                         return (
                           <motion.div
                             key={idx}

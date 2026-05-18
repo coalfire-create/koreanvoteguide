@@ -623,7 +623,7 @@ export default function MemberDetail() {
                 name={member.name}
                 photo={member.photo}
                 monaCd={member.id}
-                context={member.party}
+                context={[member.party, member.district, "국회의원"].filter(Boolean).join(" ")}
                 avatarClassName="w-full h-full text-primary flex items-center justify-center text-4xl font-black"
               />
             </div>

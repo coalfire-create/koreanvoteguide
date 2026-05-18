@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getPartyHex } from "@/lib/utils";
 
 function formatTime(pubDate: string): string {
   if (!pubDate) return "";
@@ -115,15 +116,6 @@ interface CompareResult {
   voterGuide: string;
 }
 
-// ─── 정당 색상 ────────────────────────────────────────────────────────────────
-function partyColor(party: string): string {
-  if (party?.includes("더불어민주당")) return "#3A6BFF";
-  if (party?.includes("국민의힘")) return "#FF3B3B";
-  if (party?.includes("조국혁신당")) return "#1e3a8a";
-  if (party?.includes("개혁신당")) return "#FF8C00";
-  if (party?.includes("진보당")) return "#D60024";
-  return "#6D28D9";
-}
 
 // ============================================================
 // 비교 모드 뷰
@@ -138,8 +130,8 @@ function ComparisonView({
   candidateB: CompareWith;
   onClose: () => void;
 }) {
-  const colorA = partyColor(candidateA.party);
-  const colorB = partyColor(candidateB.party);
+  const colorA = getPartyHex(candidateA.party);
+  const colorB = getPartyHex(candidateB.party);
 
   const { data: result, isLoading, isError } = useQuery<CompareResult>({
     queryKey: ["pledge-compare", candidateA.pledge.title, candidateB.pledge.title],
