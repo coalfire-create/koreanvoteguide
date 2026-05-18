@@ -314,6 +314,7 @@ function TopHeader({
   onSelectRegion: (idx: number) => void;
 }) {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
   return (
     <header className="w-full h-[72px] flex items-center justify-between px-8 bg-background border-b border-border/40 sticky top-0 z-50">
@@ -347,12 +348,20 @@ function TopHeader({
           <HelpCircle className="w-6 h-6" />
         </button>
         <div className="flex items-center gap-3 pl-4 border-l border-border/30">
-          <Button 
-            className="bg-card text-primary hover:bg-muted border border-border/30 rounded-full px-6 h-10 font-bold shadow-sm text-xs"
-            onClick={() => setLocation("/login")}
-          >
-            로그인
-          </Button>
+          {user ? (
+            <Link href="/more">
+              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-sm cursor-pointer shadow-sm ring-2 ring-transparent hover:ring-primary/20 transition-all">
+                {user.name.charAt(0)}
+              </div>
+            </Link>
+          ) : (
+            <Button 
+              className="bg-card text-primary hover:bg-muted border border-border/30 rounded-full px-6 h-10 font-bold shadow-sm text-xs"
+              onClick={() => setLocation("/login")}
+            >
+              로그인
+            </Button>
+          )}
         </div>
       </div>
     </header>

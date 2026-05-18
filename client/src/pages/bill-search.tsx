@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
+import { useAuth } from "@/lib/auth";
 
 const SOURCE_COLORS: Record<string, string> = {
   yna:      "bg-red-50 text-red-600 border-red-100",
@@ -38,6 +39,7 @@ function newsTimeAgo(pubDate: string) {
 export default function BillSearch() {
   const [searchQuery, setSearchQuery] = useState("");
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const { bills, isLoading: billsLoading } = useAssemblyBills();
   const { members, isLoading: membersLoading } = useAssemblyMembers();
   const { bills: hotBills, isLoading: hotBillsLoading, isError: hotBillsError } = useHotBills();
@@ -165,9 +167,17 @@ export default function BillSearch() {
           <button className="p-2 rounded-full hover:bg-muted/50 transition-colors">
             <Settings className="w-5 h-5 text-muted-foreground" />
           </button>
-          <div className="w-9 h-9 rounded-full bg-muted border border-border/30 overflow-hidden cursor-pointer shadow-sm">
-            {/* Avatar placeholder */}
-          </div>
+          {user ? (
+            <Link href="/more">
+              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-sm cursor-pointer shadow-sm ring-2 ring-transparent hover:ring-primary/20 transition-all">
+                {user.name.charAt(0)}
+              </div>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <button className="text-[13px] font-black text-primary hover:underline px-2 py-1">로그인</button>
+            </Link>
+          )}
         </div>
       </header>
 

@@ -86,7 +86,17 @@ export default function Home() {
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background"></span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-muted border border-border/30 shadow-sm cursor-pointer"></div>
+          {user ? (
+            <Link href="/more">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-xs cursor-pointer shadow-sm ring-2 ring-transparent hover:ring-primary/20 transition-all">
+                {user.name.charAt(0)}
+              </div>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <button className="text-[13px] font-black text-primary hover:underline px-2 py-1">로그인</button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -191,11 +201,6 @@ export default function Home() {
                   <p className="text-[12px] font-bold text-muted-foreground">{followedIds.length}명 팔로우 중</p>
                 </div>
               </div>
-              {!user && (
-                <Link href="/login">
-                  <button className="text-[12px] font-black text-primary hover:underline">로그인</button>
-                </Link>
-              )}
             </div>
           </div>
 
