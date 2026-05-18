@@ -9,6 +9,7 @@ import { ThemeProvider } from "next-themes";
 import { BottomNav } from "@/components/bottom-nav";
 import { SideNav } from "@/components/side-nav";
 import { SplashScreen } from "@/components/splash-screen";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
 
@@ -89,8 +90,9 @@ function MainApp() {
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
+      {!hideHeaderNav && <AnnouncementBanner />}
       {!hideHeaderNav && <SideNav />}
-      
+
       <main className={`flex-1 w-full ${!hideHeaderNav ? "md:pl-[260px]" : ""}`}>
         {/* Full width content area for desktop, matching Stitch design */}
         <div className="w-full min-h-screen pb-[80px] md:pb-10">

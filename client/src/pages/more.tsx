@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "next-themes";
@@ -14,8 +14,9 @@ import {
   Settings, ChevronRight, Bell, CircleHelp, Moon, Sun,
   Plus, MessageSquare, CheckCircle2, LogOut, MapPin,
   Edit3, Loader2, FileText, User, ThumbsUp, ThumbsDown, X,
-  Activity, Vote, Sparkles, BadgeCheck, ShieldCheck,
+  Activity, Vote, Sparkles, BadgeCheck, ShieldCheck, Megaphone, Trash2,
 } from "lucide-react";
+import type { Announcement } from "@shared/schema";
 import { StoryFeed } from "@/components/StoryFeed";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -164,6 +165,128 @@ function formatDemographic(ageGroup?: number | null, gender?: string | null): st
   if (gender === "M") parts.push("남성");
   else if (gender === "F") parts.push("여성");
   return parts.length > 0 ? parts.join(" • ") : null;
+}
+
+function AdminAnnouncementPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const { data: list = [] } = useQuery<Announcement[]>({
+    queryKey: ["/api/announcements"],
+    enabled: isOpen,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/announcements", { title, content });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "등록 실패");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements/active"] });
+      toast({ title: "공지사항이 등록되었습니다" });
+      setTitle("");
+      setContent("");
+    },
+    onError: (err: Error) => {
+      toast({ title: "등록 실패", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/announcements/${id}`);
+      if (!res.ok) throw new Error("삭제 실패");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements/active"] });
+      toast({ title: "공지사항이 비활성화되었습니다" });
+    },
+    onError: () => {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    },
+  });
+
+  return (
+    <section className="space-y-3">
+      <button
+        className="w-full flex items-center justify-between px-1 py-1"
+        onClick={() => setIsOpen((v) => !v)}
+      >
+        <div className="flex items-center gap-2 text-primary font-bold">
+          <Megaphone className="w-5 h-5" />
+          <span>공지사항 관리</span>
+        </div>
+        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-card rounded-[20px] border border-border/30 p-5 space-y-4">
+              <div className="space-y-2">
+                <Input
+                  placeholder="공지 제목"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  maxLength={100}
+                />
+                <textarea
+                  className="w-full min-h-[80px] rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="공지 내용 (최대 500자)"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={!title.trim() || !content.trim() || createMutation.isPending}
+                onClick={() => createMutation.mutate()}
+              >
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "공지 등록"}
+              </Button>
+
+              {list.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-border/30">
+                  <p className="text-xs font-semibold text-muted-foreground">등록된 공지</p>
+                  {list.map((item) => (
+                    <div key={item.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${!item.isActive ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.content}</p>
+                      </div>
+                      {item.isActive && (
+                        <button
+                          onClick={() => deleteMutation.mutate(item.id)}
+                          className="shrink-0 p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
 }
 
 export default function More() {
@@ -580,6 +703,9 @@ export default function More() {
             )}
           </div>
         </section>
+
+        {/* 관리자 공지사항 */}
+        {user?.isAdmin && <AdminAnnouncementPanel />}
 
         {/* 법적 고지 */}
         <section className="space-y-2 pb-4">

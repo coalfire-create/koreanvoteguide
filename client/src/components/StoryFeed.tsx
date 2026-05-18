@@ -52,6 +52,7 @@ function StorySheet({ story, onClose }: { story: Story; onClose: () => void }) {
                 name={story.name}
                 monaCd={story.id}
                 photo={story.photo}
+                context={story.party || undefined}
                 lazy={false}
               />
             </div>
@@ -127,6 +128,7 @@ function StoryAvatar({ story, onTap }: { story: Story; onTap: () => void }) {
                 name={story.name}
                 monaCd={story.id}
                 photo={story.photo}
+                context={story.party || undefined}
                 avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-lg font-bold"
               />
             </div>

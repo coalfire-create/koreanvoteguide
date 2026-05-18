@@ -126,6 +126,7 @@ function CandidateCard({
               name={candidate.name}
               photo={candidate.photo || (candidate as any).imageUrl}
               monaCd={candidate.id}
+              context={candidate.party}
               className="group-hover/photo:scale-110 transition-transform duration-500"
               avatarClassName="w-full h-full flex items-center justify-center bg-gray-50 text-gray-200 text-lg font-bold"
             />

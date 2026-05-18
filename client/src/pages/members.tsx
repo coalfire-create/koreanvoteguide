@@ -92,6 +92,7 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
               name={item.politicianName}
               photo={item.photo ?? undefined}
               monaCd={item.politicianId}
+              context={item.party ?? undefined}
               avatarClassName="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold"
             />
           </div>
@@ -453,6 +454,7 @@ export default function Members() {
                             name={m.name}
                             photo={m.photo}
                             monaCd={m.id}
+                            context={m.party}
                             className="w-full h-full object-cover"
                             avatarClassName="text-[22px] font-black bg-muted text-muted-foreground/40"
                           />

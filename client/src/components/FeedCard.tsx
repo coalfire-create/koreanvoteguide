@@ -106,6 +106,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
                     name={item.politicianName}
                     monaCd={item.politicianId}
                     photo={item.photo ?? undefined}
+                    context={item.party ?? undefined}
                     avatarClassName="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-base font-bold"
                   />
                 </div>

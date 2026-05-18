@@ -257,6 +257,7 @@ export default function CandidateDetail() {
                 name={candidate.name}
                 photo={candidate.photo}
                 monaCd={candidate.id}
+                context={candidate.party}
                 avatarClassName="w-full h-full flex items-center justify-center text-white font-black text-3xl"
               />
             </div>

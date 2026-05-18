@@ -120,6 +120,7 @@ export default function Home() {
                           name={bill.proposer || ""}
                           photo={members.find(m => m.name === bill.proposer)?.photo || ""}
                           monaCd={members.find(m => m.name === bill.proposer)?.id || ""}
+                          context={bill.party || members.find(m => m.name === bill.proposer)?.party || undefined}
                           className="w-full h-full object-cover"
                           avatarClassName="text-[12px] font-black bg-muted text-muted-foreground"
                         />
@@ -223,6 +224,7 @@ export default function Home() {
                           name={member.name}
                           photo={member.photo}
                           monaCd={member.id}
+                          context={member.party}
                           className="w-full h-full object-cover"
                           avatarClassName="text-[12px] font-black bg-muted text-muted-foreground"
                         />

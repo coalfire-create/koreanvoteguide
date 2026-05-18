@@ -623,6 +623,7 @@ export default function MemberDetail() {
                 name={member.name}
                 photo={member.photo}
                 monaCd={member.id}
+                context={member.party}
                 avatarClassName="w-full h-full text-primary flex items-center justify-center text-4xl font-black"
               />
             </div>

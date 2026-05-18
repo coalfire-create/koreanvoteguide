@@ -29,7 +29,7 @@ export function PoliticianPhoto({
     const ctxParam = context ? `&context=${encodeURIComponent(context)}` : (monaCd ? "" : "");
     const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}${ctxParam}`;
     return [hardcoded, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
-  }, [photo, resolvedUrl, name, monaCd]);
+  }, [photo, resolvedUrl, name, monaCd, context]);
 
   // sources[0]이 바뀌면 (새 URL이 추가되면) srcIndex 리셋 — 이전에 실패한 인덱스로 고정되는 버그 방지.
   const prevFirst = useRef(sources[0]);

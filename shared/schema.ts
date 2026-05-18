@@ -50,6 +50,7 @@ export const users = pgTable("users", {
   // 약관/개인정보처리방침 동의 시점
   tosAcceptedAt: timestamp("tos_accepted_at"),
   privacyAcceptedAt: timestamp("privacy_accepted_at"),
+  isAdmin: boolean("is_admin").default(false).notNull(),
   // 회원 탈퇴 시각 — soft delete. 데이터 비식별화 후 30일 보존.
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -749,3 +750,25 @@ export const insertElectionScheduleSchema = createInsertSchema(electionSchedules
 });
 
 export type InsertElectionSchedule = z.infer<typeof insertElectionScheduleSchema>;
+
+// ===== 공지사항 =====
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  activeIdx: index("announcements_active_idx").on(table.isActive),
+  createdAtIdx: index("announcements_created_at_idx").on(table.createdAt),
+}));
+
+export type Announcement = typeof announcements.$inferSelect;
+
+export const insertAnnouncementSchema = z.object({
+  title: z.string().min(1, "제목을 입력하세요").max(100),
+  content: z.string().min(1, "내용을 입력하세요").max(500),
+  expiresAt: z.string().datetime().optional(),
+});

@@ -19,7 +19,7 @@ import {
   CandidateNotFoundError,
   InsufficientDataError,
 } from "./candidate-report";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments } from "@shared/schema";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments, announcements, insertAnnouncementSchema } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
@@ -48,7 +48,7 @@ import {
 } from "./utils/naver-oauth";
 import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
-import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like } from "drizzle-orm";
+import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like, isNull, gt } from "drizzle-orm";
 import axios from "axios";
 import { XMLParser } from "fast-xml-parser";
 import multer from "multer";
@@ -467,9 +467,14 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  const [hashed, salt] = stored.split(".");
-  const buf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(Buffer.from(hashed, "hex"), buf);
+  const [hashed, salt] = (stored || "").split(".");
+  // OAuth(빈 비밀번호) 계정·손상된 해시: 예외/타이밍 누출 없이 인증 실패 처리
+  if (!hashed || !salt) return false;
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  const storedBuf = Buffer.from(hashed, "hex");
+  // timingSafeEqual은 길이가 다르면 throw → 사전 길이 검사로 크래시 방지
+  if (storedBuf.length !== suppliedBuf.length) return false;
+  return timingSafeEqual(storedBuf, suppliedBuf);
 }
 
 // 전화번호 lookup용 HMAC. 평문 phone은 그대로 두되, 중복 검사·재로그인 식별은 hash로.
@@ -719,6 +724,12 @@ export async function registerRoutes(
         return res.status(403).json({ error: "탈퇴한 계정입니다" });
       }
 
+      // 소셜(카카오/네이버) 전용 계정은 로컬 비밀번호가 없음(""). 사용자 열거를 피하기
+      // 위해 일반 로그인과 동일한 균일 메시지로 거부한다.
+      if (!user.password) {
+        return res.status(401).json({ error: "아이디 또는 비밀번호가 올바르지 않습니다" });
+      }
+
       const valid = await comparePasswords(password, user.password);
       if (!valid) {
         return res.status(401).json({ error: "아이디 또는 비밀번호가 올바르지 않습니다" });
@@ -731,8 +742,9 @@ export async function registerRoutes(
         user: { id: user.id, username: user.username, name: user.name },
       });
     } catch (error: any) {
+      // 내부 에러 메시지는 서버 로그에만 남기고 클라이언트에는 노출하지 않는다.
       console.error("Login error detail:", error);
-      res.status(500).json({ error: "로그인 중 오류가 발생했습니다: " + (error.message || "Unknown error") });
+      res.status(500).json({ error: "로그인 중 오류가 발생했습니다" });
     }
   });
 
@@ -774,6 +786,7 @@ export async function registerRoutes(
         postCount: user.postCount,
         favorites: user.favorites,
         favoriteRegions: user.favoriteRegions,
+        isAdmin: user.isAdmin ?? false,
       },
     });
   });
@@ -1446,18 +1459,28 @@ export async function registerRoutes(
     }
   });
 
+  let memberListCache: { payload: any; cachedAt: number } | null = null;
+  const MEMBER_LIST_TTL = 5 * 60 * 1000;
+
   app.get("/api/members", async (_req, res) => {
     try {
+      if (memberListCache && Date.now() - memberListCache.cachedAt < MEMBER_LIST_TTL) {
+        return res.json(memberListCache.payload);
+      }
       // DB에 데이터가 있으면 우선 사용 (빠름)
       const dbRows = await db.select().from(legislators).orderBy(legislators.name).limit(400);
       if (dbRows.length > 0) {
-        return res.json({ source: "db", data: dbRows });
+        const payload = { source: "db", data: dbRows };
+        memberListCache = { payload, cachedAt: Date.now() };
+        return res.json(payload);
       }
       // DB 없으면 전체 페이지 API 조회
       const { syncLegislators: sync } = await import("./api-sync");
       await sync();
       const freshRows = await db.select().from(legislators).orderBy(legislators.name).limit(400);
-      return res.json({ source: "api", data: freshRows });
+      const payload = { source: "api", data: freshRows };
+      memberListCache = { payload, cachedAt: Date.now() };
+      return res.json(payload);
     } catch (error) {
       console.error("Members API fetch error:", error);
       res.json({ source: "mock", data: null });
@@ -1618,18 +1641,38 @@ export async function registerRoutes(
     }
   });
 
+  // 리스트 소비처(useAssemblyBills→bill-search)는 6개 필드만 사용. 무거운 aiDescription
+  // 등 미사용 컬럼을 제외해 1000행 페이로드를 대폭 축소 + 5분 메모리 캐시로 반복 풀스캔 제거.
+  const billListCols = {
+    billId: assemblyBills.billId,
+    billName: assemblyBills.billName,
+    committee: assemblyBills.committee,
+    proposeDate: assemblyBills.proposeDate,
+    proposer: assemblyBills.proposer,
+    result: assemblyBills.result,
+  };
+  let billListCache: { payload: any; cachedAt: number } | null = null;
+  const BILL_LIST_TTL = 5 * 60 * 1000;
+
   app.get("/api/bills", async (_req, res) => {
     try {
+      if (billListCache && Date.now() - billListCache.cachedAt < BILL_LIST_TTL) {
+        return res.json(billListCache.payload);
+      }
       // DB에 데이터가 있으면 우선 사용
-      const dbRows = await db.select().from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
+      const dbRows = await db.select(billListCols).from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
       if (dbRows.length > 0) {
-        return res.json({ source: "db", data: dbRows });
+        const payload = { source: "db", data: dbRows };
+        billListCache = { payload, cachedAt: Date.now() };
+        return res.json(payload);
       }
       // DB 없으면 전체 페이지 API 조회
       const { syncBills: sync } = await import("./api-sync");
       await sync();
-      const freshRows = await db.select().from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
-      return res.json({ source: "api", data: freshRows });
+      const freshRows = await db.select(billListCols).from(assemblyBills).orderBy(desc(assemblyBills.proposeDate)).limit(1000);
+      const payload = { source: "api", data: freshRows };
+      billListCache = { payload, cachedAt: Date.now() };
+      return res.json(payload);
     } catch (error) {
       console.error("Bills API fetch error:", error);
       res.json({ source: "mock", data: null });
@@ -2448,20 +2491,25 @@ export async function registerRoutes(
   const getBillsHandler = async (req: express.Request, res: express.Response) => {
     try {
       const includeDiscarded = req.query.includeDiscarded === "true";
+      // 비인증 엔드포인트 — 무제한 풀스캔 응답을 막아 자원 고갈(DoS) 방지
+      const MAX_ROWS = 2000;
       let rows;
       if (includeDiscarded) {
         rows = await db.select()
           .from(assemblyBills)
-          .orderBy(desc(assemblyBills.proposeDate));
+          .orderBy(desc(assemblyBills.proposeDate))
+          .limit(MAX_ROWS);
       } else {
         rows = await db.select()
           .from(assemblyBills)
           .where(notInArray(assemblyBills.result, ["폐기", "부결", "철회"]))
-          .orderBy(desc(assemblyBills.proposeDate));
+          .orderBy(desc(assemblyBills.proposeDate))
+          .limit(MAX_ROWS);
       }
       res.json(rows);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[bills] query error:", error);
+      res.status(500).json({ error: "법안 조회 중 오류가 발생했습니다" });
     }
   };
   app.get("/api/db/bills", getBillsHandler);
@@ -5879,6 +5927,100 @@ export async function registerRoutes(
     res.setHeader("Content-Type", result.contentType);
     res.setHeader("Cache-Control", "public, max-age=86400, immutable");
     res.send(result.data);
+  });
+
+  // ===== 공지사항 =====
+
+  // 가장 최근 활성 공지사항 1건 반환 (모든 사용자)
+  app.get("/api/announcements/active", async (req, res) => {
+    try {
+      const [row] = await db
+        .select()
+        .from(announcements)
+        .where(
+          and(
+            eq(announcements.isActive, true),
+            or(
+              isNull(announcements.expiresAt),
+              gt(announcements.expiresAt, new Date())
+            )
+          )
+        )
+        .orderBy(desc(announcements.createdAt))
+        .limit(1);
+      return res.json(row ?? null);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
+  });
+
+  // 전체 공지사항 목록 (관리자)
+  app.get("/api/announcements", requireAuth, async (req, res) => {
+    const sessionUser = (req as any).user as { id: string } | undefined;
+    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, sessionUser.id)).limit(1);
+    if (!admin?.isAdmin) return res.status(403).json({ error: "관리자만 접근 가능합니다" });
+
+    try {
+      const rows = await db
+        .select()
+        .from(announcements)
+        .orderBy(desc(announcements.createdAt))
+        .limit(50);
+      return res.json(rows);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
+  });
+
+  // 공지사항 작성 (관리자)
+  app.post("/api/announcements", requireAuth, async (req, res) => {
+    const sessionUser = (req as any).user as { id: string } | undefined;
+    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, sessionUser.id)).limit(1);
+    if (!admin?.isAdmin) return res.status(403).json({ error: "관리자만 접근 가능합니다" });
+
+    const parsed = insertAnnouncementSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message });
+
+    try {
+      const [row] = await db
+        .insert(announcements)
+        .values({
+          title: parsed.data.title,
+          content: parsed.data.content,
+          createdBy: sessionUser.id,
+          expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+          isActive: true,
+        })
+        .returning();
+      return res.status(201).json(row);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
+  });
+
+  // 공지사항 비활성화/삭제 (관리자)
+  app.delete("/api/announcements/:id", requireAuth, async (req, res) => {
+    const sessionUser = (req as any).user as { id: string } | undefined;
+    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, sessionUser.id)).limit(1);
+    if (!admin?.isAdmin) return res.status(403).json({ error: "관리자만 접근 가능합니다" });
+
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(rawId);
+    if (isNaN(id)) return res.status(400).json({ error: "잘못된 ID" });
+
+    try {
+      await db.update(announcements).set({ isActive: false }).where(eq(announcements.id, id));
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
   });
 
   return httpServer;

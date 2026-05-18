@@ -9,9 +9,10 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    // 브랜드 인트로 애니메이션(~0.3s)만 보여주고 빠르게 진입 — 체감 로딩 대폭 단축
     const timer = setTimeout(() => {
       setVisible(false);
-    }, 2000);
+    }, 700);
     return () => clearTimeout(timer);
   }, []);
 
@@ -23,12 +24,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           style={{ backgroundColor: "hsl(234, 89%, 56%)" }}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="flex flex-col items-center"
           >
             <span

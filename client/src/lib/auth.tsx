@@ -18,6 +18,7 @@ interface AuthUser {
   postCount: number;
   favorites: string[];
   favoriteRegions: { code: string; name: string }[];
+  isAdmin?: boolean;
 }
 
 interface RegisterPayload {
