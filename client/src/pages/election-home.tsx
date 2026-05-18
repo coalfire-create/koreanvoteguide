@@ -12,7 +12,6 @@ import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailVie
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
-import { StoryFeed } from "@/components/StoryFeed";
 
 // 후보 영역 로딩용 Skeleton — 실제 카드와 같은 골격을 회색 펄스로 그린다.
 // 헤더/사이드 위젯은 그대로 두고 이 부분만 데이터 도착 시 교체된다.
@@ -77,60 +76,6 @@ function CandidatesSkeleton() {
   );
 }
 
-// Instagram-style 통합 타임라인 — StoryFeed 바로 아래 위치.
-// /api/feed/timeline 에서 팔로우 의원 활동 + 추천 활동을 시간순으로 받아 FeedCard로 렌더.
-function TimelineFeed() {
-  const { data, isLoading, isError } = useQuery<{ items: FeedItem[]; followCount: number; hasMore: boolean }>({
-    queryKey: ["/api/feed/timeline"],
-    queryFn: async ({ signal }) => {
-      const res = await fetch("/api/feed/timeline?limit=20", { signal, credentials: "include" });
-      if (!res.ok) throw new Error("timeline fetch failed");
-      return res.json();
-    },
-    staleTime: 60 * 1000,
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-6 mb-8">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-card rounded-2xl border border-border/30 p-5 animate-pulse">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-full bg-muted" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-3 w-32 bg-muted rounded" />
-                <div className="h-2 w-20 bg-muted/60 rounded" />
-              </div>
-            </div>
-            <div className="h-4 w-3/4 bg-muted rounded mb-2" />
-            <div className="h-3 w-full bg-muted/60 rounded mb-1.5" />
-            <div className="h-3 w-5/6 bg-muted/60 rounded" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (isError || !data || data.items.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="flex flex-col gap-6 mb-8" aria-label="최근 활동 피드">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-[15px] font-black text-foreground tracking-tight">
-          최근 활동
-        </h2>
-        <span className="text-[11px] font-medium text-muted-foreground">
-          {data.followCount > 0 ? `${data.followCount}명 팔로우 + 추천` : "추천 피드"}
-        </span>
-      </div>
-      {data.items.map((item) => (
-        <FeedCard key={item.id} item={item} />
-      ))}
-    </section>
-  );
-}
 
 // ─────────────────────────────────────────────
 // 선거 주요 일정 위젯 (DB 연동)
@@ -486,12 +431,6 @@ function RegionView({
       
       <div className="px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
-        <StoryFeed className="mb-4" />
-
-        {/* Instagram-style 통합 활동 피드 — StoryFeed 바로 아래 (팔로우 + 추천 머지) */}
-        <div className="max-w-[640px] mx-auto">
-          <TimelineFeed />
-        </div>
 
         {/* Region Selector removed from here and moved to TopHeader */}
         <div className="flex items-center justify-end mb-6 pb-2">

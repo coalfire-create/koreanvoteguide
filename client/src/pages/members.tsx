@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { motion, AnimatePresence } from "framer-motion";
+import { StoryFeed } from "@/components/StoryFeed";
 
 // ─── 피드 타입 ──────────────────────────────────────────────────────────────
 interface FeedItem {
@@ -338,6 +339,7 @@ export default function Members() {
               className="space-y-5"
             >
               {/* 스토리 (관심 의원) */}
+              <StoryFeed className="mb-4" />
 
               {/* 피드 */}
               {feedLoading ? (
