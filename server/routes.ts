@@ -3399,8 +3399,11 @@ export async function registerRoutes(
       const comments = await storage.getComments(post.id);
       let userReactions: { sentiment: string | null; stance: string | null } = { sentiment: null, stance: null };
       let isBookmarked = false;
+      const activeUserId = req.session.userId || req.sessionID;
+      if (activeUserId) {
+        userReactions = await storage.getUserReactions(post.id, activeUserId);
+      }
       if (req.session.userId) {
-        userReactions = await storage.getUserReactions(post.id, req.session.userId);
         const bookmarks = await storage.getUserBookmarks(req.session.userId);
         isBookmarked = bookmarks.includes(post.id);
       }

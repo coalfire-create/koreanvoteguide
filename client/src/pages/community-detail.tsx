@@ -140,7 +140,7 @@ export default function CommunityDetail() {
   });
 
   function handleReact(type: string) {
-    if (!user) { requireLoginToast(); return; }
+    if (!user && type !== "agree" && type !== "disagree") { requireLoginToast(); return; }
     reactMutation.mutate(type);
   }
 
