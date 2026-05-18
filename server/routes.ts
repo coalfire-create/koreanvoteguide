@@ -3500,6 +3500,7 @@ export async function registerRoutes(
         tagName || null,
         result.data.attachments || [],
         "rich",
+        result.data.hasPoll ?? false,
       );
       const authorBadges = userId !== "anonymous" ? await storage.getUserBadges(userId) : [];
       res.json(sanitizePost({ ...post, authorBadges, authorName: "" }));

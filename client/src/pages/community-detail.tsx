@@ -34,6 +34,7 @@ interface SanitizedPost {
   agreeCount: number;
   disagreeCount: number;
   authorBadges: string[];
+  hasPoll?: boolean;
   createdAt: string;
 }
 
@@ -244,42 +245,44 @@ export default function CommunityDetail() {
           <p className="text-sm leading-relaxed whitespace-pre-wrap mb-5">{post.content}</p>
 
           {/* 찬반 */}
-          <div className="bg-muted/50 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-between text-xs font-medium mb-2">
-              <span className="flex items-center gap-1 text-blue-600">
-                <CheckCircle className="w-3.5 h-3.5" />
-                찬성 {agreePercent}%
-              </span>
-              <span className="flex items-center gap-1 text-red-500">
-                반대 {100 - agreePercent}%
-                <XCircle className="w-3.5 h-3.5" />
-              </span>
+          {post.hasPoll && (
+            <div className="bg-muted/50 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between text-xs font-medium mb-2">
+                <span className="flex items-center gap-1 text-blue-600">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  찬성 {agreePercent}%
+                </span>
+                <span className="flex items-center gap-1 text-red-500">
+                  반대 {100 - agreePercent}%
+                  <XCircle className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <Progress value={agreePercent} className="h-2.5" />
+              <p className="text-[11px] text-muted-foreground text-center mt-1.5">총 {totalVotes}명 참여</p>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant={userReactions.stance === "agree" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleReact("agree")}
+                  disabled={reactMutation.isPending}
+                >
+                  <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                  찬성
+                </Button>
+                <Button
+                  variant={userReactions.stance === "disagree" ? "destructive" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleReact("disagree")}
+                  disabled={reactMutation.isPending}
+                >
+                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                  반대
+                </Button>
+              </div>
             </div>
-            <Progress value={agreePercent} className="h-2.5" />
-            <p className="text-[11px] text-muted-foreground text-center mt-1.5">총 {totalVotes}명 참여</p>
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant={userReactions.stance === "agree" ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => handleReact("agree")}
-                disabled={reactMutation.isPending}
-              >
-                <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                찬성
-              </Button>
-              <Button
-                variant={userReactions.stance === "disagree" ? "destructive" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => handleReact("disagree")}
-                disabled={reactMutation.isPending}
-              >
-                <XCircle className="w-3.5 h-3.5 mr-1" />
-                반대
-              </Button>
-            </div>
-          </div>
+          )}
 
           {/* 좋아요/싫어요 */}
           <div className="flex items-center gap-3 pt-2 border-t">

@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PostEditor } from "@/components/PostEditor";
+import { Switch } from "@/components/ui/switch";
 
 // Board configs
 const BOARD_CONFIGS = {
@@ -145,6 +146,7 @@ export default function CommunityWrite() {
   const [selectedTag, setSelectedTag] = useState<{ id: string; name: string } | null>(
     tagIdFromQuery && tagNameFromQuery ? { id: tagIdFromQuery, name: tagNameFromQuery } : null
   );
+  const [hasPoll, setHasPoll] = useState(false);
 
   useEffect(() => {
     if (tagTypeFromQuery === "candidate") {
@@ -193,6 +195,7 @@ export default function CommunityWrite() {
         tagType: boardConfig.showTag ? (BOARD_CONFIGS[boardType] as any).tagType : null,
         tagId: selectedTag?.id || null,
         tagName: selectedTag?.name || null,
+        hasPoll,
       };
       if (boardType === "legislators" && selectedTag) {
         payload.legislatorId = selectedTag.id;
@@ -338,6 +341,22 @@ export default function CommunityWrite() {
                   </label>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* 투표 기능 선택 활성화 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-black text-slate-700">찬반 투표 기능 활성화</Label>
+                <p className="text-xs text-slate-500 font-medium leading-tight">
+                  이 게시글에 찬성/반대 투표 영역을 추가하여 다른 유권자들의 의견을 묻습니다.
+                </p>
+              </div>
+              <Switch
+                checked={hasPoll}
+                onCheckedChange={setHasPoll}
+              />
             </div>
           </div>
 

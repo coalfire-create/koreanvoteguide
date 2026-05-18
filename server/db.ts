@@ -30,3 +30,12 @@ pool.query(`
     console.warn("[db] bill_opinion_votes 테이블 생성 경고:", err.message);
   }
 });
+
+// community_posts 테이블에 has_poll 컬럼 자동 추가
+pool.query(`
+  ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS has_poll BOOLEAN DEFAULT FALSE NOT NULL;
+`).catch((err: any) => {
+  if (err.code !== 'ECONNREFUSED') {
+    console.warn("[db] community_posts has_poll 컬럼 생성 경고:", err.message);
+  }
+});

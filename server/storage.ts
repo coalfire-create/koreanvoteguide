@@ -24,7 +24,7 @@ export interface IStorage {
   getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
   getPosts(opts?: { boardType?: string; category?: string; sort?: string; legislatorId?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
   getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined>;
-  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments?: any[], contentType?: string): Promise<CommunityPost>;
+  createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments?: any[], contentType?: string, hasPoll?: boolean): Promise<CommunityPost>;
   incrementViewCount(postId: string): Promise<void>;
   getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]>;
   createComment(postId: string, userId: string, content: string, anonNickname: string, authorType?: string, displayName?: string | null, isVerified?: boolean): Promise<CommunityComment & { authorBadges: string[] }>;
@@ -264,10 +264,10 @@ export class DatabaseStorage implements IStorage {
     return { ...post, authorBadges: badges, authorName };
   }
 
-  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false, legislatorId?: string, authorType = "anonymous", displayName?: string | null, isVerified = false, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments: any[] = [], contentType = "plain"): Promise<CommunityPost> {
+  async createPost(userId: string, title: string, content: string, anonNickname: string, boardType = "open", category = "자유", showRealName = false, legislatorId?: string, authorType = "anonymous", displayName?: string | null, isVerified = false, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments: any[] = [], contentType = "plain", hasPoll = false): Promise<CommunityPost> {
     const [post] = await db
       .insert(communityPosts)
-      .values({ userId, title, content, anonNickname, boardType, category, showRealName, legislatorId, authorType, displayName: displayName ?? null, isVerified, thumbnailUrl: thumbnailUrl ?? null, tagType: tagType ?? null, tagId: tagId ?? null, tagName: tagName ?? null, attachments: attachments ?? [], contentType })
+      .values({ userId, title, content, anonNickname, boardType, category, showRealName, legislatorId, authorType, displayName: displayName ?? null, isVerified, thumbnailUrl: thumbnailUrl ?? null, tagType: tagType ?? null, tagId: tagId ?? null, tagName: tagName ?? null, attachments: attachments ?? [], contentType, hasPoll })
       .returning();
     // postCount 증가 & 배지 자동 부여
     await db.execute(sql`UPDATE users SET post_count = post_count + 1 WHERE id = ${userId}`);

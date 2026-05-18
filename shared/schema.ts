@@ -267,6 +267,7 @@ export const communityPosts = pgTable("community_posts", {
   tagType: text("tag_type"),
   tagId: text("tag_id"),
   tagName: text("tag_name"),
+  hasPoll: boolean("has_poll").default(false).notNull(),
   // 모더레이션 — 신고로 임시조치된 글은 hiddenAt 설정 후 24시간 내 관리자 검토
   hiddenAt: timestamp("hidden_at"),
   // soft delete
@@ -333,6 +334,7 @@ export const insertPostSchema = createInsertSchema(communityPosts).pick({
   legislatorId: z.string().optional(),
   authorType: z.enum(["anonymous", "nickname", "realname"]).default("anonymous"),
   attachments: z.array(z.any()).optional(),
+  hasPoll: z.boolean().default(false),
 });
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
