@@ -493,45 +493,45 @@ function RegionView({
                 </div>
 
                 {/* VS Matchup Section */}
-                <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 py-4">
+                <div className="flex flex-row items-center justify-center gap-2 sm:gap-6 md:gap-12 py-4">
                   {vsCandidates.map((candidate, idx) => {
                     const color = getPartyColor(candidate.party);
                     return (
                       <React.Fragment key={candidate.id || idx}>
                         <motion.div
                           whileHover={{ y: -8, scale: 1.02 }}
-                          className="flex flex-col items-center group cursor-pointer w-full max-w-[280px]"
+                          className="flex flex-col items-center group cursor-pointer flex-1 max-w-[280px]"
                           onClick={() => {
                             saveCandidateToSession(String(candidate.id ?? encodeURIComponent(candidate.name)), candidate);
                             setLocation(`/candidates/${candidate.id ?? encodeURIComponent(candidate.name)}`);
                           }}
                         >
                           <div className="relative">
-                            <div className={`w-[180px] h-[180px] md:w-[220px] md:h-[220px] rounded-full overflow-hidden border-[8px] ${color.replace('bg-', 'border-')} shadow-xl group-hover:shadow-2xl transition-all duration-300 relative z-10 bg-card`}>
+                            <div className={`w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[220px] md:h-[220px] rounded-full overflow-hidden border-[6px] md:border-[8px] ${color.replace('bg-', 'border-')} shadow-xl group-hover:shadow-2xl transition-all duration-300 relative z-10 bg-card`}>
                               <PoliticianPhoto
                                 name={candidate.name}
                                 photo={candidate.photo}
                                 resolvedUrl={candidatePhotos[candidate.name]}
                                 context={candidate.party}
-                                avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-4xl font-black`}
+                                avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl font-black`}
                               />
                             </div>
-                            <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 ${color} text-white px-6 py-1.5 rounded-full text-[12px] font-black shadow-lg whitespace-nowrap z-20`}>
-                              기호 {getPartyRank(candidate.party)} · {candidate.party}
+                            <div className={`absolute -bottom-2 md:-bottom-3 left-1/2 -translate-x-1/2 ${color} text-white px-3 sm:px-6 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] md:text-[12px] font-black shadow-lg whitespace-nowrap z-20`}>
+                              기호 {getPartyRank(candidate.party)} · {candidate.party.replace('더불어', '')}
                             </div>
                             {/* Accent Ring */}
                             <div className={`absolute inset-0 rounded-full border-2 ${color.replace('bg-', 'border-')} opacity-20 scale-110 group-hover:scale-125 transition-transform duration-500`}></div>
                           </div>
-                          <div className="text-center mt-8">
-                            <h4 className="text-2xl font-black text-foreground mb-2">{candidate.name}</h4>
+                          <div className="text-center mt-6 md:mt-8">
+                            <h4 className="text-[17px] sm:text-[20px] md:text-2xl font-black text-foreground mb-1 md:mb-2">{candidate.name}</h4>
                             {(candidate.job || candidate.career1) && (
-                              <p className={`text-[13px] font-bold ${color.replace('bg-', 'text-')} bg-muted px-4 py-1 rounded-lg line-clamp-1`}>
+                              <p className={`text-[10px] sm:text-[11px] md:text-[13px] font-bold ${color.replace('bg-', 'text-')} bg-muted px-2 sm:px-4 py-1 rounded-lg line-clamp-1`}>
                                 {candidate.job || candidate.career1}
                               </p>
                             )}
                             {candidate.candidateStatus && (
-                              <div className="mt-2">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-500/15 text-orange-500' : 'bg-muted text-muted-foreground'}`}>
+                              <div className="mt-1 md:mt-2">
+                                <span className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-500/15 text-orange-500' : 'bg-muted text-muted-foreground'}`}>
                                   {candidate.candidateStatus}
                                 </span>
                               </div>
@@ -540,9 +540,9 @@ function RegionView({
                         </motion.div>
                         
                         {idx === 0 && vsCandidates.length > 1 && (
-                          <div className="flex flex-col items-center justify-center py-4 md:py-0">
-                            <div className="w-12 h-12 rounded-full bg-foreground text-background flex items-center justify-center text-xl font-black italic shadow-lg z-10">VS</div>
-                            <div className="h-12 w-px bg-gradient-to-b from-transparent via-border to-transparent hidden md:block mt-4"></div>
+                          <div className="flex flex-col items-center justify-center shrink-0">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-foreground text-background flex items-center justify-center text-xs sm:text-sm md:text-xl font-black italic shadow-lg z-10">VS</div>
+                            <div className="h-8 md:h-12 w-px bg-gradient-to-b from-transparent via-border to-transparent hidden md:block mt-2 md:mt-4"></div>
                           </div>
                         )}
                       </React.Fragment>
