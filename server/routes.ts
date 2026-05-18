@@ -1438,50 +1438,6 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/debug-env", (_req, res) => {
-    const keys = [
-      "KAKAO_REST_API_KEY",
-      "KAKAO_REDIRECT_URI",
-      "KAKAO_CLIENT_SECRET",
-      "DATABASE_URL",
-      "SESSION_SECRET",
-      "PHONE_PEPPER",
-      "ALLOWED_ORIGIN",
-      "NODE_ENV"
-    ];
-    const info: Record<string, any> = {};
-    for (const key of keys) {
-      const val = process.env[key];
-      if (val === undefined) {
-        info[key] = { defined: false };
-      } else {
-        info[key] = {
-          defined: true,
-          length: val.length,
-          startsWith: val.substring(0, 3),
-          endsWith: val.substring(val.length - 3),
-          hasQuotes: val.startsWith('"') || val.startsWith("'") || val.endsWith('"') || val.endsWith("'"),
-          hasWhitespace: /\s/.test(val)
-        };
-      }
-    }
-    res.json(info);
-  });
-
-  app.get("/api/debug-session", (req, res) => {
-    try {
-      (req.session as any).testVal = "hello_" + Date.now();
-      req.session.save((err) => {
-        if (err) {
-          return res.json({ success: false, error: err.message, stack: err.stack });
-        }
-        res.json({ success: true, testVal: (req.session as any).testVal });
-      });
-    } catch (e: any) {
-      res.json({ success: false, error: e.message, stack: e.stack });
-    }
-  });
-
   app.get("/api/status", async (_req, res) => {
     try {
       const status = await storage.getSchedulerStatus();
