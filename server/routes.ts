@@ -4,7 +4,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema } from "@shared/schema";
+import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema, favoritesUpdateSchema } from "@shared/schema";
 import { scrypt, randomBytes, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
@@ -813,11 +813,11 @@ export async function registerRoutes(
 
   app.patch("/api/auth/favorites", requireAuth, async (req, res) => {
     try {
-      const { favorites } = req.body;
-      if (!Array.isArray(favorites)) {
-        return res.status(400).json({ error: "즐겨찾기 목록은 배열이어야 합니다" });
+      const parsed = favoritesUpdateSchema.safeParse(req.body.favorites);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "즐겨찾기 형식이 올바르지 않습니다" });
       }
-      const user = await storage.updateUserFavorites(req.session.userId!, favorites);
+      const user = await storage.updateUserFavorites(req.session.userId!, parsed.data);
       const badges = await storage.getUserBadges(user.id);
       res.json({
         user: {

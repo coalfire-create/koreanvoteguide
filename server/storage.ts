@@ -1,5 +1,5 @@
 import {
-  type User, type InsertUser, users, verificationCodes, assemblyDataCache, schedulerStatus,
+  type User, type InsertUser, type FavoritePolitician, users, verificationCodes, assemblyDataCache, schedulerStatus,
   communityPosts, communityComments, communityReactions, communityReports, communityBookmarks,
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
@@ -33,7 +33,7 @@ export interface IStorage {
   createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void>;
   toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }>;
   getUserBookmarks(userId: string): Promise<string[]>;
-  updateUserFavorites(userId: string, favorites: string[]): Promise<User>;
+  updateUserFavorites(userId: string, favorites: FavoritePolitician[]): Promise<User>;
   updateUserFavoriteRegions(userId: string, regions: any[]): Promise<User>;
   updateNickname(userId: string, nickname: string): Promise<User>;
   verifyRealName(userId: string, realName: string): Promise<User>;
@@ -400,7 +400,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateUserFavorites(userId: string, favorites: string[]): Promise<User> {
+  async updateUserFavorites(userId: string, favorites: FavoritePolitician[]): Promise<User> {
     const [updated] = await db
       .update(users)
       .set({ favorites: favorites as any })

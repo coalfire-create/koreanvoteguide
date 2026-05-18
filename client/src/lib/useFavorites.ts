@@ -1,28 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
+import { favoritePoliticianSchema, type FavoritePolitician } from "@shared/schema";
 
 // "userRegions" / "userRegion" 키와 분리된 독립 키 사용
 const STORAGE_KEY = "favoritePoliticians";
 
-export interface FavoritePerson {
-  id: string;
-  name: string;
-  type: "member" | "candidate";
-  imageUrl?: string;
-}
+export type { FavoritePolitician };
+export type FavoritePerson = FavoritePolitician;
 
-function readFromStorage(): FavoritePerson[] {
+function readFromStorage(): FavoritePolitician[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    // 배열인지, 각 항목이 올바른 구조인지 간단 검증
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is FavoritePerson =>
-        typeof item.id === "string" &&
-        typeof item.name === "string" &&
-        (item.type === "member" || item.type === "candidate")
-    );
+    return parsed.flatMap((item: unknown) => {
+      const result = favoritePoliticianSchema.safeParse(item);
+      return result.success ? [result.data] : [];
+    });
   } catch {
     return [];
   }

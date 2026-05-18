@@ -772,3 +772,14 @@ export const insertAnnouncementSchema = z.object({
   content: z.string().min(1, "내용을 입력하세요").max(500),
   expiresAt: z.string().datetime().optional(),
 });
+
+export const favoritePoliticianSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().min(1).max(50),
+  type: z.enum(["member", "candidate"]),
+  imageUrl: z.string().max(500).optional(),
+});
+
+export const favoritesUpdateSchema = z.array(favoritePoliticianSchema).max(100, "즐겨찾기는 최대 100명까지 등록할 수 있습니다");
+
+export type FavoritePolitician = z.infer<typeof favoritePoliticianSchema>;
