@@ -37,6 +37,8 @@ export const users = pgTable("users", {
   kakaoId: text("kakao_id"),
   // naverId: Naver 사용자 고유 식별자(앱별 고유). 같은 사용자 재로그인 시 lookup 키.
   naverId: text("naver_id"),
+  // googleId: Google 사용자 고유 식별자. 같은 사용자 재로그인 시 lookup 키.
+  googleId: text("google_id"),
   // email: Kakao account_email scope에서 받은 이메일. 사용자 동의 시에만 채워짐.
   email: text("email"),
   // profileImageUrl: Kakao 프로필 이미지. 카카오톡 프로필 변경시 자동 반영되지 않음 — 로그인 때마다 갱신.
@@ -62,6 +64,8 @@ export const users = pgTable("users", {
   kakaoIdUniq: uniqueIndex("users_kakao_id_uniq").on(table.kakaoId),
   // Naver 사용자 재로그인용 lookup 키. NULL은 비-Naver 계정.
   naverIdUniq: uniqueIndex("users_naver_id_uniq").on(table.naverId),
+  // Google 사용자 재로그인용 lookup 키. NULL은 비-Google 계정.
+  googleIdUniq: uniqueIndex("users_google_id_uniq").on(table.googleId),
   ageGroupIdx: index("users_age_group_idx").on(table.ageGroup),
 }));
 
@@ -783,3 +787,12 @@ export const favoritePoliticianSchema = z.object({
 export const favoritesUpdateSchema = z.array(favoritePoliticianSchema).max(100, "즐겨찾기는 최대 100명까지 등록할 수 있습니다");
 
 export type FavoritePolitician = z.infer<typeof favoritePoliticianSchema>;
+
+// ===== connect-pg-simple Session Table =====
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  expireIdx: index("IDX_session_expire").on(table.expire),
+}));

@@ -46,6 +46,12 @@ import {
   mapNaverGender,
   mapNaverBirthYear,
 } from "./utils/naver-oauth";
+import {
+  loadGoogleConfig,
+  buildAuthorizeUrl as buildGoogleAuthorizeUrl,
+  exchangeCodeForToken as exchangeGoogleCodeForToken,
+  fetchGoogleProfile,
+} from "./utils/google-oauth";
 import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
 import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like, isNull, gt } from "drizzle-orm";
@@ -494,6 +500,8 @@ declare module "express-session" {
     kakaoOAuthState?: string;
     // Naver OAuth CSRF 방지용 state 토큰.
     naverOAuthState?: string;
+    // Google OAuth CSRF 방지용 state 토큰.
+    googleOAuthState?: string;
   }
 }
 
@@ -1395,6 +1403,110 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
+    }
+  });
+
+  // ===== Google OAuth (보조 로그인 경로) — Kakao/Naver와 동일 흐름 =====
+  //   1) FE /api/auth/google → CSRF state 생성·세션 저장 → 구글 인증창 redirect
+  //   2) 동의 후 구글이 /api/auth/google/callback?code=...&state=... 로 redirect
+  //   3) state 검증 → code↔access_token 교환 → /v2/userinfo 로 프로필 조회
+  //   4) googleId로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
+  //   5) req.session.userId 세팅 → 홈으로 redirect
+  app.get("/api/auth/google", authLimiter, (req, res) => {
+    const config = loadGoogleConfig();
+    if (!config) {
+      return res.status(503).json({
+        error: "Google 로그인이 설정되지 않았습니다. (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 환경변수 필요)",
+      });
+    }
+    const state = randomBytes(16).toString("hex");
+    req.session.googleOAuthState = state;
+    req.session.save((err) => {
+      if (err) {
+        console.error("[google] session save failed:", err);
+        return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
+      }
+      res.redirect(buildGoogleAuthorizeUrl(config, state));
+    });
+  });
+
+  app.get("/api/auth/google/callback", authLimiter, async (req, res) => {
+    const config = loadGoogleConfig();
+    if (!config) {
+      return res.status(503).send("Google 로그인이 설정되지 않았습니다.");
+    }
+
+    const { code, state, error: googleError } = req.query as Record<string, string | undefined>;
+    if (googleError) {
+      console.warn(`[google] callback error: ${googleError}`);
+      return res.redirect(`/login?error=${encodeURIComponent(googleError)}`);
+    }
+    if (!code || typeof code !== "string") {
+      return res.status(400).send("Google 인증 코드가 누락되었습니다.");
+    }
+    const expectedState = req.session.googleOAuthState;
+    if (!expectedState || expectedState !== state) {
+      return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
+    }
+    req.session.googleOAuthState = undefined;
+
+    try {
+      const tokenRes = await exchangeGoogleCodeForToken(config, code);
+      const profile = await fetchGoogleProfile(tokenRes.access_token);
+
+      const googleIdStr = String(profile.id);
+      const profileNickname = profile.name ?? profile.given_name ?? `google_${googleIdStr.slice(-6)}`;
+      const profileImage = profile.picture ?? null;
+      const email = profile.email ?? null;
+
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.googleId, googleIdStr))
+        .limit(1);
+
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+        await db
+          .update(users)
+          .set({
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            realNameVerified: true,
+            realNameProvider: "google",
+          })
+          .where(eq(users.id, existing.id));
+      } else {
+        const username = `google_${googleIdStr}`;
+        const [created] = await db
+          .insert(users)
+          .values({
+            username,
+            password: "",
+            phone: "",
+            phoneHash: null,
+            name: profileNickname,
+            email,
+            profileImageUrl: profileImage,
+            googleId: googleIdStr,
+            realNameVerified: true,
+            realNameProvider: "google",
+            phoneVerified: false,
+            tosAcceptedAt: new Date(),
+            privacyAcceptedAt: new Date(),
+          })
+          .returning({ id: users.id });
+        userId = created.id;
+      }
+
+      req.session.userId = userId;
+      console.log(`[google] login userId=${userId}`);
+      res.redirect("/");
+    } catch (error: any) {
+      console.error("[google] callback failed:", error?.response?.data ?? error?.message ?? error);
+      res.redirect(`/login?error=${encodeURIComponent("구글 로그인 처리 중 오류가 발생했습니다.")}`);
     }
   });
 
