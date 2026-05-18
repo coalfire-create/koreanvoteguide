@@ -38,9 +38,6 @@ export function buildAuthorizeUrl(config: KakaoConfig, state: string): string {
       "profile_nickname",
       "profile_image",
       "account_email",
-      "age_range",
-      "gender",
-      "birthyear",
     ].join(","),
     state,
   });
