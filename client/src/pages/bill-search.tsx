@@ -75,6 +75,12 @@ export default function BillSearch() {
   const [votedBills, setVotedBills] = useState<Record<string, boolean>>({});
   const [followedMembers, setFollowedMembers] = useState<Record<string, boolean>>({});
 
+  // 최신 발의된 법안 Top 5 (발의일 최신순). proposedDate는 "YYYY-MM-DD" → 문자열 역순 정렬.
+  const latestBills = [...bills]
+    .filter((b) => b.proposedDate)
+    .sort((a, b) => (a.proposedDate < b.proposedDate ? 1 : a.proposedDate > b.proposedDate ? -1 : 0))
+    .slice(0, 5);
+
   // 최근 대표발의한 의원 (최근 발의 법안 기반으로 동적 추출)
   const topMembers = (() => {
     if (!bills.length || !members.length) return members.slice(0, 4);
@@ -223,7 +229,7 @@ export default function BillSearch() {
                 </div>
               ) : (
                 <div className="space-y-4 pt-2">
-                  {hotBills.map((bill: any, idx: number) => {
+                  {hotBills.slice(0, 5).map((bill: any, idx: number) => {
                     const isTop = idx === 0;
                     const statusLabel = !bill.result || bill.result === "" || bill.result === "계류" ? "심사중" : bill.result;
                     const statusColor = statusLabel === "심사중" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-primary/10 text-primary border border-primary/20";
@@ -307,6 +313,105 @@ export default function BillSearch() {
                             <TrendingUp className="w-2.5 h-2.5 text-primary" />
                             {(bill.viewCount ?? 0).toLocaleString()}
                           </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+
+            {/* 최신 발의된 법안 Top 5 (발의일 최신순) */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[18px] font-extrabold text-foreground flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-[10px] bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </span>
+                  최신 발의된 법안
+                </h2>
+                <span className="text-[12px] font-bold text-muted-foreground flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  발의일 최신순
+                </span>
+              </div>
+
+              {billsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="bg-card rounded-[14px] p-5 shadow-sm border border-border/30 flex gap-4">
+                      <Skeleton className="w-8 h-8 rounded-[8px] shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-3/4 rounded" />
+                        <Skeleton className="h-3 w-1/2 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : latestBills.length === 0 ? (
+                <div className="bg-card rounded-[16px] p-8 shadow-sm border border-border/30 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                  <AlertCircle className="w-8 h-8" />
+                  <p className="text-[15px] font-medium">발의 법안 데이터를 불러올 수 없습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {latestBills.map((bill, idx) => {
+                    const statusColor =
+                      bill.status === "통과" ? "bg-primary/10 text-primary border border-primary/20" :
+                      bill.status === "폐기" ? "bg-muted text-muted-foreground border border-border/30" :
+                      "bg-amber-500/10 text-amber-500 border border-amber-500/20";
+                    return (
+                      <div
+                        key={bill.id}
+                        onClick={() => navigate(`/bills/${bill.id}/vote`)}
+                        className="group bg-card rounded-[16px] p-4 flex gap-4 items-center cursor-pointer transition-all duration-200 border border-border/30 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-primary/20"
+                      >
+                        {/* 순위 */}
+                        <div className="flex-shrink-0 w-8 flex items-center justify-center">
+                          <span className={`text-[24px] font-black italic tracking-tighter ${
+                            idx === 0 ? "text-transparent bg-clip-text bg-gradient-to-br from-primary to-primary/70" :
+                            "text-muted-foreground/30"
+                          }`}>
+                            {idx + 1}
+                          </span>
+                        </div>
+
+                        {/* 법안 정보 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[15px]">{getBillEmoji(bill.name, bill.summary)}</span>
+                            <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md ${statusColor}`}>
+                              {bill.status}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-[14px] text-foreground leading-snug mb-1.5 group-hover:text-primary transition-colors line-clamp-2">
+                            {bill.name}
+                          </h3>
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-semibold flex-wrap">
+                            {bill.summary && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="w-3.5 h-3.5" />
+                                {bill.summary}
+                              </span>
+                            )}
+                            {bill.proposer && (
+                              <span className="truncate max-w-[160px]">
+                                {bill.proposer.split("(")[0].trim()} 대표발의
+                              </span>
+                            )}
+                            {bill.proposedDate && (
+                              <span className="flex items-center gap-1 ml-auto text-muted-foreground/50">
+                                <Clock className="w-3.5 h-3.5" />
+                                {bill.proposedDate}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 우측 화살표 */}
+                        <div className="w-9 h-9 rounded-full bg-muted group-hover:bg-primary flex items-center justify-center transition-colors shrink-0 border border-border/30 group-hover:border-primary">
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
                         </div>
                       </div>
                     );
