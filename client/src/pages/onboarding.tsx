@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -89,11 +89,11 @@ export default function Onboarding() {
     setLocation("/");
   };
 
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.3 } },
   };
-  const item = {
+  const item: Variants = {
     hidden: { opacity: 0, y: 16 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
   };

@@ -256,7 +256,7 @@ export default function CandidateDetail() {
               <PoliticianPhoto
                 name={candidate.name}
                 photo={candidate.photo}
-                monaCd={candidate.id}
+                monaCd={String(candidate.id)}
                 context={candidate.party}
                 avatarClassName="w-full h-full flex items-center justify-center text-white font-black text-3xl"
               />
@@ -356,10 +356,10 @@ export default function CandidateDetail() {
               <>
                 <p className="text-[12px] text-gray-400 font-medium mb-3">공약을 클릭하면 AI 분석과 시민 의견을 볼 수 있습니다</p>
                 <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
-                  {candidate.promises.map((promise) => (
+                  {candidate.promises.map((promise: { id: string; title: string; description: string }) => (
                     <PledgeCard
                       key={promise.id}
-                      candidateId={candidate.id}
+                      candidateId={String(candidate.id)}
                       promise={promise}
                       onClick={() => setSelectedPledge(promise)}
                     />
@@ -385,7 +385,7 @@ export default function CandidateDetail() {
                 주요 활동 이력
               </h3>
               <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {candidate.pastActivities.map((activity, i) => (
+                {candidate.pastActivities.map((activity: string, i: number) => (
                   <li key={i} className="text-[13px] text-gray-600 flex items-start gap-3 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
                     {activity}
@@ -401,7 +401,7 @@ export default function CandidateDetail() {
                 활동 타임라인
               </h3>
               <div className="relative pl-5 border-l-2 border-indigo-100 space-y-6 ml-2 max-w-4xl">
-                {candidate.timeline.map((event) => (
+                {candidate.timeline.map((event: { id: string | number; date: string; title: string; description: string }) => (
                   <div key={event.id} className="relative">
                     <span className="absolute -left-[1.65rem] top-1 w-4 h-4 rounded-full bg-indigo-400 border-4 border-white shadow-sm" />
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -443,7 +443,7 @@ export default function CandidateDetail() {
                 <Newspaper className="w-8 h-8 text-gray-200" />
                 <p className="text-xs font-medium">관련 뉴스가 없습니다.</p>
                 <Link href="/news">
-                  <Button variant="link" size="sm" className="text-indigo-600 font-bold p-0">
+                  <Button variant="ghost" size="sm" className="text-indigo-600 font-bold p-0">
                     전체 뉴스 보러 가기
                   </Button>
                 </Link>
@@ -513,7 +513,7 @@ export default function CandidateDetail() {
     </motion.div>
 
     <PledgeDetailView
-      candidateId={candidate.id}
+      candidateId={String(candidate.id)}
       promise={selectedPledge}
       open={!!selectedPledge}
       onClose={() => setSelectedPledge(null)}

@@ -642,7 +642,7 @@ export async function registerRoutes(
     try {
       const result = registerSchema.safeParse(req.body);
       if (!result.success) {
-        const firstError = result.error.errors[0]?.message || "입력 정보를 확인해주세요";
+        const firstError = result.error.issues[0]?.message || "입력 정보를 확인해주세요";
         return res.status(400).json({ error: firstError });
       }
 
@@ -762,6 +762,10 @@ export async function registerRoutes(
           favoriteRegions: [{ code: "11", name: "서울" }],
         },
       });
+    }
+
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "로그인이 필요합니다" });
     }
 
     const user = await storage.getUser(req.session.userId);
@@ -2488,7 +2492,7 @@ export async function registerRoutes(
   });
 
   // 4. 기존 법안 API 호환 (GET /api/db/bills, GET /api/bills)
-  const getBillsHandler = async (req: express.Request, res: express.Response) => {
+  const getBillsHandler = async (req: Request, res: Response) => {
     try {
       const includeDiscarded = req.query.includeDiscarded === "true";
       // 비인증 엔드포인트 — 무제한 풀스캔 응답을 막아 자원 고갈(DoS) 방지
@@ -3009,7 +3013,7 @@ export async function registerRoutes(
       
       if (allComments.length > 0) {
         const commentIds = allComments.map(c => String(c.id));
-        const likesData = await db.select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+        const likesData = await db.select({ targetId: reactions.targetId, count: dsql<number>`count(*)::int` })
           .from(reactions)
           .where(and(
             eq(reactions.targetType, 'comment'),
@@ -3237,7 +3241,7 @@ export async function registerRoutes(
 
       // Fetch likes for comments
       const commentIds = rows.map(r => String(r.id));
-      const likesData = await db.select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+      const likesData = await db.select({ targetId: reactions.targetId, count: dsql<number>`count(*)::int` })
         .from(reactions)
         .where(and(
           eq(reactions.targetType, 'comment'),
@@ -5231,6 +5235,15 @@ export async function registerRoutes(
       .catch(e => console.error("[sync-nec] 실패:", e.message));
   });
 
+  // 선관위 공식사진 동기화 (5/21 후보자 등록 마감 이후 실행)
+  app.post("/api/admin/sync-candidate-photos", syncGuard, async (_req, res) => {
+    res.json({ success: true, message: "선관위 공식사진 동기화 백그라운드 시작. 서버 로그에서 진행상황 확인" });
+    import("./nec-sync")
+      .then(m => m.syncCandidatePhotos())
+      .then(r => console.log("[sync-candidate-photos] 완료:", r))
+      .catch(e => console.error("[sync-candidate-photos] 실패:", e.message));
+  });
+
   // 5대 공약 본문(goalCont/methCont/distCont/deptCont) 보강
   app.post("/api/admin/enrich-pledges", syncGuard, async (req, res) => {
     const force = req.query.force === "1" || req.body?.force === true;
@@ -5583,7 +5596,8 @@ export async function registerRoutes(
 
   app.post("/api/candidates/:id/pledges/:pledgeId/ratings", requireAuth, async (req, res) => {
     try {
-      const { id, pledgeId } = req.params;
+      const id = req.params.id as string;
+      const pledgeId = req.params.pledgeId as string;
       const { rating } = req.body;
       const userId = req.session.userId!;
 
@@ -5591,12 +5605,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "별점은 1~5점 사이여야 합니다." });
       }
 
-      await db.insert(pledgeRatings).values({
+      const ratingValues: typeof pledgeRatings.$inferInsert = {
         candidateId: id,
         pledgeId,
         userId,
-        rating
-      }).onConflictDoUpdate({
+        rating,
+      };
+      await db.insert(pledgeRatings).values(ratingValues).onConflictDoUpdate({
         target: [pledgeRatings.candidateId, pledgeRatings.pledgeId, pledgeRatings.userId],
         set: { rating }
       });
@@ -5624,7 +5639,8 @@ export async function registerRoutes(
 
   app.post("/api/candidates/:id/pledges/:pledgeId/comments", requireAuth, async (req, res) => {
     try {
-      const { id, pledgeId } = req.params;
+      const id = req.params.id as string;
+      const pledgeId = req.params.pledgeId as string;
       const { content } = req.body;
       const userId = req.session.userId!;
 

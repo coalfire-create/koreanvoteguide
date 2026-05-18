@@ -216,5 +216,23 @@ export function startScheduler(): void {
   setTimeout(runElectionSync, 2 * 60 * 1000);
   cron.schedule("0 6 * * *", runElectionSync);
 
+  // ===== 선관위 공식사진 자동 반영 =====
+  // 5/21 후보자 등록 마감 이후 API에 공식사진이 확정됨.
+  // 5/21 00:05 KST (= 15:05 UTC 5/20) 1회 실행 → 이후 매일 06:10에 재시도 (누락 보완).
+  const NEC_PHOTO_SYNC_START = new Date("2026-05-21T00:05:00+09:00");
+
+  const runPhotoSync = () => {
+    if (new Date() < NEC_PHOTO_SYNC_START) return; // 5/21 이전이면 스킵
+    import("./nec-sync")
+      .then((m) => m.syncCandidatePhotos())
+      .then((r) => log(`선관위 공식사진 동기화 완료: ${r.updated}건 업데이트, ${r.noPhoto}건 사진없음, ${r.errors}건 오류`, "photo-sync"))
+      .catch((e) => log(`선관위 공식사진 동기화 실패: ${e.message}`, "photo-sync"));
+  };
+
+  // 5/21 00:05 KST (UTC 5/20 15:05) 1회 실행
+  cron.schedule("5 15 20 5 *", runPhotoSync, { timezone: "UTC" });
+  // 5/21 이후 매일 06:10 KST 재시도 (누락 후보 보완)
+  cron.schedule("10 21 * * *", runPhotoSync, { timezone: "UTC" });
+
   void sql;
 }

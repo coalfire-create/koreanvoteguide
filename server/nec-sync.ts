@@ -18,8 +18,8 @@ const CANDIDATE_API_BASE = "https://apis.data.go.kr/9760000/PofelcddInfoInqireSe
 const SG_ID_2026 = "20260603"; // 2026년 6월 3일 지방선거
 
 // 선거 유형 코드 (sgTypecode)
-// 3: 시도지사, 4: 구시군의장, 5: 시도의원, 6: 구시군의원, 11: 교육감
-const SG_TYPE_CODES = ["3", "4", "5", "6", "11"];
+// 3: 시도지사 — 광역시장 + 도지사만 다룸 (4/5/6/11은 삭제됨)
+const SG_TYPE_CODES = ["3"];
 
 export interface SyncSummary {
   totalFetched: number;
@@ -808,4 +808,100 @@ export async function enrichLegislatorEducationFromCandidates(): Promise<{
         : ""),
   );
   return { filled, stillMissing };
+}
+
+// ============================================================
+// 5/21 선관위 후보자 등록 마감 이후 — 공식 사진 일괄 반영
+// NEC API에서 photo/jpgLink 필드를 가져와 election_candidates.photo 덮어쓰기.
+// huboid(sourceId) 기준으로 매칭하므로 기존 예비후보 레코드와 1:1 대응.
+// ============================================================
+
+export interface PhotoSyncResult {
+  scanned: number;
+  updated: number;
+  noPhoto: number;
+  errors: number;
+}
+
+export async function syncCandidatePhotos(): Promise<PhotoSyncResult> {
+  if (!SERVICE_KEY) {
+    throw new Error("DATA_GO_KR_API_KEY 환경변수가 설정되지 않았습니다.");
+  }
+
+  console.log("[nec-sync/photos] 시도지사 공식사진 동기화 시작...");
+  const result: PhotoSyncResult = { scanned: 0, updated: 0, noPhoto: 0, errors: 0 };
+
+  const NUM_OF_ROWS = 100;
+  let pageNo = 1;
+
+  // sourceId(huboid) → DB row id 맵핑 사전 조회
+  const rows = await db
+    .select({ id: electionCandidates.id, sourceId: electionCandidates.sourceId })
+    .from(electionCandidates);
+  const sourceMap = new Map(rows.filter((r) => r.sourceId).map((r) => [r.sourceId!, r.id]));
+  console.log(`[nec-sync/photos] DB 시도지사 후보 ${sourceMap.size}명`);
+
+  while (true) {
+    let items: any[] = [];
+    try {
+      const response = await axios.get(
+        `${CANDIDATE_API_BASE}/getPofelcddRegistSttusInfoInqire`,
+        {
+          params: {
+            serviceKey: SERVICE_KEY,
+            pageNo: String(pageNo),
+            numOfRows: String(NUM_OF_ROWS),
+            sgId: SG_ID_2026,
+            sgTypecode: "3",   // 시도지사만
+            resultType: "json",
+          },
+          timeout: 30000,
+        },
+      );
+      const body = response.data?.response?.body ?? {};
+      const raw = body?.items?.item ?? [];
+      items = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      if (items.length === 0) break;
+    } catch (err: any) {
+      console.error(`[nec-sync/photos] 페이지 ${pageNo} 조회 실패:`, err.message);
+      result.errors++;
+      break;
+    }
+
+    for (const item of items) {
+      result.scanned++;
+      const huboid = item.huboid ? String(item.huboid).trim() : "";
+      const photo = (item.photo || item.jpgLink || "").trim() || null;
+
+      if (!huboid) continue;
+
+      const dbId = sourceMap.get(huboid);
+      if (!dbId) continue;  // DB에 없는 후보는 스킵 (삭제된 유형)
+
+      if (!photo) {
+        result.noPhoto++;
+        continue;
+      }
+
+      try {
+        await db
+          .update(electionCandidates)
+          .set({ photo })
+          .where(eq(electionCandidates.id, dbId));
+        result.updated++;
+      } catch (err: any) {
+        result.errors++;
+        console.error(`[nec-sync/photos] 사진 업데이트 실패 (huboid=${huboid}):`, err.message);
+      }
+    }
+
+    if (items.length < NUM_OF_ROWS) break;
+    pageNo++;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+
+  console.log(
+    `[nec-sync/photos] 완료: 스캔=${result.scanned} 업데이트=${result.updated} 사진없음=${result.noPhoto} 오류=${result.errors}`,
+  );
+  return result;
 }

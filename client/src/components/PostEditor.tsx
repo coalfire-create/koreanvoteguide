@@ -139,7 +139,6 @@ export function PostEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
-    disablePasteRules: ["image"], // base64 auto-paste 막기 위함 (선택)
     editorProps: {
       attributes: {
         class:

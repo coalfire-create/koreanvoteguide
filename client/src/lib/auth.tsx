@@ -38,6 +38,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  mutate: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -92,8 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await logoutMutation.mutateAsync();
   }, [logoutMutation]);
 
+  const mutate = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, mutate }}>
       {children}
     </AuthContext.Provider>
   );

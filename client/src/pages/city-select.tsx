@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ChevronRight, MapPin, Search, Map, BarChart2, Newspaper, MessageCircle } from "lucide-react";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
@@ -255,11 +255,11 @@ export default function CitySelect() {
     setLocation("/");
   };
 
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.03, delayChildren: 0.15 } },
   };
-  const item = {
+  const item: Variants = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 240, damping: 22 } },
   };

@@ -32,7 +32,7 @@ export interface MayorRace {
   candidates: Candidate[];
 }
 
-export const MAYOR_RACES: MayorRace[] = [
+export const MAYOR_RACES: MayorRace[] = ([
   {
     region: "서울특별시",
     regionCode: "11",
@@ -1224,7 +1224,7 @@ export const MAYOR_RACES: MayorRace[] = [
       },
     ],
   },
-].filter(race => race.level === "metropolitan");
+] as MayorRace[]).filter(race => race.level === "metropolitan");
 
 export function buildRegionalFallback(): Record<string, Candidate[]> {
   const fallback: Record<string, Candidate[]> = {};
