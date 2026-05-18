@@ -12,6 +12,7 @@ import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailVie
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
+import { StoryFeed } from "@/components/StoryFeed";
 
 // 후보 영역 로딩용 Skeleton — 실제 카드와 같은 골격을 회색 펄스로 그린다.
 // 헤더/사이드 위젯은 그대로 두고 이 부분만 데이터 도착 시 교체된다.
@@ -321,8 +322,8 @@ function TopHeader({
       <div className="flex items-center gap-8">
         {/* Logo removed here as it is present in SideNav */}
         
-        {/* Region Tabs in Header */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1 max-w-[800px]">
+        {/* Region Tabs in Header — mobile only, desktop has it in SideNav */}
+        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto scrollbar-hide py-1 max-w-[800px]">
           {allRegions.map((r, idx) => (
             <button
               key={r.code}
@@ -393,6 +394,11 @@ function RegionView({
   const [topicAnalysisOpen, setTopicAnalysisOpen] = useState(false);
   const [selectedTopicForAnalysis, setSelectedTopicForAnalysis] = useState<string>("");
   const [candidatesForAnalysis, setCandidatesForAnalysis] = useState<any[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem("currentRegionCode", region.code);
+    window.dispatchEvent(new Event("regionchange"));
+  }, [region.code]);
 
 
   // keepPreviousData 복구 — 부드러운 화면 전환을 위해 활성화
@@ -480,7 +486,7 @@ function RegionView({
       
       <div className="px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
-        {/* Story-style 관심 의원 피드 — 페이지 최상단 (election-home.tsx:13 import 후 실제 렌더링) */}
+        <StoryFeed className="mb-4" />
 
         {/* Instagram-style 통합 활동 피드 — StoryFeed 바로 아래 (팔로우 + 추천 머지) */}
         <div className="max-w-[640px] mx-auto">
@@ -982,6 +988,16 @@ export default function ElectionHome() {
         setSelectedIdx(allRegions.length); // Next index will be the new one
       }
     };
+
+    // Consume lastSelectedRegionCode from other pages redirect
+    const lastCode = localStorage.getItem("lastSelectedRegionCode");
+    if (lastCode) {
+      const idx = allRegions.findIndex((r) => r.code === lastCode);
+      if (idx !== -1) {
+        setSelectedIdx(idx);
+        localStorage.removeItem("lastSelectedRegionCode");
+      }
+    }
   }, [allRegions]);
 
 

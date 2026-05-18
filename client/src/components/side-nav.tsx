@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Home, Users, MessageSquare, FileText, User, Plus } from "lucide-react";
+import { Search, Home, Users, MessageSquare, FileText, User, Plus, MapPin } from "lucide-react";
 
 const navItems = [
   { title: "홈", url: "/", icon: Home },
@@ -10,9 +11,46 @@ const navItems = [
 ];
 
 export function SideNav() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [userRegions, setUserRegions] = useState<{ code: string; name: string }[]>([]);
+  const [currentRegionCode, setCurrentRegionCode] = useState(() => localStorage.getItem("currentRegionCode") || "");
+
+  useEffect(() => {
+    const loadRegions = () => {
+      const stored = localStorage.getItem("userRegions");
+      if (stored) {
+        try {
+          setUserRegions(JSON.parse(stored));
+        } catch (e) {}
+      }
+    };
+    loadRegions();
+
+    const handleRegionChange = () => {
+      setCurrentRegionCode(localStorage.getItem("currentRegionCode") || "");
+      loadRegions();
+    };
+
+    window.addEventListener("storage", loadRegions);
+    window.addEventListener("regionchange", handleRegionChange);
+    return () => {
+      window.removeEventListener("storage", loadRegions);
+      window.removeEventListener("regionchange", handleRegionChange);
+    };
+  }, []);
 
   if (location === "/login" || location === "/onboarding" || location === "/city-select") return null;
+
+  const handleRegionClick = (r: { code: string; name: string }) => {
+    if (location !== "/") {
+      localStorage.setItem("lastSelectedRegionCode", r.code);
+      setLocation("/");
+    } else {
+      if (typeof (window as any).switchRegion === "function") {
+        (window as any).switchRegion(r);
+      }
+    }
+  };
 
   return (
     <nav className="hidden md:flex flex-col w-[260px] fixed top-0 left-0 bottom-0 bg-background border-r border-border/40 z-50 py-6 px-4 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
@@ -37,7 +75,7 @@ export function SideNav() {
       </div>
 
       {/* 네비게이션 아이템들 */}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 mb-auto">
         {navItems.map((item) => {
           const isActive = item.url === "/" ? location === "/" : location.startsWith(item.url);
 
@@ -57,6 +95,39 @@ export function SideNav() {
           );
         })}
       </div>
+
+      {/* 관심 지역 피드 (가장 밑에 추가) */}
+      {userRegions.length > 0 && (
+        <div className="pt-6 border-t border-border/30 mb-2">
+          <div className="px-4 mb-3 flex items-center justify-between">
+            <span className="text-[11px] font-extrabold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground/50" />
+              관심 지역
+            </span>
+            <Link href="/city-select">
+              <span className="text-[10px] font-bold text-primary hover:underline cursor-pointer">설정</span>
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-1.5 px-2">
+            {userRegions.map((r) => {
+              const isActive = currentRegionCode === r.code;
+              return (
+                <button
+                  key={r.code}
+                  onClick={() => handleRegionClick(r)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm scale-105"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  }`}
+                >
+                  {r.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

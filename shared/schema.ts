@@ -474,7 +474,12 @@ export const assemblyBills = pgTable("assembly_bills", {
   effectiveDate: text("effective_date"),
   aiDescription: text("ai_description"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // propose_date 역순 정렬이 /api/bills·/feed/timeline·/members/active 등 핫 경로에서
+  // 반복 풀스캔 + 정렬을 유발 → 인덱스로 ORDER BY ... LIMIT 가속.
+  billsProposeDateIdx: index("bills_propose_date_idx").on(table.proposeDate),
+  billsResultIdx: index("bills_result_idx").on(table.result),
+}));
 
 export const assemblyVotes = pgTable("assembly_votes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -488,6 +493,8 @@ export const assemblyVotes = pgTable("assembly_votes", {
   billLegislatorUniq: uniqueIndex("bill_legislator_uniq").on(table.billId, table.legislatorId),
   legislatorIdx: index("votes_legislator_idx").on(table.legislatorId),
   billIdx: index("votes_bill_idx").on(table.billId),
+  // /feed/timeline 이 syncedAt 역순 정렬 → 인덱스로 가속.
+  votesSyncedIdx: index("votes_synced_idx").on(table.syncedAt),
 }));
 
 export type Legislator = typeof legislators.$inferSelect;

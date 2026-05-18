@@ -3676,6 +3676,70 @@ export async function registerRoutes(
     }
   });
 
+  // ===== 스토리 피드 =====
+  // 팔로우한 정치인 × 최근 48h 뉴스 교차 → 인스타 스토리 형식으로 반환.
+  // 오늘 뉴스가 있는 정치인에 hasNews=true, 뉴스 목록도 함께 반환.
+  app.get("/api/feed/stories", async (req, res) => {
+    try {
+      const userId = req.session?.userId ?? null;
+      if (!userId) return res.json({ stories: [] });
+
+      const followed = await db
+        .select({
+          politicianId: userFollows.politicianId,
+          name: legislators.name,
+          party: legislators.party,
+          photo: legislators.photoUrl,
+          monaCd: legislators.monaCd,
+        })
+        .from(userFollows)
+        .leftJoin(legislators, eq(userFollows.politicianId, legislators.monaCd))
+        .where(eq(userFollows.userId, userId));
+
+      // 뉴스 캐시 확보
+      if (!newsCache || Date.now() - newsCache.cachedAt >= NEWS_CACHE_TTL) {
+        const result = await fetchKoreanPoliticsNews();
+        newsCache = { ...result, cachedAt: Date.now() };
+      }
+      const now48h = Date.now() - 48 * 60 * 60 * 1000;
+      const recentNews = (newsCache?.items ?? []).filter((item) => {
+        const t = new Date(item.pubDate).getTime();
+        return !isNaN(t) && t >= now48h;
+      });
+
+      const stories = followed.map((f) => {
+        const name = f.name ?? "";
+        const matched = name
+          ? recentNews
+              .filter((item) => item.title.includes(name))
+              .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
+              .slice(0, 5)
+          : [];
+        return {
+          id: f.politicianId,
+          name,
+          party: f.party ?? "",
+          photo: f.photo ?? null,
+          hasNews: matched.length > 0,
+          newsItems: matched.map((n) => ({
+            title: n.title,
+            link: n.link,
+            pubDate: n.pubDate,
+            source: n.source,
+          })),
+        };
+      });
+
+      // 오늘 뉴스 있는 정치인 먼저, 나머지는 팔로우 순
+      stories.sort((a, b) => Number(b.hasNews) - Number(a.hasNews));
+
+      res.json({ stories });
+    } catch (err: any) {
+      console.error("stories feed error:", err);
+      res.status(500).json({ error: "스토리 피드 조회 오류" });
+    }
+  });
+
   // 팔로우 추가
   app.post("/api/users/me/follows/:politicianId", requireAuth, async (req, res) => {
     try {
@@ -3844,10 +3908,20 @@ export async function registerRoutes(
   // ===== Instagram-style 통합 타임라인 =====
   // 팔로우 의원 활동 + 트렌딩 의원 활동(추천)을 시간순으로 섞어서 반환.
   // 비로그인 사용자도 전부 추천 피드로 사용 가능.
+  // 인물 탭 타임라인 — 사용자별 60초 메모리 캐시 (팔로우/트렌딩/법안은 분 단위로 변함)
+  const timelineCache = new Map<string, { payload: any; cachedAt: number }>();
+  const TIMELINE_CACHE_TTL = 60 * 1000;
+
   app.get("/api/feed/timeline", async (req, res) => {
     try {
       const userId = req.session?.userId ?? null;
       const limit = Math.min(parseInt(String(req.query.limit ?? "20")) || 20, 50);
+
+      const cacheKey = `${userId ?? "anon"}:${limit}`;
+      const hit = timelineCache.get(cacheKey);
+      if (hit && Date.now() - hit.cachedAt < TIMELINE_CACHE_TTL) {
+        return res.json(hit.payload);
+      }
 
       // 1) 팔로우한 의원 메타 조회 (로그인 시)
       const followed = userId
@@ -3905,7 +3979,7 @@ export async function registerRoutes(
         .select()
         .from(assemblyBills)
         .orderBy(desc(assemblyBills.proposeDate))
-        .limit(400);
+        .limit(150);
 
       const billItems = recentBills
         .map((bill) => {
@@ -3987,11 +4061,13 @@ export async function registerRoutes(
         while (ri < recItems.length) final.push(recItems[ri++]);
       }
 
-      res.json({
+      const payload = {
         items: final.slice(0, limit),
         followCount: followed.length,
         hasMore: final.length > limit,
-      });
+      };
+      timelineCache.set(cacheKey, { payload, cachedAt: Date.now() });
+      res.json(payload);
     } catch (error) {
       console.error("timeline error:", error);
       res.status(500).json({ error: "타임라인 조회 중 오류가 발생했습니다." });
@@ -4960,16 +5036,79 @@ export async function registerRoutes(
     preFetchPhotos(candidateNames).catch(() => {});
   }, 2000);
 
-  // ===== 서버 시작 후 백그라운드 사전 로드 (통과된 모든 법안 표결 캐시 구축) =====
+  // 뉴스 캐시 백그라운드 워밍 — 첫 법률/뉴스 탭 진입 시 RSS 12개 동기 스크랩으로
+  // 수 초 지연되던 것을 부팅 직후 미리 채워 제거. 실패해도 요청 시 폴백됨.
+  setTimeout(async () => {
+    try {
+      if (!newsCache || Date.now() - newsCache.cachedAt >= NEWS_CACHE_TTL) {
+        const result = await fetchKoreanPoliticsNews();
+        newsCache = { ...result, cachedAt: Date.now() };
+        console.log(`[startup] 뉴스 캐시 워밍 완료 (${result.items.length}건)`);
+      }
+    } catch (err: any) {
+      console.warn("[startup] 뉴스 캐시 워밍 실패 (요청 시 재시도):", err?.message);
+    }
+  }, 6000);
+
+  // ===== 서버 시작 후 백그라운드 사전 로드 (표결 캐시 구축) =====
+  // 표결 15만+건이 이미 DB(assembly_votes)에 있으므로 외부 국회 API를 대량 호출하지
+  // 않고 DB에서 한 번에 읽어 billVotesCache + legislatorVotesIndex 를 메모리에 시드한다.
+  // (DB가 비었을 때만 기존 외부 API 경로로 폴백 — 부팅 직후 네트워크/CPU 점유 제거)
   setTimeout(async () => {
     if (prefetchProgress.running) return;
     prefetchProgress.running = true;
-    console.log("[startup] 백그라운드 전체 표결 사전 로드 시작...");
+    const t0 = Date.now();
+    console.log("[startup] DB 기반 표결 사전 로드 시작...");
     try {
+      const [{ c: voteCount }] = await db
+        .select({ c: dsql<number>`count(*)::int` })
+        .from(assemblyVotes);
+
+      if (voteCount > 0) {
+        // 단일 조인 쿼리로 전체 표결 + 법안명 로드 → 메모리 그룹핑
+        const rows = await db
+          .select({
+            billId: assemblyVotes.billId,
+            legislatorId: assemblyVotes.legislatorId,
+            legislatorName: assemblyVotes.legislatorName,
+            party: assemblyVotes.party,
+            voteResult: assemblyVotes.voteResult,
+            billName: assemblyBills.billName,
+          })
+          .from(assemblyVotes)
+          .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId));
+
+        const grouped = new Map<string, { billName: string; votes: MemberVote[] }>();
+        for (const r of rows) {
+          let g = grouped.get(r.billId);
+          if (!g) { g = { billName: r.billName ?? "", votes: [] }; grouped.set(r.billId, g); }
+          g.votes.push({
+            legislatorId: r.legislatorId,
+            legislatorName: r.legislatorName,
+            party: r.party ?? "",
+            voteResult: r.voteResult,
+          });
+        }
+        const now = Date.now();
+        for (const [billId, g] of grouped) {
+          billVotesCache.set(billId, { votes: g.votes, cachedAt: now });
+          updateLegislatorVotesIndex(billId, g.billName, g.votes);
+        }
+        prefetchProgress.total = grouped.size;
+        prefetchProgress.done = grouped.size;
+        prefetchProgress.running = false;
+        prefetchProgress.completedAt = Date.now();
+        console.log(
+          `[startup] DB 시드 완료: 법안 ${grouped.size}건 / 표결 ${rows.length}건 / 의원 ${legislatorVotesIndex.size}명 (${Date.now() - t0}ms)`,
+        );
+        return;
+      }
+
+      // ── DB가 비었을 때만 기존 외부 API 폴백 ──
+      console.log("[startup] DB 표결 0건 → 외부 API 폴백 로드");
       if (!enactedBillsCache) {
         const apiRows = await fetchEnactedBillsFromApi(30);
         enactedBillsCache = { data: apiRows, fetchedAt: Date.now() };
-        console.log(`[startup] 가결 법안 ${apiRows.length}건 로드 완료`);
       }
       const allBills = enactedBillsCache.data;
       const billsToFetch = allBills.filter((b: any) => {
@@ -4978,7 +5117,6 @@ export async function registerRoutes(
       });
       prefetchProgress.total = allBills.length;
       prefetchProgress.done = allBills.length - billsToFetch.length;
-      console.log(`[startup] 전체 ${allBills.length}건 중 ${billsToFetch.length}건 미캐시 → 순차 로드 시작`);
       const BATCH = 6;
       for (let i = 0; i < billsToFetch.length; i += BATCH) {
         await Promise.all(
@@ -4988,7 +5126,6 @@ export async function registerRoutes(
             try {
               const result = await fetchBillMemberVotes(billId);
               if (result.votes.length === 0) {
-                // 0건: 동기화 완료 표시(syncedAt 갱신) 후 바로 다음 법안으로
                 await db.update(assemblyBills).set({ syncedAt: new Date() }).where(eq(assemblyBills.billId, billId)).catch(() => {});
                 billVotesCache.set(billId, { votes: [], cachedAt: Date.now() });
                 prefetchProgress.done++;
@@ -5000,18 +5137,15 @@ export async function registerRoutes(
             prefetchProgress.done++;
           })
         );
-        if (i % 60 === 0) {
-          console.log(`[startup] 표결 로드 진행: ${prefetchProgress.done}/${prefetchProgress.total}`);
-        }
       }
       prefetchProgress.running = false;
       prefetchProgress.completedAt = Date.now();
-      console.log(`[startup] 전체 표결 사전 로드 완료 (${billVotesCache.size}개 법안 캐시)`);
+      console.log(`[startup] 외부 API 폴백 완료 (${billVotesCache.size}개 법안 캐시)`);
     } catch (err: any) {
       prefetchProgress.running = false;
       console.error("[startup] 표결 사전 로드 오류:", err.message);
     }
-  }, 8000);
+  }, 4000);
 
   // ===== 여론조사 API =====
   // 크롤링 실행 (백그라운드)
