@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { AssemblyMember, Bill } from "@shared/schema";
 import { assemblyMembers as mockMembers, bills as mockBills, candidates as mockCandidates } from "./mock-data";
 
@@ -97,79 +98,78 @@ function transformDbBills(raw: any[]): Bill[] {
 export function useAssemblyMembers() {
   const membersQuery = useQuery<ApiResponse<any[]>>({
     queryKey: ["/api/members"],
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 30 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const attendanceQuery = useQuery<ApiResponse<any[]>>({
     queryKey: ["/api/attendance"],
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 30 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const membersData = membersQuery.data?.data;
-  const source = membersQuery.data?.source;
+  const members = useMemo(() => {
+    const membersData = membersQuery.data?.data;
+    const source = membersQuery.data?.source;
 
-  let apiMembers: AssemblyMember[] | null = null;
-  if (membersData && membersData.length > 0) {
-    if (source === "db") {
-      apiMembers = transformDbMembers(membersData);
-    } else if (source === "api") {
-      apiMembers = transformApiMembers(membersData);
-    }
-  }
-
-  if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.source === "api" && attendanceQuery.data.data) {
-    const attendanceData = attendanceQuery.data.data;
-    for (const member of apiMembers) {
-      const att = attendanceData.find((a: any) => a.HG_NM === member.name);
-      if (att) {
-        const attend = parseInt(att.ATTEND_CNT || att.ATTEND || "0");
-        const total = parseInt(att.TOTAL_CNT || att.ALLDAY || "1");
-        member.score.attendanceRate = total > 0 ? Math.round((attend / total) * 100) : 0;
-        const attendance = member.score.attendanceRate * 0.7;
-        const billScore = Math.min(100, member.score.billProposalCount * 5) * 0.3;
-        member.score.totalScore = Math.round(attendance + billScore);
+    let apiMembers: AssemblyMember[] | null = null;
+    if (membersData && membersData.length > 0) {
+      if (source === "db") {
+        apiMembers = transformDbMembers(membersData);
+      } else if (source === "api") {
+        apiMembers = transformApiMembers(membersData);
       }
     }
-  }
 
-  const members = apiMembers && apiMembers.length > 0 ? apiMembers : mockMembers;
+    if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.source === "api" && attendanceQuery.data.data) {
+      const attendanceData = attendanceQuery.data.data;
+      for (const member of apiMembers) {
+        const att = attendanceData.find((a: any) => a.HG_NM === member.name);
+        if (att) {
+          const attend = parseInt(att.ATTEND_CNT || att.ATTEND || "0");
+          const total = parseInt(att.TOTAL_CNT || att.ALLDAY || "1");
+          member.score.attendanceRate = total > 0 ? Math.round((attend / total) * 100) : 0;
+          const attendance = member.score.attendanceRate * 0.7;
+          const billScore = Math.min(100, member.score.billProposalCount * 5) * 0.3;
+          member.score.totalScore = Math.round(attendance + billScore);
+        }
+      }
+    }
+
+    return apiMembers && apiMembers.length > 0 ? apiMembers : mockMembers;
+  }, [membersQuery.data, attendanceQuery.data]);
 
   return {
     members,
     isLoading: membersQuery.isLoading,
-    isApi: apiMembers !== null && apiMembers.length > 0,
+    isApi: membersQuery.data?.data != null && membersQuery.data.data.length > 0,
   };
 }
 
 export function useAssemblyBills() {
   const query = useQuery<ApiResponse<any[]>>({
     queryKey: ["/api/bills"],
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const billsData = query.data?.data;
-  const source = query.data?.source;
-
-  let apiBills: Bill[] | null = null;
-  if (billsData && billsData.length > 0) {
-    if (source === "db") {
-      apiBills = transformDbBills(billsData);
-    } else if (source === "api") {
-      apiBills = transformApiBills(billsData);
+  const bills = useMemo(() => {
+    const billsData = query.data?.data;
+    const source = query.data?.source;
+    let apiBills: Bill[] | null = null;
+    if (billsData && billsData.length > 0) {
+      apiBills = source === "db" ? transformDbBills(billsData) : transformApiBills(billsData);
     }
-  }
-
-  const bills = apiBills && apiBills.length > 0 ? apiBills : mockBills;
+    return apiBills && apiBills.length > 0 ? apiBills : mockBills;
+  }, [query.data]);
 
   return {
     bills,
     isLoading: query.isLoading,
-    isApi: apiBills !== null && apiBills.length > 0,
+    isApi: query.data?.data != null && query.data.data.length > 0,
   };
 }
 
@@ -177,14 +177,16 @@ export function useEnactedBills() {
   const query = useQuery<ApiResponse<any[]>>({
     queryKey: ["/api/bills/enacted"],
     staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const data = query.data?.data ?? [];
-  const source = query.data?.source;
-
-  const bills: Bill[] = data.length > 0
-    ? (source === "db" ? transformDbBills(data) : transformApiBills(data))
-    : [];
+  const bills = useMemo<Bill[]>(() => {
+    const data = query.data?.data ?? [];
+    const source = query.data?.source;
+    return data.length > 0
+      ? (source === "db" ? transformDbBills(data) : transformApiBills(data))
+      : [];
+  }, [query.data]);
 
   return {
     bills,

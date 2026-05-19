@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Bell, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Plus, ChevronRight } from "lucide-react";
@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAssemblyMembers } from "@/lib/api-data";
+import type { AssemblyBill } from "@shared/schema";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -17,7 +18,7 @@ export default function Home() {
   const { members, isLoading: isMembersLoading } = useAssemblyMembers();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: billsData, isLoading: isBillsLoading } = useQuery({
+  const { data: billsData, isLoading: isBillsLoading } = useQuery<AssemblyBill[]>({
     queryKey: ["/api/bills"],
     queryFn: async () => {
       const res = await fetch(`/api/bills`);
@@ -43,40 +44,41 @@ export default function Home() {
     },
   });
 
-  // Stories: Show followed members if logged in, otherwise show top 10
   const followedIds = user?.favorites || [];
-  const followedMembersList = members.filter(m => followedIds.includes(m.id));
-  const otherMembers = members.filter(m => !followedIds.includes(m.id));
-  
-  const storyMembers = followedMembersList.length > 0 
-    ? followedMembersList 
-    : members.slice(0, 10);
 
-  // Recommended members for the right sidebar: exclude already followed
-  const recommendedMembers = otherMembers.slice(0, 5);
+  const { followedMembersList, recommendedMembers, storyMembers } = useMemo(() => {
+    const followed = members.filter(m => followedIds.includes(m.id));
+    const others = members.filter(m => !followedIds.includes(m.id));
+    return {
+      followedMembersList: followed,
+      recommendedMembers: others.slice(0, 5),
+      storyMembers: followed.length > 0 ? followed : members.slice(0, 10),
+    };
+  }, [members, followedIds.join(",")]);
 
-  // Filter bills based on followed members if any exist
-  const displayBills = (followedMembersList.length > 0 && billsData)
-    ? billsData.filter((b: any) => followedIds.includes(members.find(m => m.name === b.proposer)?.id || ""))
-    : billsData || [];
-
-  // Fallback if followed members have no bills
-  const finalBills = displayBills.length > 0 ? displayBills : (billsData || []);
+  const finalBills = useMemo(() => {
+    if (!billsData) return [];
+    if (followedMembersList.length === 0) return billsData;
+    const followedSet = new Set(followedIds);
+    const proposerToId = new Map(members.map(m => [m.name, m.id]));
+    const filtered = billsData.filter(b => followedSet.has(proposerToId.get(b.proposer ?? "") ?? ""));
+    return filtered.length > 0 ? filtered : billsData;
+  }, [billsData, followedMembersList.length, followedIds.join(","), members]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full h-[72px] bg-background/80 backdrop-blur-md border-b border-border/40 flex items-center px-8">
+      <header className="sticky top-0 z-40 w-full h-[60px] sm:h-[72px] bg-background/80 backdrop-blur-md border-b border-border/40 flex items-center px-4 sm:px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input
-              className="w-full h-10 pl-11 pr-12 bg-muted border border-border/30 rounded-xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
+              className="w-full h-9 sm:h-10 pl-9 sm:pl-11 pr-4 sm:pr-12 bg-muted border border-border/30 rounded-xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
               placeholder="국회의원 이름으로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-background border border-border/30 rounded shadow-sm">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-background border border-border/30 rounded shadow-sm">
               <span className="text-[10px] font-bold text-muted-foreground">⌘K</span>
             </div>
           </div>
@@ -100,7 +102,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-8 gap-8">
+      <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-4 sm:p-8 gap-4 sm:gap-8">
         {/* Main Feed Section */}
         <div className="flex-1 min-w-0 space-y-6">
           {/* Feed List */}
@@ -110,17 +112,17 @@ export default function Home() {
                 <Skeleton key={i} className="w-full h-[300px] rounded-[24px]" />
               ))
             ) : (
-              finalBills.map((bill: any, idx: number) => (
+              finalBills.map((bill, idx) => (
                 <div key={bill.billId} className="bg-card border border-border/30 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   {/* Card Header */}
-                  <div className="p-6 flex items-center justify-between">
+                  <div className="p-4 sm:p-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden">
                         <PoliticianPhoto
                           name={bill.proposer || ""}
                           photo={members.find(m => m.name === bill.proposer)?.photo || ""}
                           monaCd={members.find(m => m.name === bill.proposer)?.id || ""}
-                          context={bill.party || members.find(m => m.name === bill.proposer)?.party || undefined}
+                          context={members.find(m => m.name === bill.proposer)?.party || undefined}
                           className="w-full h-full object-cover"
                           avatarClassName="text-[12px] font-black bg-muted text-muted-foreground"
                         />
@@ -130,7 +132,7 @@ export default function Home() {
                           <span className="text-[14px] font-black text-foreground">{bill.proposer || "의원 이름"}</span>
                           <span className="text-[14px] text-muted-foreground font-medium">의원</span>
                         </div>
-                        <p className="text-[11px] font-bold text-muted-foreground">{bill.party || "더불어민주당"} · {bill.committee || "전북 익산시을"}</p>
+                        <p className="text-[11px] font-bold text-muted-foreground">{members.find(m => m.name === bill.proposer)?.party ?? ""} · {bill.committee}</p>
                       </div>
                     </div>
                     <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
@@ -139,7 +141,7 @@ export default function Home() {
                   </div>
 
                   {/* Card Content */}
-                  <div className="px-6 pb-2">
+                  <div className="px-4 sm:px-6 pb-2">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-2 h-2 rounded-full bg-primary" />
                       <span className="text-[12px] font-bold text-primary">법안 발의</span>
@@ -153,7 +155,7 @@ export default function Home() {
                   </div>
 
                   {/* Card Interactions */}
-                  <div className="px-6 py-4 flex items-center justify-between border-t border-border/30">
+                  <div className="px-4 sm:px-6 py-4 flex items-center justify-between border-t border-border/30">
                     <div className="flex items-center gap-5">
                       <button className="flex items-center gap-1.5 text-muted-foreground hover:text-red-500 transition-colors">
                         <Heart className="w-5 h-5" />
@@ -170,7 +172,7 @@ export default function Home() {
                     </button>
                   </div>
                   
-                  <div className="px-6 pb-6 pt-0">
+                  <div className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
                     <div className="flex flex-col gap-1">
                       <span className="text-[13px] font-black text-foreground">좋아요 {(((bill.billId?.charCodeAt(0) ?? idx) * 137 + idx * 41) % 1900 + 100).toLocaleString()}개</span>
                       <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">{idx + 2}시간 전</span>

@@ -25,7 +25,7 @@ type PostWithCount = CommunityPost & {
   thumbnailUrl?: string | null;
   tagType?: string | null;
   tagName?: string | null;
-  topComment?: any;
+  topComment?: { displayName?: string; content: string };
   topCommentLikes?: number;
 };
 
@@ -73,7 +73,7 @@ export default function Community() {
   const [isWriteOpen, setIsWriteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
-  const [writeAttachments, setWriteAttachments] = useState<any[]>([]);
+  const [writeAttachments, setWriteAttachments] = useState<{ type: string; [key: string]: unknown }[]>([]);
   const [writeAuthorType, setWriteAuthorType] = useState<"anonymous" | "nickname">("anonymous");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -115,7 +115,7 @@ export default function Community() {
   const trendingWithDetails = trending.map((t) => {
     const member = members.find((m) => m.id === t.memberId);
     return member ? { ...t, member } : null;
-  }).filter(Boolean) as any[];
+  }).filter((x): x is NonNullable<typeof x> => Boolean(x));
   const topTrending = trendingWithDetails.slice(0, 5);
 
   const createPostMutation = useMutation({
@@ -131,7 +131,7 @@ export default function Community() {
       toast({ title: "게시글 작성 완료", description: "성공적으로 등록되었습니다." });
       setWriteTitle(""); setWriteContent(""); setWriteAttachments([]); setIsWriteOpen(false);
     },
-    onError: (err: any) => toast({ title: "오류", description: err.message || "글 작성 중 오류가 발생했습니다.", variant: "destructive" })
+    onError: (err: Error) => toast({ title: "오류", description: err.message || "글 작성 중 오류가 발생했습니다.", variant: "destructive" })
   });
 
   const quickReactMutation = useMutation({
@@ -146,9 +146,9 @@ export default function Community() {
   function switchBoard(b: BoardId) { navigate(`/community?board=${b}`); }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans text-foreground">
+    <div className="min-h-screen bg-background flex flex-col font-sans text-foreground overflow-x-hidden">
       {/* TopAppBar */}
-      <header className="sticky top-0 z-40 h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-6 md:px-8 shadow-sm">
+      <header className="sticky top-0 z-40 h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-6 md:px-8 shadow-sm will-change-transform">
         <div className="flex items-center gap-6 flex-1 max-w-2xl">
           <div className="relative w-full group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -177,20 +177,50 @@ export default function Community() {
         
         {/* Center Column: Tabs and Main Content */}
         <div className="col-span-1 md:col-span-8 space-y-8">
-          
+
+          {/* Mobile Trending — desktop에선 사이드바에 표시 */}
+          {topTrending.length > 0 && (
+            <div className="md:hidden bg-card border border-border/30 rounded-[20px] p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                <span className="text-[13px] font-black text-foreground">실시간 인기 급상승 검색어</span>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+                <ol className="flex gap-2 w-max">
+                  {topTrending.map((item, idx) => (
+                    <li key={item.memberId}>
+                      <button
+                        onClick={() => { setSearchQuery(item.member.name); setDebouncedQuery(item.member.name); }}
+                        className="flex items-center gap-1.5 bg-muted hover:bg-primary/10 hover:text-primary transition-colors px-3 py-2 rounded-full text-[13px] font-bold text-foreground whitespace-nowrap"
+                      >
+                        <span className="text-primary font-black text-[12px]">{idx + 1}</span>
+                        {item.member.name}
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 ml-0.5">
+                          <ArrowUp className="w-2.5 h-2.5 text-red-400" />{item.count}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+
           {/* Tab Bar */}
-          <div className="flex gap-2 p-1.5 bg-muted rounded-2xl overflow-x-auto scrollbar-hide w-max">
-            {BOARDS.map(b => (
-              <button
-                key={b.id}
-                onClick={() => switchBoard(b.id)}
-                className={`px-5 py-2.5 rounded-xl font-bold text-[14px] transition-all whitespace-nowrap ${
-                  board === b.id ? "bg-card text-primary shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            <div className="flex gap-2 p-1.5 bg-muted rounded-2xl w-max">
+              {BOARDS.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => switchBoard(b.id)}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-[14px] transition-all whitespace-nowrap ${
+                    board === b.id ? "bg-card text-primary shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <DailyPoll key={board} board={board} />
@@ -229,7 +259,7 @@ export default function Community() {
                      <Input placeholder="제목을 입력하세요" value={writeTitle} onChange={(e) => setWriteTitle(e.target.value)} className="h-12 bg-muted text-[15px] border-border/30 focus:border-primary rounded-[12px]" />
                      <PostEditor content={writeContent} onChange={setWriteContent} attachments={writeAttachments} onAttachmentsChange={setWriteAttachments} />
                      <div className="flex justify-between items-center pt-2">
-                        <select className="bg-muted border border-border/30 rounded-[12px] px-4 py-2.5 text-[13px] font-bold text-foreground outline-none" value={writeAuthorType} onChange={e=>setWriteAuthorType(e.target.value as any)}>
+                        <select className="bg-muted border border-border/30 rounded-[12px] px-4 py-2.5 text-[13px] font-bold text-foreground outline-none" value={writeAuthorType} onChange={e=>setWriteAuthorType(e.target.value as "anonymous" | "nickname")}>
                            <option value="anonymous">익명</option>
                            <option value="nickname" disabled={!user?.nickname}>닉네임</option>
                         </select>

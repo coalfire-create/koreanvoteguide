@@ -348,7 +348,7 @@ export default function More() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({ title: "본인인증 완료", description: "프로필이 업데이트되었습니다." });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       const raw = String(err?.message || "");
       // apiRequest는 "<status>: <body>" 형식으로 throw — 409면 이미 인증된 계정
       if (raw.startsWith("409")) {

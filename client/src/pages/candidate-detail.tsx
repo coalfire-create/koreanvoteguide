@@ -29,6 +29,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { candidates as mockCandidates, getPartyColor } from "@/lib/mock-data";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
+import type { CommunityPost, TimelineEvent } from "@shared/schema";
+
+type PostWithCount = CommunityPost & { commentCount?: number; displayName?: string };
+
 import { CandidateEvaluationReport } from "@/components/CandidateEvaluationReport";
 import PledgeDetailView, { analyzeFeasibility } from "@/components/PledgeDetailView";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
@@ -72,15 +76,32 @@ function partyTextColor(party: string): string {
 }
 
 // sessionStorage에 임시 후보 데이터 저장/조회용
-export function saveCandidateToSession(key: string, data: any) {
+interface SessionCandidate {
+  id?: string | number;
+  name?: string;
+  party?: string;
+  photo?: string;
+  background?: string;
+  pledges?: (string | { title?: string; description?: string })[];
+  pastActivities?: string[];
+  education?: string;
+  edu?: string;
+  career?: string;
+  career1?: string;
+  career2?: string;
+  timeline?: TimelineEvent[];
+  ratings?: number[];
+}
+
+export function saveCandidateToSession(key: string, data: unknown) {
   try {
     sessionStorage.setItem(`candidate_${key}`, JSON.stringify(data));
   } catch {}
 }
-function loadCandidateFromSession(key: string): any | null {
+function loadCandidateFromSession(key: string): SessionCandidate | null {
   try {
     const raw = sessionStorage.getItem(`candidate_${key}`);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? (JSON.parse(raw) as SessionCandidate) : null;
   } catch {
     return null;
   }
@@ -94,7 +115,7 @@ function PledgeCard({ candidateId, promise, onClick }: {
   onClick: () => void;
 }) {
 
-  const { data: comments = [] } = useQuery<any[]>({
+  const { data: comments = [] } = useQuery<unknown[]>({
     queryKey: ["pledge_comments", candidateId, promise.id],
     queryFn: () => apiRequest("GET", `/api/candidates/${candidateId}/pledges/${promise.id}/comments`).then(r => r.json()),
     staleTime: 30 * 1000,
@@ -121,10 +142,10 @@ function PledgeCard({ candidateId, promise, onClick }: {
             실현가능성 {feasibility.label}
           </span>
           {/* 댓글 수 */}
-          {(comments as any[]).length > 0 && (
+          {comments.length > 0 && (
             <span className="flex items-center gap-1 text-[10px] text-gray-400">
               <MessageCircle className="w-3 h-3" />
-              {(comments as any[]).length}
+              {comments.length}
             </span>
           )}
         </div>
@@ -181,10 +202,10 @@ export default function CandidateDetail() {
         photo: sessionCandidate.photo ?? "",
         electionType: "local" as const,
         background: sessionCandidate.background ?? "후보 정보를 불러오는 중입니다.",
-        promises: (sessionCandidate.pledges ?? []).map((p: any, i: number) => ({
+        promises: ((sessionCandidate.pledges ?? []) as (string | { title?: string; description?: string })[]).map((p, i) => ({
           id: `p${i}`,
-          title: typeof p === "string" ? p : p.title ?? p,
-          description: typeof p === "string" ? "" : p.description ?? "",
+          title: typeof p === "string" ? p : (p.title ?? String(p)),
+          description: typeof p === "string" ? "" : (p.description ?? ""),
         })),
         pastActivities: sessionCandidate.pastActivities ?? [],
         education: sessionCandidate.education ?? sessionCandidate.edu,
@@ -211,7 +232,7 @@ export default function CandidateDetail() {
   });
 
   // 커뮤니티 게시글 조회
-  const { data: posts, isLoading: postsLoading } = useQuery<any[]>({
+  const { data: posts, isLoading: postsLoading } = useQuery<PostWithCount[]>({
     queryKey: ["/api/community/posts", "candidate", decodedId],
     queryFn: () => apiRequest("GET", `/api/community/posts?tagType=candidate&tagId=${decodedId}`).then((r) => r.json()),
   });

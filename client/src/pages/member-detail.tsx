@@ -27,6 +27,7 @@ import {
 import { PostDetailDialog } from "@/components/post-detail-dialog";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
+import type { CommunityPost } from "@shared/schema";
 
 // ─── 관련 뉴스 타입 ──────────────────────────────────────────────────────────
 interface NewsItem {
@@ -305,7 +306,8 @@ export default function MemberDetail() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedNews, setSelectedNews] = useState<{ title: string; url: string; source: string } | null>(null);
 
-  const communityQuery = useQuery({
+  type CommunityPostWithCount = CommunityPost & { commentCount?: number };
+  const communityQuery = useQuery<CommunityPostWithCount[]>({
     queryKey: ["/api/community/posts", "member", id],
     queryFn: () => fetch(`/api/community/posts?legislatorId=${id}`).then((r) => r.json()),
     enabled: !!id,
@@ -392,7 +394,7 @@ export default function MemberDetail() {
     },
   });
 
-  const handlePostShare = (post: any) => {
+  const handlePostShare = (post: CommunityPostWithCount) => {
     const url = `${window.location.origin}/post/${post.id}`;
     if (navigator.share) {
       navigator.share({ title: post.title, text: post.content, url });
@@ -455,7 +457,7 @@ export default function MemberDetail() {
 
   const proposedBillsQuery = useQuery<{
     monaCode: string;
-    bills: any[];
+    bills: import("@shared/schema").AssemblyBill[];
     total: number;
     source: string;
   }>({
@@ -574,8 +576,8 @@ export default function MemberDetail() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
-      <div className="flex items-center justify-between mb-10">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+      <div className="flex items-center justify-between mb-6 sm:mb-10">
         <Link href="/members">
           <Button variant="ghost" size="sm" className="hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -588,7 +590,7 @@ export default function MemberDetail() {
             size="sm"
             onClick={handleToggleFollow}
             disabled={followMutation.isPending}
-            className={`rounded-full font-bold px-5 shadow-sm transition-all ${
+            className={`rounded-full font-bold px-3 sm:px-5 text-sm shadow-sm transition-all ${
               isFollowing
                 ? "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                 : "bg-gradient-to-r from-[#6D28D9] to-indigo-500 text-white hover:shadow-md hover:from-[#5B21B6] hover:to-indigo-600"
@@ -615,8 +617,8 @@ export default function MemberDetail() {
         </div>
       </div>
 
-      <div className="relative mb-12">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+      <div className="relative mb-8 sm:mb-12">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-5 sm:gap-8">
           <div className="relative group">
             <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden border-4 border-background shadow-xl ring-1 ring-primary/10 bg-gradient-to-br from-primary/5 to-primary/20">
               <PoliticianPhoto
@@ -634,7 +636,7 @@ export default function MemberDetail() {
 
           <div className="flex-1 text-center md:text-left pt-2">
             <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter" data-testid="text-member-detail-name">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter" data-testid="text-member-detail-name">
                 {member.name}
               </h1>
               <Badge variant="outline" className={`w-fit mx-auto md:mx-0 px-3 py-1 text-sm font-bold border-2 ${getPartyColor(member.party)} bg-white text-foreground shadow-sm`}>
@@ -663,12 +665,12 @@ export default function MemberDetail() {
       </div>
       
       {/* ===== 프리미엄 AI 프로필 분석 섹션 ===== */}
-      <div className="mb-10">
+      <div className="mb-8 sm:mb-10">
         <Card className="border-none shadow-xl overflow-hidden bg-gradient-to-br from-[#6D28D9]/[0.04] via-background to-indigo-500/[0.02]">
           <div className="h-1 w-full bg-gradient-to-r from-[#6D28D9] via-indigo-400 to-purple-400" />
-          <CardContent className="p-8">
+          <CardContent className="p-4 sm:p-8">
             {/* 헤더 */}
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-5 sm:mb-8">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
@@ -705,18 +707,18 @@ export default function MemberDetail() {
             )}
 
             {aiProfileQuery.data && (
-              <div className="space-y-8">
+              <div className="space-y-5 sm:space-y-8">
                 {/* AI 성향 요약 */}
-                <div className="bg-white rounded-3xl p-5 border border-[#6D28D9]/10 shadow-sm">
+                <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#6D28D9]/10 shadow-sm">
                   <p className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest mb-2">AI 성향 요약</p>
                   <p className="text-[15px] font-bold text-gray-800 leading-relaxed">
                     "{aiProfileQuery.data.summary}"
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
                   {/* 정치 성향 2축 */}
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                       <Zap className="w-3 h-3" /> 정치 성향 2축
                     </p>
@@ -832,11 +834,11 @@ export default function MemberDetail() {
       </div>
 
       {/* ===== AI 의원 성향 분석 섹션 ===== */}
-      <div className="mb-12">
+      <div className="mb-8 sm:mb-12">
         <Card className="border-none shadow-xl bg-gradient-to-br from-primary/[0.03] via-background to-primary/[0.01] overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
-          <CardContent className="p-8">
-            <div className="flex items-center gap-3 mb-8">
+          <CardContent className="p-4 sm:p-8">
+            <div className="flex items-center gap-3 mb-5 sm:mb-8">
               <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
                 <TrendingUp className="w-5 h-5 text-primary" />
               </div>
@@ -858,9 +860,9 @@ export default function MemberDetail() {
                 </div>
               </div>
             ) : analysis && analysis.meaningfulVotesCount > 0 ? (
-              <div className="space-y-10">
+              <div className="space-y-6 sm:space-y-10">
                 {/* 1. 요약 텍스트 */}
-                <div className="bg-white rounded-3xl p-6 border border-primary/5 shadow-sm relative group">
+                <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary/5 shadow-sm relative group">
                   <div className="absolute -top-3 -left-2 px-3 py-1 bg-primary text-white text-[10px] font-black rounded-lg shadow-md transform -rotate-2">
                     CHARACTER SUMMARY
                   </div>
@@ -869,9 +871,9 @@ export default function MemberDetail() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
                   {/* 2. 가치 지향성 (경제/정부) */}
-                  <div className="space-y-8">
+                  <div className="space-y-5 sm:space-y-8">
                     <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase flex items-center gap-2">
                       <Landmark className="w-3.5 h-3.5" /> 정치적 가치 지향성
                     </h3>
@@ -1069,39 +1071,39 @@ export default function MemberDetail() {
         </Card>
       </div>
 
-      <Tabs defaultValue="info" className="mb-12">
-        <TabsList className="w-full justify-start h-auto p-1.5 bg-muted/20 rounded-2xl mb-8 gap-2 overflow-x-auto flex-nowrap scrollbar-hide">
+      <Tabs defaultValue="info" className="mb-8 sm:mb-12">
+        <TabsList className="w-full justify-start h-auto p-1 sm:p-1.5 bg-muted/20 rounded-2xl mb-5 sm:mb-8 gap-1 sm:gap-2 overflow-x-auto flex-nowrap scrollbar-hide">
           <TabsTrigger
             value="info"
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
             data-testid="tab-info"
           >
             기본 정보
           </TabsTrigger>
           <TabsTrigger 
             value="votes" 
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
             data-testid="tab-votes"
           >
             투표 기록
           </TabsTrigger>
           <TabsTrigger 
             value="proposed" 
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50" 
             data-testid="tab-proposed"
           >
             발의 법안
           </TabsTrigger>
           <TabsTrigger
             value="activities"
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
             data-testid="tab-activities"
           >
             공개 활동
           </TabsTrigger>
           <TabsTrigger
             value="news"
-            className="rounded-xl px-6 py-3 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
             data-testid="tab-news"
           >
             관련 뉴스
@@ -1500,9 +1502,9 @@ export default function MemberDetail() {
                         블로그
                       </a>
                     )}
-                    {(detail as any).instagram && (
+                    {detail.instagram && (
                       <a
-                        href={(detail as any).instagram}
+                        href={detail.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-pink-50 text-pink-700 hover:bg-pink-100 transition-colors"
@@ -1618,7 +1620,7 @@ export default function MemberDetail() {
                       ))}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-muted-foreground text-sm">
+                    <div className="p-4 sm:p-8 text-center text-muted-foreground text-sm">
                       {allVotes.length === 0 ? (
                         <div>
                           <p className="mb-1">표결 기록이 없습니다</p>
@@ -1642,7 +1644,7 @@ export default function MemberDetail() {
               <p className="text-sm text-muted-foreground">발의 법안을 불러오는 중...</p>
             </div>
           ) : !proposedBillsQuery.data || !proposedBillsQuery.data.bills || proposedBillsQuery.data.bills.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
+            <div className="p-4 sm:p-8 text-center text-muted-foreground text-sm">
               발의 법안 정보가 없습니다
             </div>
           ) : (
@@ -1651,13 +1653,13 @@ export default function MemberDetail() {
                 <span className="text-sm font-medium text-muted-foreground">총 <span className="font-bold text-foreground">{proposedBillsQuery.data.total}건</span>의 법안 발의</span>
               </div>
               <div className="space-y-3" data-testid="proposed-bills-list">
-                {proposedBillsQuery.data.bills.map((bill: any, idx: number) => {
-                  const billId = bill.BILL_ID || bill.BILL_NO || String(idx);
-                  const billName = bill.BILL_NM || bill.BILL_NAME || "제목 없음";
-                  const proposeDate = bill.PROPOSE_DT || bill.PROPOSE_DATE || "";
-                  const committee = bill.COMMITTEE_NM || bill.COMMITTEE || "";
-                  const procResult = bill.PROC_RESULT_CD || bill.PROC_RESULT || "";
-                  const linkUrl = bill.LINK_URL || "";
+                {proposedBillsQuery.data.bills.map((bill, idx) => {
+                  const billId = bill.billId || bill.billNo || String(idx);
+                  const billName = bill.billName || "제목 없음";
+                  const proposeDate = bill.proposeDate || "";
+                  const committee = bill.committee || "";
+                  const procResult = bill.result || "";
+                  const linkUrl = "";
 
                   const resultStyles =
                     procResult.includes("원안가결") || procResult.includes("수정가결")
@@ -1740,7 +1742,7 @@ export default function MemberDetail() {
               ))}
             </div>
           ) : (
-            <div className="p-8 text-center text-muted-foreground text-sm">
+            <div className="p-4 sm:p-8 text-center text-muted-foreground text-sm">
               공개 활동 기록이 없습니다
             </div>
           )}
@@ -1907,7 +1909,7 @@ export default function MemberDetail() {
           </div>
         ) : Array.isArray(communityQuery.data) && communityQuery.data.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
-            {communityQuery.data.map((post: any) => (
+            {communityQuery.data.map((post) => (
               <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 border-none bg-card group">
                 <CardContent className="p-0">
                   <div onClick={() => setSelectedPostId(post.id)} className="p-6 cursor-pointer group-hover:bg-primary/[0.01] transition-colors">
