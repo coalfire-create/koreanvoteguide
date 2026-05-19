@@ -181,6 +181,7 @@ export default function CitySelect() {
   const [, setLocation] = useLocation();
   const { user, mutate } = useAuth();
   const { toast } = useToast();
+  const daysLeft = Math.max(0, Math.ceil((new Date("2026-06-03").getTime() - Date.now()) / 86400000));
 
   const [step, setStep] = useState<"welcome" | "select">(() => {
     if (
