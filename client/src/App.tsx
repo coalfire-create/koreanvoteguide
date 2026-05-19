@@ -12,6 +12,7 @@ import { SplashScreen } from "@/components/splash-screen";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
+import { useToast } from "@/hooks/use-toast";
 
 // 라우트별 lazy import — 초기 번들 크기 감소 (각 페이지가 별도 chunk로 분리됨)
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -83,6 +84,20 @@ function Router() {
   );
 }
 
+function LoginSuccessToast() {
+  const { toast } = useToast();
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("loginSuccess") === "1") {
+      toast({ title: "로그인 성공했습니다!" });
+      url.searchParams.delete("loginSuccess");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 function MainApp() {
   const [location] = useLocation();
   const isLoginPage = location === "/login";
@@ -93,6 +108,7 @@ function MainApp() {
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
+      <LoginSuccessToast />
       {!hideHeaderNav && <AnnouncementBanner />}
       {!hideHeaderNav && <SideNav />}
 

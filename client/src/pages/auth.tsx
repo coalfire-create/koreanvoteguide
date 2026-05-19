@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,8 @@ import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 export default function AuthPage() {
   const { user } = useAuth();
   const [, nav] = useLocation();
+  const search = useSearch();
+  const returnTo = new URLSearchParams(search).get("returnTo") || "/";
   // Kakao 1차, 기존 이메일 로그인은 보조. RegisterForm은 deprecated — 노출하지 않음.
   const [showLegacyLogin, setShowLegacyLogin] = useState(false);
 
@@ -30,7 +32,7 @@ export default function AuthPage() {
   }, [toast]);
 
   if (user) {
-    nav("/");
+    nav(returnTo);
     return null;
   }
 
@@ -91,9 +93,9 @@ export default function AuthPage() {
             <p className="text-center text-[13px] font-semibold text-slate-500 mb-2">
               회원가입 없이 카카오로 바로 시작하세요
             </p>
-            <KakaoLoginButton />
-            <NaverLoginButton />
-            <GoogleLoginButton />
+            <KakaoLoginButton next={returnTo} />
+            <NaverLoginButton next={returnTo} />
+            <GoogleLoginButton next={returnTo} />
             <p className="text-center text-[11px] text-slate-400 leading-relaxed">
               카카오·네이버·구글 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
             </p>
@@ -124,7 +126,7 @@ export default function AuthPage() {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <LoginForm />
+                <LoginForm returnTo={returnTo} />
               </motion.div>
             </AnimatePresence>
           )}
@@ -134,7 +136,7 @@ export default function AuthPage() {
   );
 }
 
-function LoginForm() {
+function LoginForm({ returnTo = "/" }: { returnTo?: string }) {
   const { login } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -152,8 +154,8 @@ function LoginForm() {
     setLoading(true);
     try {
       await login(username, password);
-      toast({ title: "로그인 성공", description: "환영합니다!" });
-      navigate("/");
+      toast({ title: "로그인 성공했습니다!" });
+      navigate(returnTo);
     } catch (err: any) {
       const raw = String(err?.message || "");
       let msg = "로그인 중 오류가 발생했습니다";

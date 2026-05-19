@@ -534,6 +534,8 @@ declare module "express-session" {
     naverOAuthState?: string;
     // Google OAuth CSRF 방지용 state 토큰.
     googleOAuthState?: string;
+    // 로그인 성공 후 돌아갈 경로 (소셜 로그인 공통).
+    oauthNext?: string;
   }
 }
 
@@ -1204,6 +1206,18 @@ export async function registerRoutes(
   //   3) state 검증 → code↔access_token 교환 → /v2/user/me 로 프로필 조회
   //   4) kakaoId로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
   //   5) req.session.userId 세팅 → 홈으로 redirect
+  // 오픈 리다이렉트 방지 — 같은 origin의 상대 경로만 허용
+  function safeNextUrl(raw: unknown): string {
+    if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) return "/";
+    return raw;
+  }
+
+  function redirectWithLoginSuccess(res: Response, next: string) {
+    const url = new URL(next, "http://localhost");
+    url.searchParams.set("loginSuccess", "1");
+    res.redirect(url.pathname + url.search);
+  }
+
   app.get("/api/auth/kakao", authLimiter, (req, res) => {
     const config = loadKakaoConfig();
     if (!config) {
@@ -1214,6 +1228,7 @@ export async function registerRoutes(
     // CSRF — 랜덤 state를 세션에 저장하고 callback에서 일치 확인
     const state = randomBytes(16).toString("hex");
     req.session.kakaoOAuthState = state;
+    req.session.oauthNext = safeNextUrl(req.query.next);
     const url = buildAuthorizeUrl(config, state);
     req.session.save((err) => {
       if (err) {
@@ -1316,8 +1331,10 @@ export async function registerRoutes(
       }
 
       req.session.userId = userId;
+      const next = safeNextUrl(req.session.oauthNext);
+      req.session.oauthNext = undefined;
       console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-      res.redirect("/");
+      redirectWithLoginSuccess(res, next);
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -1339,6 +1356,7 @@ export async function registerRoutes(
     }
     const state = randomBytes(16).toString("hex");
     req.session.naverOAuthState = state;
+    req.session.oauthNext = safeNextUrl(req.query.next);
     req.session.save((err) => {
       if (err) {
         console.error("[naver] session save failed:", err);
@@ -1430,8 +1448,10 @@ export async function registerRoutes(
       }
 
       req.session.userId = userId;
+      const next = safeNextUrl(req.session.oauthNext);
+      req.session.oauthNext = undefined;
       console.log(`[naver] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-      res.redirect("/");
+      redirectWithLoginSuccess(res, next);
     } catch (error: any) {
       console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -1453,6 +1473,7 @@ export async function registerRoutes(
     }
     const state = randomBytes(16).toString("hex");
     req.session.googleOAuthState = state;
+    req.session.oauthNext = safeNextUrl(req.query.next);
     req.session.save((err) => {
       if (err) {
         console.error("[google] session save failed:", err);
@@ -1534,8 +1555,10 @@ export async function registerRoutes(
       }
 
       req.session.userId = userId;
+      const next = safeNextUrl(req.session.oauthNext);
+      req.session.oauthNext = undefined;
       console.log(`[google] login userId=${userId}`);
-      res.redirect("/");
+      redirectWithLoginSuccess(res, next);
     } catch (error: any) {
       console.error("[google] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("구글 로그인 처리 중 오류가 발생했습니다.")}`);
