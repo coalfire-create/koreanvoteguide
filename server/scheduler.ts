@@ -95,18 +95,27 @@ async function updateSchedulerStatus(success: boolean, errorMessage?: string): P
   }
 }
 
+let isSyncing = false;
+
 export async function fetchAssemblyData(): Promise<{ success: boolean; message: string }> {
-  if (!API_KEY) {
-    const msg = "OPEN_ASSEMBLY_API_KEY 환경변수가 설정되지 않았습니다. Mock 데이터를 사용합니다.";
+  if (isSyncing) {
+    const msg = "데이터 동기화가 이미 진행 중입니다.";
     log(msg, "scheduler");
-    await updateSchedulerStatus(false, msg);
     return { success: false, message: msg };
   }
-
-  log("데이터 수집 시작...", "scheduler");
-  const results: string[] = [];
+  isSyncing = true;
 
   try {
+    if (!API_KEY) {
+      const msg = "OPEN_ASSEMBLY_API_KEY 환경변수가 설정되지 않았습니다. Mock 데이터를 사용합니다.";
+      log(msg, "scheduler");
+      await updateSchedulerStatus(false, msg);
+      return { success: false, message: msg };
+    }
+
+    log("데이터 수집 시작...", "scheduler");
+    const results: string[] = [];
+
     const AGE = "22";
 
     log("국회의원 기본정보 수집 중...", "scheduler");
@@ -156,6 +165,8 @@ export async function fetchAssemblyData(): Promise<{ success: boolean; message: 
     log(`데이터 수집 실패: ${errorMsg}`, "scheduler");
     await updateSchedulerStatus(false, errorMsg);
     return { success: false, message: `데이터 수집 실패: ${errorMsg}` };
+  } finally {
+    isSyncing = false;
   }
 }
 

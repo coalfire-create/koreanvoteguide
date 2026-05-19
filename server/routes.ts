@@ -1909,31 +1909,16 @@ export async function registerRoutes(
       if (cached && cached.length > 0) {
         return res.json({ source: "cache", data: cached });
       }
-      // 캐시 없으면 전체 페이지 조회 (scheduler 로직 재사용)
+      // 캐시 없으면 백그라운드에서 동기화 트리거 후 즉시 mock 반환 (블로킹 방지)
       if (!OPEN_API_KEY) {
         return res.json({ source: "mock", data: null });
       }
-      const allRows: any[] = [];
-      let pIndex = 1;
-      const PAGE_SIZE = 300;
-      while (true) {
-        const response = await axios.get("https://open.assembly.go.kr/portal/openapi/nekcaihpamofqktdn", {
-          params: { Key: OPEN_API_KEY, Type: "json", pIndex, pSize: PAGE_SIZE, AGE: "22" },
-          timeout: 15000,
-        });
-        const serviceData = response.data?.nekcaihpamofqktdn;
-        const rows = serviceData?.[1]?.row;
-        const pageRows = Array.isArray(rows) ? rows : [];
-        allRows.push(...pageRows);
-        const totalCount = parseInt(serviceData?.[0]?.head?.[0]?.list_total_count) || 0;
-        if (allRows.length >= totalCount || pageRows.length < PAGE_SIZE) break;
-        pIndex++;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      if (allRows.length > 0) {
-        return res.json({ source: "api", data: allRows });
-      }
-      return res.json({ source: "mock", data: null });
+
+      fetchAssemblyData().catch((error) => {
+        console.error("[background-sync] fetchAssemblyData (attendance) error:", error);
+      });
+
+      return res.json({ source: "mock", data: null, message: "syncing" });
     } catch (error) {
       console.error("Attendance API fetch error:", error);
       res.json({ source: "mock", data: null });

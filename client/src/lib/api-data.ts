@@ -123,7 +123,7 @@ export function useAssemblyMembers() {
       }
     }
 
-    if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.source === "api" && attendanceQuery.data.data) {
+    if (apiMembers && apiMembers.length > 0 && attendanceQuery.data?.data) {
       const attendanceData = attendanceQuery.data.data;
       for (const member of apiMembers) {
         const att = attendanceData.find((a: any) => a.HG_NM === member.name);

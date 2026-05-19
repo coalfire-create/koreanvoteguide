@@ -228,6 +228,7 @@ export default function CitySelect() {
 
   const handleComplete = async () => {
     if (selectedRegions.length === 0) return;
+    const isFirstTime = !localStorage.getItem("hasSeenTour");
     localStorage.setItem("userRegions", JSON.stringify(selectedRegions));
     if (user) {
       try {
@@ -239,7 +240,7 @@ export default function CitySelect() {
         toast({ title: "저장에 실패했습니다", variant: "destructive" });
       }
     }
-    setLocation("/");
+    setLocation(isFirstTime ? "/intro-tour" : "/");
   };
 
   const container: Variants = {
@@ -455,7 +456,7 @@ export default function CitySelect() {
                   관심 지역을 선택하면<br />맞춤 후보 정보를 바로 볼 수 있어요
                 </p>
                 <button
-                  onClick={() => setLocation("/")}
+                  onClick={() => { localStorage.setItem("hasSeenTour", "true"); setLocation("/"); }}
                   className="text-[13px] font-bold text-gray-400 hover:text-gray-600 transition-colors shrink-0 ml-4"
                 >
                   건너뛰기

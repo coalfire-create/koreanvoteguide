@@ -33,6 +33,7 @@ const Onboarding = lazy(() => import("@/pages/onboarding"));
 const CitySelect = lazy(() => import("@/pages/city-select"));
 const BillVote = lazy(() => import("@/pages/bill-vote"));
 const CandidateDetail = lazy(() => import("@/pages/candidate-detail"));
+const IntroTour = lazy(() => import("@/pages/intro-tour"));
 
 function RouteSpinner() {
   return (
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/login" component={AuthPage} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/city-select" component={CitySelect} />
+        <Route path="/intro-tour" component={IntroTour} />
         <Route path="/news" component={NewsPage} />
         <Route path="/more" component={More} />
         <Route component={NotFound} />
@@ -86,7 +88,8 @@ function MainApp() {
   const isLoginPage = location === "/login";
   const isOnboardingPage = location === "/onboarding";
   const isCitySelectPage = location === "/city-select";
-  const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage;
+  const isIntroTourPage = location === "/intro-tour";
+  const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage || isIntroTourPage;
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
@@ -112,21 +115,12 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
-            <AnimatePresence mode="wait">
-              {showSplash ? (
-                <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
-              ) : (
-                <motion.div
-                  key="main"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full h-full"
-                >
-                  <MainApp />
-                </motion.div>
+            <div className="relative w-full h-full min-h-screen">
+              <MainApp />
+              {showSplash && (
+                <SplashScreen onComplete={() => setShowSplash(false)} />
               )}
-            </AnimatePresence>
+            </div>
           </AuthProvider>
           <Toaster />
         </TooltipProvider>
