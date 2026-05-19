@@ -17,7 +17,9 @@ import {
   MessageCircle,
   ThumbsUp,
   PenSquare,
+  Sparkles,
 } from "lucide-react";
+import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,6 +165,7 @@ export default function CandidateDetail() {
   const [, setLocation] = useLocation();
   const [newsExpanded, setNewsExpanded] = useState(false);
   const [selectedPledge, setSelectedPledge] = useState<{ id: string; title: string; description: string } | null>(null);
+  const [selectedNews, setSelectedNews] = useState<{ title: string; url: string; source: string } | null>(null);
 
   // 1) id 또는 이름으로 mock-data에서 찾기
   const decodedId = decodeURIComponent(id ?? "");
@@ -471,43 +474,48 @@ export default function CandidateDetail() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className="flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-indigo-500">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  기사를 누르면 AI가 핵심 요약·배경·다양한 관점을 정리해 드립니다
+                </div>
+                <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden divide-y divide-border/40">
                   {visibleNews.map((item, i) => (
-                    <motion.a
+                    <motion.button
                       key={i}
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={() => setSelectedNews({ title: item.title, url: item.link, source: item.source })}
                       initial={{ opacity: 0, y: 8 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
-                      className="flex gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all border border-gray-100 group"
+                      className="w-full text-left flex items-start gap-3 px-4 py-3.5 hover:bg-accent/40 transition-colors group"
                     >
                       {item.thumbnail ? (
                         <img
                           src={item.thumbnail}
                           alt=""
-                          className="w-16 h-16 rounded-xl object-cover shrink-0 shadow-sm"
+                          className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm"
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                          <Newspaper className="w-6 h-6 text-slate-300" />
+                        <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                          <Newspaper className="w-5 h-5 text-muted-foreground/40" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-gray-900 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                        <p className="text-[13px] font-bold text-gray-900 line-clamp-2 group-hover:text-indigo-600 transition-colors mb-1.5">
                           {item.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-slate-100 text-slate-500 border-none">
                             {item.source}
                           </Badge>
                           <span className="text-[10px] text-gray-400 font-medium">
                             {formatTime(item.pubDate)}
                           </span>
+                          <span className="text-[10px] font-bold text-indigo-500/80 flex items-center gap-1 ml-auto">
+                            <Sparkles className="w-3 h-3" /> AI 요약
+                          </span>
                         </div>
                       </div>
-                    </motion.a>
+                    </motion.button>
                   ))}
                 </div>
                 {newsItems.length > 4 && (
@@ -538,6 +546,11 @@ export default function CandidateDetail() {
       promise={selectedPledge}
       open={!!selectedPledge}
       onClose={() => setSelectedPledge(null)}
+    />
+    <NewsAnalysisDialog
+      isOpen={!!selectedNews}
+      onOpenChange={(open) => { if (!open) setSelectedNews(null); }}
+      news={selectedNews}
     />
     </>
   );
