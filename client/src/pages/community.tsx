@@ -78,6 +78,9 @@ export default function Community() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const { data: trending = [] } = useQuery<{ memberId: string; name: string; count: number }[]>({
     queryKey: ["/api/members/trending"],
@@ -143,12 +146,27 @@ export default function Community() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] }),
   });
 
+  const inlineCommentMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const res = await apiRequest("POST", `/api/community/posts/${postId}/comments`, { content });
+      if (!res.ok) throw new Error((await res.json()).error || "댓글 작성 실패");
+      return res.json();
+    },
+    onSuccess: (_data, { postId }) => {
+      setCommentDrafts(prev => ({ ...prev, [postId]: "" }));
+      setOpenCommentPostId(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] });
+      toast({ title: "댓글이 작성되었습니다" });
+    },
+    onError: (err: Error) => toast({ title: "오류", description: err.message, variant: "destructive" }),
+  });
+
   function switchBoard(b: BoardId) { navigate(`/community?board=${b}`); }
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans text-foreground overflow-x-hidden">
       {/* TopAppBar */}
-      <header className="sticky top-0 z-40 h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-6 md:px-8 shadow-sm will-change-transform">
+      <header className="sticky top-0 z-40 h-[60px] md:h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-4 md:px-8 shadow-sm will-change-transform">
         <div className="flex items-center gap-6 flex-1 max-w-2xl">
           <div className="relative w-full group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -173,7 +191,7 @@ export default function Community() {
       </header>
 
       {/* Community Content Container */}
-      <div className="p-4 md:p-8 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 flex-1">
+      <div className="p-3 md:p-8 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 flex-1">
         
         {/* Center Column: Tabs and Main Content */}
         <div className="col-span-1 md:col-span-8 space-y-8">
@@ -207,13 +225,13 @@ export default function Community() {
           )}
 
           {/* Tab Bar */}
-          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex gap-2 p-1.5 bg-muted rounded-2xl w-max">
+          <div className="w-full">
+            <div className="grid grid-cols-4 md:flex md:w-max gap-1 md:gap-2 p-1 md:p-1.5 bg-muted rounded-2xl">
               {BOARDS.map(b => (
                 <button
                   key={b.id}
                   onClick={() => switchBoard(b.id)}
-                  className={`px-5 py-2.5 rounded-xl font-bold text-[14px] transition-all whitespace-nowrap ${
+                  className={`px-1.5 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-[11px] md:text-[14px] transition-all whitespace-nowrap text-center leading-tight ${
                     board === b.id ? "bg-card text-primary shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
                 >
@@ -275,7 +293,7 @@ export default function Community() {
 
           {/* Empty State */}
           {!postsLoading && filteredPosts.length === 0 && (
-            <div className="bg-card rounded-[24px] p-12 border border-border/30 shadow-sm flex flex-col items-center justify-center text-center space-y-6">
+            <div className="bg-card rounded-[24px] p-8 md:p-12 border border-border/30 shadow-sm flex flex-col items-center justify-center text-center space-y-4 md:space-y-6">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
                 <PenSquare className="text-primary w-8 h-8" />
               </div>
@@ -295,19 +313,19 @@ export default function Community() {
               Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 bg-card rounded-[24px] border border-border/30 animate-pulse" />)
             ) : (
               filteredPosts.map(post => (
-                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-card border border-border/30 rounded-[24px] p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-primary/20 transition-all cursor-pointer flex flex-col gap-3 group">
+                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-card border border-border/30 rounded-[20px] p-4 md:p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-primary/20 transition-all cursor-pointer flex flex-col gap-2 md:gap-3 group">
                   <div className="flex justify-between items-start">
-                     <h3 className="text-[16px] font-extrabold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">{post.title}</h3>
+                     <h3 className="text-[14px] md:text-[16px] font-extrabold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">{post.title}</h3>
                      {post.tagName && (
                         <span className="shrink-0 ml-4 inline-flex items-center px-2 py-1 rounded-md bg-muted text-[11px] font-bold text-muted-foreground border border-border/30">
                            {post.tagName}
                         </span>
                      )}
                   </div>
-                  <p className="text-[14px] text-muted-foreground line-clamp-2 leading-relaxed">{post.content.replace(/<[^>]*>/g, ' ')}</p>
+                  <p className="text-[13px] md:text-[14px] text-muted-foreground line-clamp-2 leading-relaxed">{post.content.replace(/<[^>]*>/g, ' ')}</p>
                   
                   {post.topComment && (
-                    <div className="mt-2 p-3 bg-primary/5 rounded-2xl border border-primary/10 relative before:absolute before:-top-2 before:left-6 before:w-3 before:h-3 before:bg-primary/5 before:rotate-45 before:border-l before:border-t before:border-primary/10">
+                    <div className="hidden md:block mt-2 p-3 bg-primary/5 rounded-2xl border border-primary/10 relative before:absolute before:-top-2 before:left-6 before:w-3 before:h-3 before:bg-primary/5 before:rotate-45 before:border-l before:border-t before:border-primary/10">
                       <div className="flex items-center gap-2 mb-1.5 relative z-10">
                         <span className="text-[10px] font-bold text-primary bg-background px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-primary/5"><Flame className="w-3 h-3 text-orange-500" /> 베스트 댓글</span>
                         <span className="text-[12px] font-bold text-foreground ml-1">{post.topComment.displayName || "익명"}</span>
@@ -317,7 +335,7 @@ export default function Community() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mt-3 pt-4 border-t border-border/30">
+                  <div className="flex items-center justify-between mt-2 md:mt-3 pt-3 md:pt-4 border-t border-border/30">
                      <div className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
                         <AuthorDisplay displayName={post.displayName} authorType={post.authorType} isVerified={post.isVerified} />
                         <span>·</span>
@@ -326,14 +344,72 @@ export default function Community() {
                         <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
                      </div>
                      <div className="flex items-center gap-4">
-                        <button onClick={(e) => { e.stopPropagation(); quickReactMutation.mutate({ postId: post.id, type: "like" }); }} className="flex items-center gap-1 text-[12px] font-bold text-muted-foreground hover:text-primary transition-colors">
-                           <ThumbsUp className={`w-4 h-4 ${post.likes > 0 ? "fill-primary text-primary" : ""}`} /> {post.likes ?? 0}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLikedPosts(prev => {
+                              const next = new Set(prev);
+                              if (next.has(post.id)) next.delete(post.id); else next.add(post.id);
+                              return next;
+                            });
+                            quickReactMutation.mutate({ postId: post.id, type: "like" });
+                          }}
+                          className={`flex items-center gap-1 text-[12px] font-bold transition-colors ${likedPosts.has(post.id) ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                        >
+                          <ThumbsUp className={`w-4 h-4 transition-all ${likedPosts.has(post.id) ? "fill-primary text-primary scale-110" : ""}`} />
+                          {post.likes ?? 0}
                         </button>
-                        <span className="flex items-center gap-1 text-[12px] font-bold text-muted-foreground">
-                           <MessageCircle className="w-4 h-4" /> {post.commentCount ?? 0}
-                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenCommentPostId(prev => prev === post.id ? null : post.id);
+                          }}
+                          className={`flex items-center gap-1 text-[12px] font-bold transition-colors ${openCommentPostId === post.id ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                        >
+                          <MessageCircle className={`w-4 h-4 ${openCommentPostId === post.id ? "fill-primary/20 text-primary" : ""}`} />
+                          {post.commentCount ?? 0}
+                        </button>
                      </div>
                   </div>
+
+                  <AnimatePresence>
+                    {openCommentPostId === post.id && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="pt-3 flex gap-2">
+                          <input
+                            className="flex-1 h-10 bg-muted rounded-[12px] px-3 text-[13px] font-medium border border-border/30 focus:border-primary/40 focus:outline-none placeholder:text-muted-foreground"
+                            placeholder="댓글을 입력하세요..."
+                            value={commentDrafts[post.id] || ""}
+                            onChange={(e) => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                const text = (commentDrafts[post.id] || "").trim();
+                                if (text) { e.preventDefault(); inlineCommentMutation.mutate({ postId: post.id, content: text }); }
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => {
+                              const text = (commentDrafts[post.id] || "").trim();
+                              if (text) inlineCommentMutation.mutate({ postId: post.id, content: text });
+                            }}
+                            disabled={!(commentDrafts[post.id] || "").trim() || inlineCommentMutation.isPending}
+                            className="h-10 px-4 bg-primary text-primary-foreground rounded-[12px] text-[13px] font-bold disabled:opacity-40 transition-opacity shrink-0"
+                          >
+                            {inlineCommentMutation.isPending ? "..." : "등록"}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))
             )}
