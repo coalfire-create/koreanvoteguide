@@ -225,10 +225,31 @@ function isAllowedPhotoUrl(rawUrl: string): boolean {
   }
 }
 
+// 이미지 바이트 인메모리 캐시 — 동일 URL 재다운로드 방지.
+// URL 캐시(getPoliticianPhotoUrl)는 URL만 기억하므로, 이게 없으면 모든 요청이
+// 매번 upstream(assembly/nec/naver)으로 8s 타임아웃 fetch를 다시 함.
+// 페이지당 수십~수백 PoliticianPhoto가 같은 사진을 반복 요청 → 서버 부하/지연 큼.
+const IMAGE_BUFFER_TTL_MS = 6 * 60 * 60 * 1000; // 6시간
+const IMAGE_BUFFER_MAX_ENTRIES = 600;           // 메모리 상한 (이미지 평균 ~80KB → 최악 ~48MB)
+
+interface ImageBufferEntry {
+  data: Buffer;
+  contentType: string;
+  fetchedAt: number;
+}
+
+const imageBufferCache = new Map<string, ImageBufferEntry>();
+
 export async function proxyImage(photoUrl: string): Promise<{ data: Buffer; contentType: string } | null> {
   if (!isAllowedPhotoUrl(photoUrl)) {
     return null;
   }
+
+  const cached = imageBufferCache.get(photoUrl);
+  if (cached && Date.now() - cached.fetchedAt < IMAGE_BUFFER_TTL_MS) {
+    return { data: cached.data, contentType: cached.contentType };
+  }
+
   try {
     const r = await axios.get(photoUrl, {
       responseType: "arraybuffer",
@@ -240,7 +261,16 @@ export async function proxyImage(photoUrl: string): Promise<{ data: Buffer; cont
     });
     const contentType = (r.headers["content-type"] as string) || "image/jpeg";
     if (!contentType.startsWith("image/")) return null;
-    return { data: Buffer.from(r.data), contentType };
+    const data = Buffer.from(r.data);
+
+    // 최다 오래된 항목부터 evict — Map은 삽입 순서 유지하므로 첫 키가 가장 오래됨.
+    if (imageBufferCache.size >= IMAGE_BUFFER_MAX_ENTRIES) {
+      const oldestKey = imageBufferCache.keys().next().value;
+      if (oldestKey !== undefined) imageBufferCache.delete(oldestKey);
+    }
+    imageBufferCache.set(photoUrl, { data, contentType, fetchedAt: Date.now() });
+
+    return { data, contentType };
   } catch {
     return null;
   }

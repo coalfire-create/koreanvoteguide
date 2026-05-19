@@ -166,6 +166,14 @@ const NEWS_CACHE_TTL = 15 * 60 * 1000;
 const electionCandidateCache = new Map<string, { data: any[]; cachedAt: number }>();
 const ELECTION_CANDIDATE_TTL = 10 * 60 * 1000;
 
+// ===== 후보자 등록 마감 — 마감 후에는 정식후보자만 노출 =====
+// 2026 지방선거 후보자 등록 마감: 2026-05-15 (KST). 마감 이후에는
+// 라이프사이클 라벨이 '예비후보'인 레코드(예비후보자)를 숨기고 정식후보자만 노출.
+const CANDIDATE_REGISTRATION_DEADLINE = new Date("2026-05-15T23:59:59+09:00").getTime();
+function isAfterCandidateRegistration(): boolean {
+  return Date.now() > CANDIDATE_REGISTRATION_DEADLINE;
+}
+
 // ===== 표결 사전 로드 진행 상태 =====
 let prefetchProgress = { total: 0, done: 0, running: false, completedAt: 0 };
 
@@ -209,6 +217,34 @@ interface NewsItem {
   source: string;
   sourceCode: string;
   thumbnail?: string;
+  summary?: string;   // RSS description/요약 (HTML 제거, 문장 단위 컷)
+}
+
+// RSS description/Atom summary를 깔끔한 2~3문장 요약으로. HTML 제거 후
+// 문장 경계에서 자르고 최대 길이를 넘으면 말줄임. 제목과 동일하면 버린다.
+function toSummary(raw: string, title: string, maxLen = 160): string {
+  let clean = stripHtml(extractText(raw)).replace(/\s+/g, " ").trim();
+  // 연합/뉴스1 등 바이라인 제거: "(서울=연합뉴스) 홍길동 기자 = 본문..."
+  clean = clean
+    .replace(/^\(\s*[^)]*=\s*[^)]*\)\s*/, "")
+    .replace(/^[가-힣]{2,5}\s*(기자|특파원|논설위원)\s*=\s*/, "")
+    .trim();
+  // 본문이 거의 없는 속보/스텁(괄호·기호만 남는 경우)은 요약 생략
+  if (clean.replace(/[()[\]·\-–—.,\s]/g, "").length < 10) return "";
+  // 제목이 그대로 들어온 피드(연합 등)는 요약으로 무의미 → 제거
+  if (clean === title.trim() || clean.startsWith(title.trim())) {
+    const rest = clean.slice(title.trim().length).replace(/^[\s\-–—:|]+/, "").trim();
+    if (rest.length < 10) return "";
+    return rest.length > maxLen ? rest.slice(0, maxLen).trim() + "…" : rest;
+  }
+  if (clean.length <= maxLen) return clean;
+  // maxLen 근처의 문장 끝(. ? ! 다/요)에서 자르기
+  const cut = clean.slice(0, maxLen);
+  const lastStop = Math.max(
+    cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "),
+    cut.lastIndexOf("다 "), cut.lastIndexOf("다."),
+  );
+  return (lastStop > 60 ? cut.slice(0, lastStop + 1) : cut).trim() + "…";
 }
 
 interface NewsGroup {
@@ -334,14 +370,18 @@ async function fetchNaverNews(query: string): Promise<NewsItem[]> {
     });
 
     const items = res.data?.items || [];
-    return items.map((item: any) => ({
-      title: stripHtml(item.title),
-      link: item.originallink || item.link,
-      pubDate: new Date(item.pubDate).toISOString(),
-      source: "네이버뉴스",
-      sourceCode: "naver",
-      thumbnail: "", // 네이버 검색 API는 썸네일을 제공하지 않음
-    }));
+    return items.map((item: any) => {
+      const t = stripHtml(item.title);
+      return {
+        title: t,
+        link: item.originallink || item.link,
+        pubDate: new Date(item.pubDate).toISOString(),
+        source: "네이버뉴스",
+        sourceCode: "naver",
+        thumbnail: "", // 네이버 검색 API는 썸네일을 제공하지 않음
+        summary: toSummary(item.description ?? "", t),
+      };
+    });
   } catch (err: any) {
     console.error("[news] Naver API 오류:", err.message);
     return [];
@@ -380,6 +420,8 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
             item["media:thumbnail"]?.["@_url"] ||
             item.enclosure?.["@_url"] ||
             "";
+          const rawSummary =
+            item.description ?? item.summary ?? item["content:encoded"] ?? item.content ?? "";
           if (title && link) {
             allItems.push({
               title: title.trim(),
@@ -388,6 +430,7 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
               source: feed.source,
               sourceCode: meta.code,
               thumbnail: typeof thumbnail === "string" ? thumbnail : "",
+              summary: toSummary(rawSummary, title),
             });
           }
         }
@@ -3981,13 +4024,13 @@ export async function registerRoutes(
         const result = await fetchKoreanPoliticsNews();
         newsCache = { ...result, cachedAt: Date.now() };
       }
-      const now48h = Date.now() - 48 * 60 * 60 * 1000;
+      const now24h = Date.now() - 24 * 60 * 60 * 1000;
       const recentNews = (newsCache?.items ?? []).filter((item) => {
         const t = new Date(item.pubDate).getTime();
-        return !isNaN(t) && t >= now48h;
+        return !isNaN(t) && t >= now24h;
       });
 
-      const stories = followed.map((f) => {
+      const allStories = followed.map((f) => {
         const name = f.name ?? "";
         const matched = name
           ? recentNews
@@ -4006,14 +4049,21 @@ export async function registerRoutes(
             link: n.link,
             pubDate: n.pubDate,
             source: n.source,
+            summary: n.summary ?? "",
           })),
         };
       });
 
-      // 오늘 뉴스 있는 정치인 먼저, 나머지는 팔로우 순
-      stories.sort((a, b) => Number(b.hasNews) - Number(a.hasNews));
+      // 24시간 내 공개활동(뉴스)이 있는 의원만 표시, 최신순 정렬
+      const stories = allStories
+        .filter((s) => s.hasNews)
+        .sort((a, b) => {
+          const aLatest = a.newsItems[0]?.pubDate ? new Date(a.newsItems[0].pubDate).getTime() : 0;
+          const bLatest = b.newsItems[0]?.pubDate ? new Date(b.newsItems[0].pubDate).getTime() : 0;
+          return bLatest - aLatest;
+        });
 
-      res.json({ stories });
+      res.json({ stories, followedCount: followed.length });
     } catch (err: any) {
       console.error("stories feed error:", err);
       res.status(500).json({ error: "스토리 피드 조회 오류" });
@@ -5517,7 +5567,11 @@ export async function registerRoutes(
   // 선거구 목록
   app.get("/api/election/all", async (_req, res) => {
     try {
-      const candidates = await db.select().from(electionCandidates);
+      const rows = await db.select().from(electionCandidates);
+      // 후보자 등록 마감 후에는 예비후보 제외 — 정식후보자만 노출.
+      const candidates = isAfterCandidateRegistration()
+        ? rows.filter((c) => c.status !== "예비후보")
+        : rows;
       res.json(candidates);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -5570,10 +5624,20 @@ export async function registerRoutes(
       const sgId = "20260603"; // 2026 지방선거
       let sgTypecode = "3"; // 기본 시·도지사선거
       if (electionType === "mayor") sgTypecode = "3";
-      if (electionType === "district-head") sgTypecode = "4";
+      if (electionType === "district-head" || electionType === "district") sgTypecode = "4";
       if (electionType === "metro-council") sgTypecode = "5";
-      if (electionType === "district-council") sgTypecode = "6";
-      if (electionType === "superintendent") sgTypecode = "11";
+      if (electionType === "district-council" || electionType === "local-council") sgTypecode = "6";
+      if (electionType === "superintendent" || electionType === "edu") sgTypecode = "11";
+
+      // DB electionType 한글 라벨 매핑
+      const ELECTION_TYPE_LABELS: Record<string, string> = {
+        "3": "시도지사",
+        "4": "구시군의장",
+        "5": "시도의원",
+        "6": "구시군의원",
+        "11": "교육감",
+      };
+      const typeLabel = ELECTION_TYPE_LABELS[sgTypecode] || "시도지사";
 
       // NEC HTTP 사진 URL → 서버 프록시 경유 (mixed-content 차단 회피)
       const proxyPhoto = (raw: string | null | undefined) => {
@@ -5587,7 +5651,7 @@ export async function registerRoutes(
       // 후보자 등록 데이터는 election_candidates 테이블이 정본(Deep Sync로 적재).
       // 외부 NEC API를 매 요청마다 2번 직렬 호출(최대 30s)하던 것을 제거하고
       // DB에서 즉시 응답 + 10분 메모리 캐시. (region_code+election_type 인덱스 사용)
-      const cacheKey = `${sdName}:${electionType}`;
+      const cacheKey = `${sdName}:${sgTypecode}`;
       const cached = electionCandidateCache.get(cacheKey);
       if (cached && Date.now() - cached.cachedAt < ELECTION_CANDIDATE_TTL) {
         return res.json(cached.data);
@@ -5596,10 +5660,19 @@ export async function registerRoutes(
       const dbRows = await db
         .select()
         .from(electionCandidates)
-        .where(eq(electionCandidates.sdName, sdName));
+        .where(
+          and(
+            eq(electionCandidates.sdName, sdName),
+            eq(electionCandidates.electionType, typeLabel)
+          )
+        );
 
       if (dbRows.length > 0) {
-        const payload = dbRows.map((row) => ({
+        // 후보자 등록 마감 후에는 예비후보 레코드 제외 — 정식후보자만 노출.
+        const sourceRows = isAfterCandidateRegistration()
+          ? dbRows.filter((row) => row.status !== "예비후보")
+          : dbRows;
+        const payload = sourceRows.map((row) => ({
           id: row.id,
           name: row.name,
           party: row.party || "무소속",
@@ -5648,10 +5721,18 @@ export async function registerRoutes(
       let items: any[] = [];
 
       // 정식·예비 후보 API는 서로 독립 → 직렬(최대 30s) 대신 병렬(최대 15s)로 호출.
-      const [mainRes, preRes] = await Promise.allSettled([
-        axios2.get(candidateUrl, { params, timeout: 15000 }),
-        axios2.get(preCandidateUrl, { params, timeout: 15000 }),
-      ]);
+      // 마감 이후에는 예비후보를 조회하지 않음.
+      const registrationClosed = isAfterCandidateRegistration();
+      const promises: Promise<any>[] = [
+        axios2.get(candidateUrl, { params, timeout: 15000 })
+      ];
+      if (!registrationClosed) {
+        promises.push(axios2.get(preCandidateUrl, { params, timeout: 15000 }));
+      }
+
+      const results = await Promise.allSettled(promises);
+      const mainRes = results[0];
+      const preRes = !registrationClosed ? results[1] : null;
 
       if (mainRes.status === "fulfilled") {
         const body = mainRes.value.data?.response?.body ?? {};
@@ -5663,7 +5744,7 @@ export async function registerRoutes(
         console.error("[NEC API] 정식후보자 API 오류:", mainRes.reason?.message);
       }
 
-      if (preRes.status === "fulfilled") {
+      if (preRes && preRes.status === "fulfilled") {
         const body = preRes.value.data?.response?.body ?? {};
         const rawItems = body?.items?.item ?? [];
         const preCandidateItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
@@ -5675,7 +5756,7 @@ export async function registerRoutes(
             items.push({ ...preItem, _isPre: true });
           }
         }
-      } else {
+      } else if (preRes) {
         console.error("[NEC API] 예비후보자 API 오류:", preRes.reason?.message);
       }
 
@@ -5701,7 +5782,12 @@ export async function registerRoutes(
         } catch {}
       }
 
-      const candidates = items.map((item: any) => {
+      // 후보자 등록 마감 후에는 예비후보 API 결과 제외 — 정식후보자만 노출.
+      const visibleItems = isAfterCandidateRegistration()
+        ? items.filter((item: any) => !item._isPre)
+        : items;
+
+      const candidates = visibleItems.map((item: any) => {
         const dbRow = dbCandidateMap[item.name];
         // 실 공약: DB에서 가져온 pledges → 없으면 빈 배열 (mock 없음)
         const pledges = (dbRow?.pledges && Array.isArray(dbRow.pledges) && dbRow.pledges.length > 0)
@@ -6173,11 +6259,12 @@ export async function registerRoutes(
     const result = await proxyImage(url);
     if (!result) return res.status(404).end();
     res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    // 선관위 후보 공식 사진은 후보 ID당 불변 → 30일 immutable.
+    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
     return res.send(result.data);
   });
 
-  // 국회의원 공식 사진 직접 프록시 (캐시 1일)
+  // 국회의원 공식 사진 직접 프록시 (monaCd당 불변 → 30일 immutable)
   app.get("/api/photo/assembly/:monaCd", async (req, res) => {
     const { monaCd } = req.params;
     if (!/^[A-Z0-9a-z]+$/.test(monaCd)) return res.status(400).end();
@@ -6185,7 +6272,7 @@ export async function registerRoutes(
     const result = await proxyImage(url);
     if (!result) return res.status(404).end();
     res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
     return res.send(result.data);
   });
 

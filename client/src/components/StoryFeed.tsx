@@ -1,22 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Plus, ExternalLink, Newspaper } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, ExternalLink, Newspaper, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 
 interface StoryNewsItem {
   title: string;
   link: string;
   pubDate: string;
   source: string;
+  summary?: string;
 }
 
 interface Story {
@@ -30,7 +25,10 @@ interface Story {
 
 interface StoriesResponse {
   stories: Story[];
+  followedCount: number;
 }
+
+const SLIDE_MS = 6000; // 슬라이드당 자동 재생 시간
 
 function formatRelativeTime(pubDate: string): string {
   const diff = Date.now() - new Date(pubDate).getTime();
@@ -41,70 +39,233 @@ function formatRelativeTime(pubDate: string): string {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-function StorySheet({ story, onClose }: { story: Story; onClose: () => void }) {
+// ===== 인스타 스토리형 전체화면 뷰어 =====
+function StoryViewer({
+  stories,
+  startIndex,
+  onClose,
+}: {
+  stories: Story[];
+  startIndex: number;
+  onClose: () => void;
+}) {
+  const [personIdx, setPersonIdx] = useState(startIndex);
+  const [itemIdx, setItemIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const startRef = useRef<number>(Date.now());
+  const [progress, setProgress] = useState(0);
+
+  const person = stories[personIdx];
+  // 뉴스가 없으면 1장짜리 "뉴스 없음" 슬라이드로 처리
+  const slides = person.newsItems.length > 0 ? person.newsItems : [null];
+  const current = slides[itemIdx] ?? null;
+
+  const goNext = useCallback(() => {
+    if (itemIdx + 1 < slides.length) {
+      setItemIdx(itemIdx + 1);
+    } else if (personIdx + 1 < stories.length) {
+      setPersonIdx(personIdx + 1);
+      setItemIdx(0);
+    } else {
+      onClose();
+    }
+  }, [itemIdx, personIdx, slides.length, stories.length, onClose]);
+
+  const goPrev = useCallback(() => {
+    if (itemIdx > 0) {
+      setItemIdx(itemIdx - 1);
+    } else if (personIdx > 0) {
+      const prev = stories[personIdx - 1];
+      const prevLen = prev.newsItems.length > 0 ? prev.newsItems.length : 1;
+      setPersonIdx(personIdx - 1);
+      setItemIdx(prevLen - 1);
+    }
+    // 첫 슬라이드면 무시
+  }, [itemIdx, personIdx, stories]);
+
+  // 자동 재생 + 진행바
+  useEffect(() => {
+    startRef.current = Date.now();
+    setProgress(0);
+    if (paused) return;
+    const tick = setInterval(() => {
+      const elapsed = Date.now() - startRef.current;
+      const pct = Math.min(1, elapsed / SLIDE_MS);
+      setProgress(pct);
+      if (pct >= 1) goNext();
+    }, 50);
+    return () => clearInterval(tick);
+  }, [personIdx, itemIdx, paused, goNext]);
+
+  // 키보드 (데스크탑) + 스크롤 잠금
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") goNext();
+      else if (e.key === "ArrowLeft") goPrev();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose, goNext, goPrev]);
+
   return (
-    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="bottom" className="rounded-t-[2rem] px-0 pb-8 max-h-[80vh] overflow-y-auto">
-        <SheetHeader className="px-6 pt-2 pb-4 border-b border-border/40">
-          <div className="flex items-center gap-4">
-            <div className="w-[60px] h-[60px] rounded-full overflow-hidden bg-muted shrink-0">
-              <PoliticianPhoto
-                name={story.name}
-                monaCd={story.id}
-                photo={story.photo}
-                context={story.party || undefined}
-                lazy={false}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
+    >
+      {/* 배경: 인물 사진 블러 */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 scale-125 blur-2xl opacity-30">
+          <PoliticianPhoto
+            name={person.name}
+            monaCd={person.id}
+            photo={person.photo}
+            context={person.party || undefined}
+            lazy={false}
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/90" />
+      </div>
+
+      {/* 스토리 카드 (모바일 9:16, 데스크탑 중앙 고정폭) */}
+      <div className="relative w-full h-full max-w-[460px] sm:h-[92vh] sm:rounded-2xl overflow-hidden flex flex-col">
+        {/* 진행바 */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 px-3 pt-3">
+          {slides.map((_, i) => (
+            <div key={i} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full"
+                style={{
+                  width: i < itemIdx ? "100%" : i === itemIdx ? `${progress * 100}%` : "0%",
+                  transition: i === itemIdx ? "width 50ms linear" : "none",
+                }}
               />
             </div>
-            <div>
-              <SheetTitle className="text-[17px] font-bold leading-tight">{story.name}</SheetTitle>
-              <p className="text-[13px] text-muted-foreground mt-0.5">{story.party}</p>
-            </div>
-          </div>
-        </SheetHeader>
-
-        <div className="px-6 pt-4">
-          {story.newsItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-              <Newspaper className="w-10 h-10 text-muted-foreground/40" />
-              <p className="text-[14px] text-muted-foreground">최근 48시간 내 관련 뉴스가 없습니다.</p>
-              <Link href={`/members/${story.id}`}>
-                <span className="text-[13px] font-semibold text-primary underline underline-offset-2 cursor-pointer">
-                  의원 상세 보기
-                </span>
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                최근 공개 활동
-              </p>
-              {story.newsItems.map((item, i) => (
-                <a
-                  key={i}
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-3 py-3 px-3 rounded-xl hover:bg-muted/60 transition-colors group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-medium leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[11px] font-semibold text-muted-foreground">{item.source}</span>
-                      <span className="text-muted-foreground/40 text-[10px]">·</span>
-                      <span className="text-[11px] text-muted-foreground">{formatRelativeTime(item.pubDate)}</span>
-                    </div>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-                </a>
-              ))}
-            </div>
-          )}
+          ))}
         </div>
-      </SheetContent>
-    </Sheet>
+
+        {/* 헤더 */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 px-4 pt-7 pb-3">
+          <div className="w-9 h-9 rounded-full overflow-hidden bg-white/10 shrink-0 ring-1 ring-white/30">
+            <PoliticianPhoto
+              name={person.name}
+              monaCd={person.id}
+              photo={person.photo}
+              context={person.party || undefined}
+              avatarClassName="w-full h-full flex items-center justify-center bg-white/15 text-white text-sm font-bold"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-bold text-white leading-tight truncate">{person.name}</p>
+            <p className="text-[11px] text-white/70 leading-tight">
+              {person.party}
+              {current ? ` · ${formatRelativeTime(current.pubDate)}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="닫기"
+            className="w-9 h-9 -mr-1 flex items-center justify-center text-white/90 hover:text-white"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* 좌/우 탭 영역 */}
+        <button
+          aria-label="이전"
+          onClick={goPrev}
+          onPointerDown={() => setPaused(true)}
+          onPointerUp={() => setPaused(false)}
+          className="absolute left-0 top-0 bottom-0 w-[32%] z-10"
+        />
+        <button
+          aria-label="다음"
+          onClick={goNext}
+          onPointerDown={() => setPaused(true)}
+          onPointerUp={() => setPaused(false)}
+          className="absolute right-0 top-0 bottom-0 w-[68%] z-10"
+        />
+
+        {/* 본문 */}
+        <div className="relative z-[5] flex-1 flex flex-col justify-end px-6 pb-12">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${personIdx}-${itemIdx}`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              {current ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-2.5 py-1 rounded-full mb-4">
+                    <Newspaper className="w-3 h-3" />
+                    {current.source}
+                  </span>
+                  <h2 className="text-[22px] font-extrabold text-white leading-snug mb-3 [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
+                    {current.title}
+                  </h2>
+                  {current.summary && (
+                    <p className="text-[14px] text-white/85 leading-relaxed mb-6 line-clamp-5 [text-shadow:0_1px_4px_rgba(0,0,0,0.5)]">
+                      {current.summary}
+                    </p>
+                  )}
+                  <a
+                    href={current.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[13px] font-bold text-black bg-white px-4 py-2.5 rounded-full active:scale-95 transition-transform w-fit"
+                  >
+                    기사 전체 보기
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </>
+              ) : (
+                <div className="text-center pb-8">
+                  <Newspaper className="w-12 h-12 text-white/40 mx-auto mb-4" />
+                  <p className="text-[15px] text-white/80 mb-5">
+                    최근 24시간 내 관련 뉴스가 없습니다.
+                  </p>
+                  <Link href={`/members/${person.id}`}>
+                    <span
+                      onClick={onClose}
+                      className="inline-block text-[13px] font-bold text-black bg-white px-4 py-2.5 rounded-full cursor-pointer"
+                    >
+                      의원 상세 보기
+                    </span>
+                  </Link>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* 데스크탑 좌우 화살표 */}
+        <button
+          onClick={goPrev}
+          aria-label="이전 스토리"
+          className="hidden sm:flex absolute -left-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 items-center justify-center text-white"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <button
+          onClick={goNext}
+          aria-label="다음 스토리"
+          className="hidden sm:flex absolute -right-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 items-center justify-center text-white"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      </div>
+    </motion.div>
   );
 }
 
@@ -115,13 +276,7 @@ function StoryAvatar({ story, onTap }: { story: Story; onTap: () => void }) {
       className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group"
     >
       <div className="relative">
-        <div
-          className={
-            story.hasNews
-              ? "p-[2.5px] rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.45)]"
-              : "p-[2.5px] rounded-full bg-muted"
-          }
-        >
+        <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.45)]">
           <div className="p-[2px] rounded-full bg-card">
             <div className="w-[68px] h-[68px] rounded-full overflow-hidden bg-muted transition-transform group-hover:scale-[1.04]">
               <PoliticianPhoto
@@ -134,9 +289,7 @@ function StoryAvatar({ story, onTap }: { story: Story; onTap: () => void }) {
             </div>
           </div>
         </div>
-        {story.hasNews && (
-          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-background" />
-        )}
+        <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-background" />
       </div>
       <span className="text-[11px] font-semibold text-foreground tracking-tight max-w-[72px] truncate">
         {story.name}
@@ -173,7 +326,7 @@ function SkeletonTile() {
 
 export function StoryFeed({ className = "" }: { className?: string }) {
   const { user } = useAuth();
-  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<StoriesResponse>({
     queryKey: ["/api/feed/stories"],
@@ -184,7 +337,8 @@ export function StoryFeed({ className = "" }: { className?: string }) {
   if (!user) return null;
 
   const stories = data?.stories ?? [];
-  const hasNews = stories.some((s) => s.hasNews);
+  const followedCount = data?.followedCount ?? 0;
+  const hasNews = stories.length > 0;
 
   return (
     <>
@@ -225,15 +379,21 @@ export function StoryFeed({ className = "" }: { className?: string }) {
             <>
               <AddTile />
               <div className="flex-1 min-w-0 self-center">
-                <p className="text-[12px] text-muted-foreground leading-snug">
-                  관심 의원을 팔로우하면<br />여기에서 활동을 바로 확인할 수 있어요.
-                </p>
+                {followedCount > 0 ? (
+                  <p className="text-[12px] text-muted-foreground leading-snug">
+                    최근 24시간 내 관심 의원의<br />공개 활동이 없어요.
+                  </p>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground leading-snug">
+                    관심 의원을 팔로우하면<br />여기에서 활동을 바로 확인할 수 있어요.
+                  </p>
+                )}
               </div>
             </>
           ) : (
             <>
-              {stories.map((s) => (
-                <StoryAvatar key={s.id} story={s} onTap={() => setActiveStory(s)} />
+              {stories.map((s, i) => (
+                <StoryAvatar key={s.id} story={s} onTap={() => setViewerIndex(i)} />
               ))}
               <AddTile />
             </>
@@ -241,9 +401,15 @@ export function StoryFeed({ className = "" }: { className?: string }) {
         </div>
       </motion.section>
 
-      {activeStory && (
-        <StorySheet story={activeStory} onClose={() => setActiveStory(null)} />
-      )}
+      <AnimatePresence>
+        {viewerIndex !== null && stories[viewerIndex] && (
+          <StoryViewer
+            stories={stories}
+            startIndex={viewerIndex}
+            onClose={() => setViewerIndex(null)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

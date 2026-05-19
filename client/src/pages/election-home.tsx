@@ -424,6 +424,25 @@ function RegionView({
     staleTime: 5 * 60 * 1000,
   });
 
+  interface TrendingMember {
+    id: string;
+    name: string;
+    party: string;
+    district: string;
+    photo: string;
+    primaryKeyword: string;
+    recentNewsCount: number;
+    profileViewCount: number;
+    followerCount: number;
+    score: number;
+  }
+  const { data: trendingRaw } = useQuery<{ success: boolean; data: TrendingMember[] }>({
+    queryKey: ["/api/trending-members"],
+    queryFn: () => apiRequest("GET", "/api/trending-members").then((r) => r.json()),
+    staleTime: 10 * 60 * 1000,
+  });
+  const trendingMembers = trendingRaw?.data ?? [];
+
   // 로딩 판정 — keepPreviousData가 있으므로 탭 전환 시 isLoading은 false임.
   // 첫 로딩시에만 skeleton 표시.
   const showSkeleton = isLoading;
@@ -832,8 +851,150 @@ function RegionView({
               </Button>
             </div>
 
+            {/* Widget 3: 요즘 핫한 의원 */}
+            <div className="bg-card rounded-[1.5rem] shadow-sm border border-border/30 overflow-hidden">
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-[10px] bg-orange-50 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <span className="text-[15px] font-black text-foreground">요즘 핫한 의원</span>
+                    <motion.span
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2 }}
+                      className="text-base leading-none"
+                    >
+                      🔥
+                    </motion.span>
+                  </div>
+                  <Link href="/members">
+                    <span className="text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                      전체보기
+                    </span>
+                  </Link>
+                </div>
+                <p className="text-[11px] text-muted-foreground pl-10">이번 주 뉴스·조회수 기준 급상승</p>
+              </div>
 
+              {/* Member list */}
+              <div className="px-3 pb-4">
+                {trendingMembers.length === 0 ? (
+                  /* Skeleton */
+                  <div className="space-y-1">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-2 py-2.5 animate-pulse">
+                        <div className="w-5 h-5 rounded bg-muted shrink-0" />
+                        <div className="w-9 h-9 rounded-full bg-muted shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-3 w-20 bg-muted rounded" />
+                          <div className="h-2.5 w-14 bg-muted/70 rounded" />
+                        </div>
+                        <div className="h-3 w-12 bg-muted rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    {trendingMembers.map((m, i) => {
+                      const rankColors = ["#f59e0b", "#94a3b8", "#cd7c43"];
+                      const rankColor = rankColors[i] ?? "#cbd5e1";
+                      const isTop3 = i < 3;
+                      const trendLabel =
+                        m.recentNewsCount > 0
+                          ? `뉴스 ${m.recentNewsCount}건`
+                          : m.profileViewCount > 0
+                          ? `조회 ${m.profileViewCount.toLocaleString()}`
+                          : m.followerCount > 0
+                          ? `팔로워 ${m.followerCount}명`
+                          : "주목 의원";
+                      const partyColor =
+                        m.party === "더불어민주당" ? "#3A6BFF"
+                        : m.party === "국민의힘" ? "#FF3B3B"
+                        : m.party === "조국혁신당" ? "#1e3a8a"
+                        : m.party === "개혁신당" ? "#f97316"
+                        : "#6b7280";
+                      return (
+                        <motion.div
+                          key={m.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.07 }}
+                        >
+                          <Link href={`/members/${m.id}`}>
+                            <div className="flex items-center gap-3 px-2 py-2.5 rounded-[14px] hover:bg-muted/50 cursor-pointer transition-colors group">
+                              {/* Rank */}
+                              <div
+                                className="w-5 text-center text-[12px] font-black shrink-0"
+                                style={{ color: isTop3 ? rankColor : "#cbd5e1" }}
+                              >
+                                {i + 1}
+                              </div>
 
+                              {/* Photo */}
+                              <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2 ring-white shadow-sm">
+                                <PoliticianPhoto
+                                  name={m.name}
+                                  photo={m.photo}
+                                  monaCd={m.id}
+                                  context={m.party}
+                                  size={36}
+                                  className="w-full h-full object-cover"
+                                  avatarClassName="w-full h-full flex items-center justify-center text-white text-[12px] font-black"
+                                />
+                              </div>
+
+                              {/* Name + party */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[13px] font-black text-foreground truncate">
+                                    {m.name}
+                                  </span>
+                                  {i === 0 && (
+                                    <motion.span
+                                      animate={{ scale: [1, 1.15, 1] }}
+                                      transition={{ duration: 1.2, repeat: Infinity }}
+                                      className="text-[11px] leading-none"
+                                    >
+                                      🔥
+                                    </motion.span>
+                                  )}
+                                </div>
+                                <div
+                                  className="text-[10px] font-bold truncate mt-0.5"
+                                  style={{ color: partyColor }}
+                                >
+                                  {m.party}
+                                </div>
+                              </div>
+
+                              {/* Trend label */}
+                              <div className="text-right shrink-0">
+                                <div className="flex items-center gap-1 justify-end">
+                                  <TrendingUp className="w-2.5 h-2.5 text-orange-400" />
+                                  <span className="text-[10px] font-bold text-orange-500">{trendLabel}</span>
+                                </div>
+                                <div className="text-[9px] text-muted-foreground mt-0.5">{m.district || m.primaryKeyword}</div>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer CTA */}
+              <div className="border-t border-border/30 px-5 py-3">
+                <Link href="/members">
+                  <button className="w-full text-[12px] font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1">
+                    국회의원 전체 보기 <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </Link>
+              </div>
+            </div>
 
           </div>
 

@@ -18,8 +18,10 @@ const CANDIDATE_API_BASE = "https://apis.data.go.kr/9760000/PofelcddInfoInqireSe
 const SG_ID_2026 = "20260603"; // 2026년 6월 3일 지방선거
 
 // 선거 유형 코드 (sgTypecode)
-// 3: 시도지사 — 광역시장 + 도지사만 다룸 (4/5/6/11은 삭제됨)
-const SG_TYPE_CODES = ["3"];
+// 3: 시도지사 — 광역시장 + 도지사
+// 4: 구시군의장 — 구청장 + 시장 + 군수
+// 11: 교육감
+const SG_TYPE_CODES = ["3", "4", "11"];
 
 export interface SyncSummary {
   totalFetched: number;
