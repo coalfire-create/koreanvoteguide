@@ -143,7 +143,13 @@ export default function Community() {
       if (!res.ok) throw new Error("반응을 기록하지 못했습니다.");
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] }),
+    onSuccess: (_data, { postId }) => {
+      setLikedPosts(prev => { const n = new Set(prev); n.delete(postId); return n; });
+      queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] });
+    },
+    onError: (_err, { postId }) => {
+      setLikedPosts(prev => { const n = new Set(prev); n.delete(postId); return n; });
+    },
   });
 
   const inlineCommentMutation = useMutation({
@@ -357,7 +363,7 @@ export default function Community() {
                           className={`flex items-center gap-1 text-[12px] font-bold transition-colors ${likedPosts.has(post.id) ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
                         >
                           <ThumbsUp className={`w-4 h-4 transition-all ${likedPosts.has(post.id) ? "fill-primary text-primary scale-110" : ""}`} />
-                          {post.likes ?? 0}
+                          {(post.likes ?? 0) + (likedPosts.has(post.id) ? 1 : 0)}
                         </button>
                         <button
                           onClick={(e) => {

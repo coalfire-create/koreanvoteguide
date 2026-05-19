@@ -2,23 +2,27 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.antigravity.iyu',
-  appName: '안티그래비티',
+  appName: '이유',
   webDir: 'dist/public',
+  // 프로덕션 서버 URL — 앱은 번들을 직접 서빙하지 않고 배포된 서버에서 로드
   server: {
-    // 개발 시 로컬 서버로 연결 (배포 시 이 블록 전체 제거)
-    // url: 'http://192.168.x.x:3000',
-    // cleartext: true,
+    url: 'https://이유.com',
+    cleartext: false,
   },
-  android: {
-    allowMixedContent: false,
-    backgroundColor: '#425091',
+  ios: {
+    backgroundColor: '#6D28D9',
+    contentInset: 'always',
+    scrollEnabled: true,
+    limitsNavigationsToAppBoundDomains: true,
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: '#425091',
-      androidSplashResourceName: 'splash',
+      backgroundColor: '#6D28D9',
       showSpinner: false,
+      launchAutoHide: true,
+      iosSpinnerStyle: 'small',
+      spinnerColor: '#FFFFFF',
     },
   },
 };
