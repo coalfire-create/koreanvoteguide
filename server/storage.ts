@@ -339,7 +339,10 @@ export class DatabaseStorage implements IStorage {
   async updatePost(id: string, fields: { title?: string; content?: string; category?: string }): Promise<CommunityPost | undefined> {
     const patch: Partial<typeof communityPosts.$inferInsert> = {};
     if (fields.title !== undefined) patch.title = fields.title;
-    if (fields.content !== undefined) patch.content = fields.content;
+    if (fields.content !== undefined) {
+      patch.content = fields.content;
+      patch.contentType = "rich";
+    }
     if (fields.category !== undefined) patch.category = fields.category;
     if (Object.keys(patch).length === 0) return this.getPost(id);
     const [updated] = await db.update(communityPosts).set(patch).where(eq(communityPosts.id, id)).returning();

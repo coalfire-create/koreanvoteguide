@@ -316,7 +316,7 @@ export default function CommunityDetail() {
           </div>
 
           {/* 본문 — rich(HTML) 글은 DOMPurify로 정화 후 렌더, 평문은 그대로 표시 */}
-          {post.contentType === "rich" ? (
+          {post.contentType === "rich" || /<(p|br|div|span|strong|em|u|s|ul|ol|li|h[1-6]|blockquote|pre|code|img|iframe)\b/i.test(post.content || "") ? (
             <div
               className="prose prose-sm max-w-none text-sm leading-relaxed mb-5"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}

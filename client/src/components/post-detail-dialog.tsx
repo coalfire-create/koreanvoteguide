@@ -238,7 +238,7 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                   </div>
                 </div>
 
-                {data.post.contentType === "rich" ? (
+                {data.post.contentType === "rich" || /<(p|br|div|span|strong|em|u|s|ul|ol|li|h[1-6]|blockquote|pre|code|img|iframe)\b/i.test(data.post.content || "") ? (
                   <div
                     className="prose prose-sm max-w-none text-[15px] leading-relaxed text-slate-800 font-medium pb-4"
                     dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.post.content) }}
