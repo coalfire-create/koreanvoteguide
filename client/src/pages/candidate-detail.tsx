@@ -131,7 +131,7 @@ function loadCandidateFromSession(key: string): SessionCandidate | null {
 // ─── 공약 카드 (클릭 → Sheet 오픈) ──────────────────────────────────────
 function PledgeCard({ candidateId, promise, onClick }: {
   candidateId: string;
-  promise: { id: string; title: string; description: string };
+  promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string };
   onClick: () => void;
 }) {
 
@@ -152,15 +152,22 @@ function PledgeCard({ candidateId, promise, onClick }: {
         <CheckCircle2 className="w-4 h-4 text-indigo-500" />
       </div>
       <div className="flex-1 min-w-0">
+        {promise.realmName && (
+          <span className="inline-block text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mb-1 uppercase tracking-wider">{promise.realmName}</span>
+        )}
         <p className="font-bold text-[14px] text-gray-900 leading-snug group-hover:text-indigo-700 transition-colors">{promise.title}</p>
         {promise.description && (
           <p className="text-[11px] text-gray-400 mt-1 line-clamp-1 leading-relaxed">{promise.description}</p>
         )}
-        <div className="flex items-center gap-3 mt-2">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           {/* 실현가능성 뱃지 */}
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${feasibility.bg} ${feasibility.color}`}>
             실현가능성 {feasibility.label}
           </span>
+          {/* 구조화 데이터 지표 */}
+          {promise.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">이행방법 ✓</span>}
+          {promise.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">재원조달 ✓</span>}
+          {promise.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">이행기간 ✓</span>}
           {/* 댓글 수 */}
           {comments.length > 0 && (
             <span className="flex items-center gap-1 text-[10px] text-gray-400">
@@ -223,10 +230,15 @@ export default function CandidateDetail() {
         photo: sessionCandidate.photo ?? "",
         electionType: "local" as const,
         background: sessionCandidate.background ?? "후보 정보를 불러오는 중입니다.",
-        promises: ((sessionCandidate.pledges ?? []) as (string | { title?: string; description?: string })[]).map((p, i) => ({
+        promises: ((sessionCandidate.pledges ?? []) as (string | { title?: string; description?: string; goalCont?: string; methCont?: string; distCont?: string; deptCont?: string; realmName?: string })[]).map((p, i) => ({
           id: `p${i}`,
           title: typeof p === "string" ? p : (p.title ?? String(p)),
-          description: typeof p === "string" ? "" : (p.description ?? ""),
+          description: typeof p === "string" ? "" : (p.description ?? p.goalCont ?? ""),
+          realmName: typeof p === "string" ? undefined : (p.realmName ?? undefined),
+          content: typeof p === "string" ? undefined : (p.goalCont ?? undefined),
+          method: typeof p === "string" ? undefined : (p.methCont ?? undefined),
+          funding: typeof p === "string" ? undefined : (p.deptCont ?? undefined),
+          duration: typeof p === "string" ? undefined : (p.distCont ?? undefined),
         })),
         pastActivities: sessionCandidate.pastActivities ?? [],
         education: sessionCandidate.education ?? sessionCandidate.edu,
@@ -521,7 +533,7 @@ export default function CandidateDetail() {
               <>
                 <p className="text-[12px] text-gray-400 font-medium mb-3">공약을 클릭하면 AI 분석과 시민 의견을 볼 수 있습니다</p>
                 <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
-                  {candidate.promises.map((promise: { id: string; title: string; description: string }) => (
+                  {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
                     <PledgeCard
                       key={promise.id}
                       candidateId={String(candidate.id)}

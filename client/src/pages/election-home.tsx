@@ -217,8 +217,9 @@ function EmptyState({ regionName }: { regionName: string }) {
 }
 
 // DB에서 오는 pledges 필드는 ["1. 제목", "2. 제목", ...] 형태의 문자열 배열
-// 또는 {id, title, description} 객체 배열일 수도 있음 — 양쪽 모두 처리
-function normalizePledges(raw: any[]): { id: string; title: string; description: string }[] {
+// 또는 NEC API 구조화 객체 {order, realmName, title, goalCont, methCont, distCont, deptCont}
+// 또는 간단한 {id, title, description} 객체 배열일 수도 있음 — 양쪽 모두 처리
+function normalizePledges(raw: any[]): { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }[] {
   if (!Array.isArray(raw) || raw.length === 0) return [];
   return raw.map((item, i) => {
     if (typeof item === "string") {
@@ -226,10 +227,16 @@ function normalizePledges(raw: any[]): { id: string; title: string; description:
       const title = item.replace(/^\d+\.\s*/, "").trim();
       return { id: `p${i}`, title, description: "" };
     }
+    // NEC API 구조화 데이터 보존
     return {
       id: item.id ?? `p${i}`,
       title: item.title ?? String(item),
-      description: item.description ?? "",
+      description: item.description ?? item.goalCont ?? "",
+      realmName: item.realmName ?? undefined,
+      content: item.goalCont ?? item.content ?? undefined,
+      method: item.methCont ?? item.method ?? undefined,
+      funding: item.deptCont ?? item.funding ?? undefined,
+      duration: item.distCont ?? item.duration ?? undefined,
     };
   });
 }
@@ -736,11 +743,21 @@ function RegionView({
                                     <div className="flex items-start gap-3 pl-3">
                                       <span className="text-[11px] font-bold text-muted-foreground mt-0.5 shrink-0">{pIdx + 1}</span>
                                       <div className="flex-1 min-w-0">
+                                        {p.realmName && (
+                                          <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase tracking-wider">{p.realmName}</span>
+                                        )}
                                         <h5 className="text-[14px] font-bold text-foreground mb-1.5 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
                                           {p.title}
                                         </h5>
                                         {p.description && (
                                           <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">{p.description}</p>
+                                        )}
+                                        {(p.method || p.funding || p.duration) && (
+                                          <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {p.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">이행방법 ✓</span>}
+                                            {p.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">재원조달 ✓</span>}
+                                            {p.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">이행기간 ✓</span>}
+                                          </div>
                                         )}
                                       </div>
                                       <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors shrink-0 mt-0.5">

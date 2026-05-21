@@ -364,10 +364,63 @@ function SinglePledgeView({
         <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-200">
           <CheckCircle2 className="w-7 h-7 text-white" />
         </div>
+        {promise.realmName && (
+          <span className="inline-block text-[11px] font-black text-indigo-600 bg-indigo-100 px-3 py-1 rounded-lg mb-3 uppercase tracking-wider">{promise.realmName}</span>
+        )}
         <h1 className="text-2xl font-black text-gray-900 leading-tight mb-6">{promise.title}</h1>
         {promise.description && (
           <div className="bg-white rounded-2xl p-5 border border-indigo-100/50 shadow-sm">
             <p className="text-[16px] text-gray-600 leading-relaxed font-medium">{promise.description}</p>
+          </div>
+        )}
+
+        {/* 구조화 공약 정보 패널 — 선관위 공보 원문 기반 */}
+        {(promise.content || promise.method || promise.funding || promise.duration) && (
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {promise.content && (
+              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm sm:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-3 h-3 text-indigo-600" />
+                  </div>
+                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
+                </div>
+                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.content}</p>
+              </div>
+            )}
+            {promise.method && (
+              <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/60">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center">
+                    <span className="text-[10px]">📋</span>
+                  </div>
+                  <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                </div>
+                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.method}</p>
+              </div>
+            )}
+            {promise.funding && (
+              <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/60">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center">
+                    <span className="text-[10px]">💰</span>
+                  </div>
+                  <span className="text-[11px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                </div>
+                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.funding}</p>
+              </div>
+            )}
+            {promise.duration && (
+              <div className="bg-sky-50/50 rounded-2xl p-4 border border-sky-100/60">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-sky-100 flex items-center justify-center">
+                    <span className="text-[10px]">⏱️</span>
+                  </div>
+                  <span className="text-[11px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                </div>
+                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.duration}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
