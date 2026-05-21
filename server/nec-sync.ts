@@ -455,41 +455,69 @@ export async function enrichCandidatePledges(opts: { force?: boolean } = {}): Pr
     교육감: "11",
   };
 
-  const out = { scanned: 0, enriched: 0, empty: 0, errors: 0 };
-  for (const row of rows) {
-    out.scanned++;
+  const out = { scanned: rows.length, enriched: 0, empty: 0, errors: 0 };
+  
+  // 공약이 비어있거나 강제 옵션인 대상 필터링
+  const targets = rows.filter((row) => {
     const existing = Array.isArray(row.pledges) ? (row.pledges as any[]) : [];
-    if (!force && existing.length > 0) continue;
-    const huboid = row.sourceId || "";
-    const sgTypecode = typecodeOf[row.electionType] || "";
-    if (!huboid || !sgTypecode) {
-      out.empty++;
-      continue;
-    }
-    try {
-      const pledges = await fetchPledgesForCandidate({
-        sgId: SG_ID_2026,
-        sgTypecode,
-        huboid,
-      });
-      if (pledges.length === 0) {
+    return force || existing.length === 0;
+  });
+
+  console.log(`[nec-sync/pledges] 전체 후보: ${rows.length}명, 보강이 필요한 후보: ${targets.length}명`);
+
+  const concurrency = 10;
+  let index = 0;
+  let processedCount = 0;
+
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (index < targets.length) {
+      const currentIdx = index++;
+      if (currentIdx >= targets.length) break;
+      
+      const row = targets[currentIdx];
+      const huboid = row.sourceId || "";
+      const sgTypecode = typecodeOf[row.electionType] || "";
+      if (!huboid || !sgTypecode) {
         out.empty++;
-      } else {
-        await db
-          .update(electionCandidates)
-          .set({ pledges: pledges as any })
-          .where(eq(electionCandidates.id, row.id));
-        out.enriched++;
+        continue;
       }
-    } catch (err: any) {
-      out.errors++;
-      console.error(`[nec-sync/pledges] ${row.name}(${huboid}) 실패:`, err?.message);
+      
+      try {
+        const pledges = await fetchPledgesForCandidate({
+          sgId: SG_ID_2026,
+          sgTypecode,
+          huboid,
+        });
+        if (pledges.length === 0) {
+          out.empty++;
+        } else {
+          await db
+            .update(electionCandidates)
+            .set({ pledges: pledges as any })
+            .where(eq(electionCandidates.id, row.id));
+          out.enriched++;
+        }
+      } catch (err: any) {
+        out.errors++;
+        console.error(`[nec-sync/pledges] ${row.name}(${huboid}) 실패:`, err?.message);
+      }
+
+      processedCount++;
+      if (processedCount % 50 === 0) {
+        console.log(
+          `[nec-sync/pledges] 진행률: ${processedCount}/${targets.length} (완료=${out.enriched}, 데이터없음=${out.empty}, 에러=${out.errors})`
+        );
+      }
+
+      // API 서버 rate limit 및 부하 조절
+      await new Promise((r) => setTimeout(r, 150));
     }
-    // rate limit 보호 — 0.3s 간격
-    await new Promise((r) => setTimeout(r, 300));
-  }
+  });
+
+  await Promise.all(workers);
+
   console.log(
-    `[nec-sync/pledges] 스캔=${out.scanned} 보강=${out.enriched} 데이터없음=${out.empty} 오류=${out.errors}`,
+    `[nec-sync/pledges] 동기화 종료 - 전체=${out.scanned} 보강성공=${out.enriched} 데이터없음=${out.empty} 오류=${out.errors}`,
   );
   return out;
 }
