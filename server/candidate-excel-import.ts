@@ -354,6 +354,119 @@ export async function importCandidateExcels(
   return result;
 }
 
+// ─── 엑셀에 박힌 후보 사진(임베디드 이미지) 추출 ───────────────────────────
+// xlsx의 사진은 xl/media/imageN.png 로 저장되고, xl/drawings/drawing1.xml의
+// 앵커(xdr:from/xdr:row)가 어느 행(=후보)에 붙는지 지정한다.
+// drawing1.xml.rels 가 blip embed id → media 파일을 매핑.
+export interface RosterPhoto {
+  name: string;
+  birthday: string;     // YYYYMMDD
+  district: string;
+  sdName: string;
+  buffer: Buffer;
+  ext: string;          // png/jpeg
+}
+
+export function extractRosterPhotos(xlsxPath: string): RosterPhoto[] {
+  const dir = mkdtempSync(join(tmpdir(), "xlsximg-"));
+  try {
+    execSync(`unzip -o -q "${xlsxPath}" -d "${dir}"`);
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+    const { electionType, sdName, sgg } = parseFileName(xlsxPath);
+
+    // 1) sharedStrings
+    let strings: string[] = [];
+    try {
+      const ssDoc = parser.parse(readFileSync(join(dir, "xl/sharedStrings.xml"), "utf8"));
+      let si = ssDoc.sst?.si ?? [];
+      if (!Array.isArray(si)) si = [si];
+      strings = si.map((x: any) => {
+        if (x.t !== undefined) return typeof x.t === "object" ? (x.t["#text"] ?? "") : String(x.t);
+        if (x.r) { const rs = Array.isArray(x.r) ? x.r : [x.r]; return rs.map((y: any) => (typeof y.t === "object" ? (y.t["#text"] ?? "") : String(y.t ?? ""))).join(""); }
+        return "";
+      });
+    } catch { /* */ }
+
+    // 2) Sheet: sheetRow(1-indexed) → {colLetter → value}
+    const wsDir = join(dir, "xl/worksheets");
+    const wsFile = readdirSync(wsDir).find((f) => /\.xml$/i.test(f));
+    if (!wsFile) return [];
+    const doc = parser.parse(readFileSync(join(wsDir, wsFile), "utf8"));
+    let rows = doc.worksheet?.sheetData?.row ?? [];
+    if (!Array.isArray(rows)) rows = [rows];
+    const sheet = new Map<number, Record<string, string>>();
+    for (const row of rows) {
+      const rn = parseInt(String(row["@_r"] || "0"), 10);
+      let cells = row.c ?? [];
+      if (!Array.isArray(cells)) cells = [cells];
+      const obj: Record<string, string> = {};
+      for (const c of cells) {
+        const col = String(c["@_r"] || "").replace(/[0-9]/g, "");
+        let v: any = c.v;
+        if (v && typeof v === "object") v = v["#text"];
+        if (c["@_t"] === "s") v = strings[parseInt(v, 10)] ?? "";
+        if (c["@_t"] === "inlineStr") v = c.is?.t ?? "";
+        obj[col] = v == null ? "" : String(v);
+      }
+      sheet.set(rn, obj);
+    }
+    // 헤더 행에서 성명/생년월일 컬럼 찾기
+    let nameCol = "", birthCol = "";
+    for (const [, cells] of sheet) {
+      for (const [col, val] of Object.entries(cells)) {
+        const n = norm(val);
+        if (!nameCol && n.includes("성명")) nameCol = col;
+        if (!birthCol && n.includes("생년월일")) birthCol = col;
+      }
+      if (nameCol) break;
+    }
+    if (!nameCol) return [];
+
+    // 3) drawing rels: embedId → media 파일
+    const relsPath = join(dir, "xl/drawings/_rels/drawing1.xml.rels");
+    const embedToFile: Record<string, string> = {};
+    try {
+      const relsDoc = parser.parse(readFileSync(relsPath, "utf8"));
+      let rels = relsDoc.Relationships?.Relationship ?? [];
+      if (!Array.isArray(rels)) rels = [rels];
+      for (const r of rels) embedToFile[r["@_Id"]] = String(r["@_Target"] || "").replace(/^\.\.\//, "xl/");
+    } catch { return []; }
+
+    // 4) drawing anchors: fromRow(0-indexed) + embedId
+    const drawDoc = parser.parse(readFileSync(join(dir, "xl/drawings/drawing1.xml"), "utf8"));
+    const wsDr = drawDoc["xdr:wsDr"] ?? {};
+    const anchors: any[] = [];
+    for (const key of ["xdr:twoCellAnchor", "xdr:oneCellAnchor", "xdr:absoluteAnchor"]) {
+      const a = wsDr[key];
+      if (Array.isArray(a)) anchors.push(...a);
+      else if (a) anchors.push(a);
+    }
+
+    const out: RosterPhoto[] = [];
+    for (const anc of anchors) {
+      const fromRow = parseInt(String(anc["xdr:from"]?.["xdr:row"] ?? "-1"), 10);
+      if (fromRow < 0) continue;
+      const blip = anc["xdr:pic"]?.["xdr:blipFill"]?.["a:blip"];
+      const embedId = blip?.["@_r:embed"];
+      if (!embedId || !embedToFile[embedId]) continue;
+      const sheetRow = fromRow + 1; // 0-indexed → 1-indexed
+      const cells = sheet.get(sheetRow);
+      if (!cells) continue;
+      const rawName = (cells[nameCol] || "").split(/\s*[(（]/)[0].trim();
+      if (!rawName || norm(rawName).includes("성명")) continue;
+      const bd = birthCol ? birth8(cells[birthCol]) : "";
+      const mediaPath = join(dir, embedToFile[embedId]);
+      let buffer: Buffer;
+      try { buffer = readFileSync(mediaPath); } catch { continue; }
+      const ext = (embedToFile[embedId].match(/\.(png|jpe?g|gif)$/i)?.[1] || "png").toLowerCase().replace("jpg", "jpeg");
+      out.push({ name: rawName, birthday: bd, district: sgg || sdName || "", sdName: sdName || "", buffer, ext });
+    }
+    return out;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // 디렉토리에서 "후보자 명부" 엑셀 전부 찾기
 export function findRosterFiles(dir: string): string[] {
   return readdirSync(dir)
