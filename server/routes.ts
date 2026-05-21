@@ -14,6 +14,7 @@ import { fetchAssemblyData } from "./scheduler";
 import { syncAll, syncLegislators, syncBills, syncVotes, fetchEnactedBillsFromApi, fetchBillMemberVotes, type MemberVote } from "./api-sync";
 import { calculatePoliticianStance } from "./stance";
 import { analyzeLegislator } from "./legislator-analysis";
+import { analyzePolicyStance, isPolicyDimension, type PolicyDimension, type StanceAnalystReport } from "./stance-analyst";
 import {
   generateCandidateReport,
   CandidateNotFoundError,
@@ -3053,6 +3054,58 @@ export async function registerRoutes(
       res.json(stance);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== AI 정책 성향 "이유있는 점수" 분석가 (차원별 1~10 + 결정적 법안 TOP3) =====
+  // 실제 표결 기록에 근거한 LLM 분석. 결정론적 stance.ts 를 정량 앵커로 활용.
+  const stanceAnalystCache = new Map<string, StanceAnalystReport>();
+  app.get("/api/db/legislators/:id/stance/analysis", async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const dimRaw = String(req.query.dimension ?? "econ");
+      if (!isPolicyDimension(dimRaw)) {
+        return res.status(400).json({ error: "잘못된 dimension (econ|welfare|social|env|justice)" });
+      }
+      const dimension: PolicyDimension = dimRaw;
+
+      const cacheKey = `${id}:${dimension}`;
+      const cached = stanceAnalystCache.get(cacheKey);
+      if (cached) return res.json(cached);
+
+      if (!process.env.GROQ_API_KEY) {
+        return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+      }
+
+      const memberRows = await db
+        .select({ name: legislators.name, party: legislators.party, committee: legislators.committee })
+        .from(legislators)
+        .where(eq(legislators.monaCd, id))
+        .limit(1);
+      if (memberRows.length === 0) return res.status(404).json({ error: "의원을 찾을 수 없습니다" });
+      const m = memberRows[0];
+
+      const report = await analyzePolicyStance(id, dimension, {
+        name: m.name,
+        party: m.party,
+        committee: m.committee,
+      });
+
+      // 데이터 부족 결과도 캐시하여 반복 요청·LLM 비용을 절감한다.
+      stanceAnalystCache.set(cacheKey, report);
+      res.json(report);
+    } catch (error: any) {
+      if (error instanceof LLMConfigError) {
+        return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+      }
+      if (error instanceof LLMParseError) {
+        return res.status(500).json({ error: "분석 결과 파싱 실패" });
+      }
+      if (error instanceof LLMTransientError) {
+        return res.status(503).json({ error: "AI 분석 일시 오류. 잠시 후 다시 시도해주세요." });
+      }
+      console.error("[stance/analysis] error:", error);
+      res.status(500).json({ error: error.message ?? "분석 실패" });
     }
   });
 

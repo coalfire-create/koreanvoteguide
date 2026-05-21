@@ -12,6 +12,29 @@ export interface PoliticianStance {
   hasData: boolean;
 }
 
+/** stance.ts 의 5개 이념 축 키 */
+export type StanceAxis =
+  | "econScore"
+  | "socialScore"
+  | "envScore"
+  | "welfareScore"
+  | "justiceScore";
+
+/**
+ * 결정론적 축 점수(-10 ~ +10)를 분석가 프레임워크의 1~10 정수 척도로 변환한다.
+ *
+ * 규약: 양(+) 방향 = 친시장·규제완화·작은정부(=높은 점수), 음(-) 방향 = 시장개입·복지확대(=낮은 점수).
+ *   +10 → 10, 0 → 6(중도), -10 → 1.
+ *
+ * 데이터가 없으면(=DB 법안 점수 미적재) null 을 반환하여 LLM 분석가가
+ * 정량 앵커 대신 법안 의미 기반으로 점수를 산출하도록 한다.
+ */
+export function toAnalystScale(axisScore: number, hasData: boolean): number | null {
+  if (!hasData) return null;
+  const mapped = 5.5 + (axisScore / 10) * 4.5; // [-10, +10] → [1, 10]
+  return Math.max(1, Math.min(10, Math.round(mapped)));
+}
+
 /**
  * 의원의 찬반 투표 기록과 법안별 성향 점수를 기반으로
  * 이념 성향(경제/사회/환경/복지/정의) 점수를 계산한다.

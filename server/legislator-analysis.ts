@@ -189,7 +189,7 @@ const GOV_ROLE_KEYWORDS: ValueKeywords = {
  * - 만장일치에 가까운 기타 법안             → 0.1 (최소값)
  * - 쟁점 법안 (反+棄 ≥ 5%)               → 0.1 ~ 1.0 선형 스케일
  */
-function computeControversyWeight(
+export function computeControversyWeight(
   yesCount: number,
   noCount: number,
   abstainCount: number,
@@ -217,7 +217,7 @@ function computeControversyWeight(
 // 5. 법안 카테고리 분류 (키워드 매칭)
 // ============================================================
 
-function classifyBillCategory(billName: string, committee: string): BillCategory {
+export function classifyBillCategory(billName: string, committee: string): BillCategory {
   const text = `${billName} ${committee}`;
 
   const scores = new Map<Exclude<BillCategory, "기타">, number>([

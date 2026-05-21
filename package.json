@@ -17,6 +17,7 @@
     "fetch:candidates-csv": "tsx --env-file=.env script/fetch-candidates-csv.ts",
     "import:verification": "tsx --env-file=.env script/import-candidate-verification.ts",
     "import:excel": "tsx --env-file=.env script/import-candidate-excel.ts",
+    "import:photos": "tsx --env-file=.env script/import-candidate-photos-excel.ts",
     "enrich:pledges": "tsx --env-file=.env script/enrich-pledges.ts",
     "enrich:pledges:force": "tsx --env-file=.env script/enrich-pledges.ts -- --force",
     "enrich:assembly-records": "tsx --env-file=.env script/enrich-assembly-records.ts",

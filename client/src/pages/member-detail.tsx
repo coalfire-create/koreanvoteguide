@@ -89,6 +89,36 @@ interface StanceData {
   hasData: boolean;
 }
 
+// ─── 이유있는 점수 (LLM 정책 성향 분석) ──────────────────────────────────────
+const POLICY_DIMS = [
+  { key: "econ", label: "경제" },
+  { key: "welfare", label: "복지" },
+  { key: "social", label: "사회" },
+  { key: "env", label: "환경" },
+  { key: "justice", label: "정의·안전" },
+] as const;
+type PolicyDimKey = (typeof POLICY_DIMS)[number]["key"];
+
+interface AnalystEvidenceBill {
+  billName: string;
+  billNature: string;
+  vote: string;
+  impact: string;
+}
+interface StanceAnalystReport {
+  dimension: string;
+  dimensionLabel: string;
+  highPole: string;
+  lowPole: string;
+  overallScore: number | null;
+  dataInsufficient: boolean;
+  tendencySummary: string;
+  evidenceBills: AnalystEvidenceBill[];
+  scoredBillCount: number;
+  deterministicAnchor: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
 interface BillDetail {
   billId: string;
   billNo: string;
@@ -438,6 +468,7 @@ export default function MemberDetail() {
 
   const [selectedBill, setSelectedBill] = useState<{ billId: string; billName: string; vote: string } | null>(null);
   const [voteFilter, setVoteFilter] = useState<"전체" | "찬성" | "반대" | "기권" | "불참">("전체");
+  const [stanceDim, setStanceDim] = useState<PolicyDimKey>("econ");
 
   const voteHistoryQuery = useQuery<{
     monaCode: string;
@@ -485,6 +516,22 @@ export default function MemberDetail() {
         .then(r => { if (!r.ok) throw new Error("분석 불가"); return r.json(); }),
     enabled: !!id,
     staleTime: 24 * 60 * 60 * 1000,
+    retry: false,
+  });
+
+  // ── 이유있는 점수: 차원별 LLM 정책 성향 분석 ──────────────────
+  const stanceAnalysisQuery = useQuery<StanceAnalystReport>({
+    queryKey: ["/api/db/legislators", id, "stance-analysis", stanceDim],
+    queryFn: async () => {
+      const r = await fetch(`/api/db/legislators/${id}/stance/analysis?dimension=${stanceDim}`);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({} as { error?: string }));
+        throw new Error(body.error || "분석 정보를 불러올 수 없습니다.");
+      }
+      return r.json();
+    },
+    enabled: !!id,
+    staleTime: 60 * 60 * 1000,
     retry: false,
   });
 
@@ -993,6 +1040,109 @@ export default function MemberDetail() {
                 의원의 실제 정치적 신념과 100% 일치하지 않을 수 있으니 참고용으로만 활용해 주시기 바랍니다.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ===== AI "이유있는 점수" — 차원별 정책 성향 분석 ===== */}
+      <div className="mb-8 sm:mb-12">
+        <Card className="border-none shadow-xl bg-gradient-to-br from-[#6D28D9]/[0.04] via-background to-background overflow-hidden">
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#6D28D9]/40 via-[#6D28D9] to-[#6D28D9]/40" />
+          <CardContent className="p-4 sm:p-8">
+            <div className="flex items-center gap-3 mb-5 sm:mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-[#6D28D9]/10 flex items-center justify-center border border-[#6D28D9]/20 shadow-inner">
+                <Sparkles className="w-5 h-5 text-[#6D28D9]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                  이유있는 점수
+                  <Badge variant="outline" className="bg-[#6D28D9]/5 text-[#6D28D9] border-[#6D28D9]/20 text-[10px] py-0 px-2 font-bold h-5">AI</Badge>
+                </h2>
+                <p className="text-xs font-bold text-muted-foreground">정책 차원별 1~10 점수와 점수를 가른 결정적 법안</p>
+              </div>
+            </div>
+
+            <Tabs value={stanceDim} onValueChange={(v) => setStanceDim(v as PolicyDimKey)} className="mb-6">
+              <TabsList className="grid grid-cols-5 w-full">
+                {POLICY_DIMS.map((d) => (
+                  <TabsTrigger key={d.key} value={d.key} className="text-xs font-bold">{d.label}</TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
+            {stanceAnalysisQuery.isLoading ? (
+              <div className="space-y-4 py-2">
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Skeleton className="h-28 rounded-2xl" />
+                  <Skeleton className="h-28 rounded-2xl" />
+                  <Skeleton className="h-28 rounded-2xl" />
+                </div>
+              </div>
+            ) : stanceAnalysisQuery.isError ? (
+              <div className="py-10 text-center text-sm text-muted-foreground space-y-2">
+                <Info className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                <p>{(stanceAnalysisQuery.error as Error)?.message ?? "분석을 불러올 수 없습니다."}</p>
+              </div>
+            ) : stanceAnalysisQuery.data && !stanceAnalysisQuery.data.dataInsufficient && stanceAnalysisQuery.data.overallScore != null ? (
+              (() => {
+                const data = stanceAnalysisQuery.data;
+                const score = data.overallScore as number;
+                const pct = ((score - 1) / 9) * 100;
+                const scoreColor = score >= 7 ? "text-orange-500" : score <= 3 ? "text-blue-600" : "text-[#6D28D9]";
+                return (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-3xl p-5 border border-[#6D28D9]/10 shadow-sm">
+                      <div className="flex items-baseline justify-between mb-3">
+                        <span className="text-sm font-black text-gray-700">{data.dimensionLabel} 성향 점수</span>
+                        <span className={`text-3xl font-black tracking-tighter ${scoreColor}`}>{score}<span className="text-base text-muted-foreground font-bold">/10</span></span>
+                      </div>
+                      <div className="relative h-3 bg-gradient-to-r from-blue-100 via-purple-100 to-orange-100 rounded-full mb-2">
+                        <div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-[#6D28D9] rounded-full shadow-md transition-all duration-700" style={{ left: `calc(${pct}% - 10px)` }} />
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-blue-600">{data.lowPole}</span>
+                        <span className="text-orange-500">{data.highPole}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#6D28D9]/[0.03] rounded-2xl p-4 border border-[#6D28D9]/10">
+                      <p className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest mb-2">성향 요약</p>
+                      <p className="text-[15px] font-bold text-gray-800 leading-relaxed">{data.tendencySummary}</p>
+                    </div>
+
+                    <div className="pt-2">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <FileText className="w-3 h-3" /> 점수를 가른 결정적 법안
+                      </p>
+                      <div className="space-y-3">
+                        {data.evidenceBills.map((bill, idx) => (
+                          <div key={idx} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                            <div className="flex items-start justify-between gap-3 mb-1.5">
+                              <p className="text-[13px] font-bold text-gray-800 leading-snug flex-1">{bill.billName}</p>
+                              <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-md ${bill.vote === "찬성" ? "bg-blue-100 text-blue-700" : bill.vote === "반대" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{bill.vote}</span>
+                            </div>
+                            {bill.billNature && <p className="text-[11px] text-muted-foreground leading-relaxed mb-1"><span className="font-bold text-gray-500">법안 성격 · </span>{bill.billNature}</p>}
+                            {bill.impact && <p className="text-[11px] text-muted-foreground leading-relaxed"><span className="font-bold text-gray-500">점수 영향 · </span>{bill.impact}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+                      * 실제 표결 {data.scoredBillCount}건(쟁점 법안)에 근거해 Groq AI 가 산출했습니다. 신뢰도: {data.confidence === "high" ? "높음" : data.confidence === "medium" ? "보통" : "낮음"}
+                      {data.deterministicAnchor != null && ` · 정량 앵커 ${data.deterministicAnchor}/10`}
+                    </p>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="py-10 text-center text-sm text-muted-foreground space-y-2">
+                <Info className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                <p>{stanceAnalysisQuery.data?.dimensionLabel ?? "이 차원"} 분야의 결정적(쟁점) 표결 데이터가 부족해 분석할 수 없습니다.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
