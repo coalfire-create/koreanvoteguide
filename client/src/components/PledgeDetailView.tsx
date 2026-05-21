@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, CheckCircle2, MessageCircle, ThumbsUp, Sparkles, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, MessageCircle, ThumbsUp, Sparkles, AlertCircle, Loader2, ChevronDown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,20 @@ export function analyzeFeasibility(title: string, description: string): {
   return { score, label, color, bg, reasons, concerns };
 }
 
+// ─── AI 5축 정밀 평가 타입 ───────────────────────────────────────────
+interface DetailedAxis {
+  score: number;   // 1~5
+  analysis: string; // 한국어 평가 텍스트
+}
+
+interface DetailedAxes {
+  internalConsistency: DetailedAxis;
+  planSpecificity: DetailedAxis;
+  financialFeasibility: DetailedAxis;
+  economicViability: DetailedAxis;
+  precedentVerification: DetailedAxis;
+}
+
 // ─── AI 단독 공약 분석 결과 타입 ─────────────────────────────────────
 interface PledgeAnalysisResult {
   feasibilityScore: number;
@@ -66,6 +80,10 @@ interface PledgeAnalysisResult {
   /** 짧고 직설적인 실현가능성 비판 — 신규 엄격 프롬프트 결과 */
   feasibilityCritique?: string;
   voterTip: string;
+  /** 5축 정밀 평가 (신규) */
+  detailedAxes?: DetailedAxes | null;
+  /** 핵심 취약점 (신규) */
+  keyVulnerability?: string;
 }
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
@@ -183,6 +201,34 @@ function ComparisonView({
           {candidateA.pledge.description && (
             <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
           )}
+          {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+              {candidateA.pledge.content && (
+                <div>
+                  <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.content}</p>
+                </div>
+              )}
+              {candidateA.pledge.method && (
+                <div>
+                  <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.method}</p>
+                </div>
+              )}
+              {candidateA.pledge.funding && (
+                <div>
+                  <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.funding}</p>
+                </div>
+              )}
+              {candidateA.pledge.duration && (
+                <div>
+                  <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.duration}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="p-5 border border-gray-100 rounded-2xl" style={{ borderTop: `4px solid ${colorB}` }}>
           <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorB }}>
@@ -192,6 +238,34 @@ function ComparisonView({
           <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateB.pledge.title}</p>
           {candidateB.pledge.description && (
             <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateB.pledge.description}</p>
+          )}
+          {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+              {candidateB.pledge.content && (
+                <div>
+                  <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.content}</p>
+                </div>
+              )}
+              {candidateB.pledge.method && (
+                <div>
+                  <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.method}</p>
+                </div>
+              )}
+              {candidateB.pledge.funding && (
+                <div>
+                  <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.funding}</p>
+                </div>
+              )}
+              {candidateB.pledge.duration && (
+                <div>
+                  <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
+                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.duration}</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -274,6 +348,94 @@ function ComparisonView({
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// 5축 정밀 평가 차트 컴포넌트
+// ============================================================
+
+const AXIS_META: Record<string, { label: string; emoji: string; color: string; bgColor: string; barColor: string }> = {
+  internalConsistency: { label: "내부 정합성", emoji: "🔗", color: "text-violet-700", bgColor: "bg-violet-50", barColor: "#7c3aed" },
+  planSpecificity: { label: "이행계획 구체성", emoji: "📋", color: "text-blue-700", bgColor: "bg-blue-50", barColor: "#2563eb" },
+  financialFeasibility: { label: "재정 실현가능성", emoji: "💰", color: "text-amber-700", bgColor: "bg-amber-50", barColor: "#d97706" },
+  economicViability: { label: "경제적 타당성", emoji: "📊", color: "text-emerald-700", bgColor: "bg-emerald-50", barColor: "#059669" },
+  precedentVerification: { label: "선례 검증", emoji: "🔍", color: "text-rose-700", bgColor: "bg-rose-50", barColor: "#e11d48" },
+};
+
+function DetailedAxesChart({ axes }: { axes: DetailedAxes }) {
+  const [expandedAxis, setExpandedAxis] = useState<string | null>(null);
+
+  const axisEntries = Object.entries(axes).filter(
+    ([key]) => key in AXIS_META
+  ) as [string, DetailedAxis][];
+
+  const avgScore = axisEntries.length > 0
+    ? (axisEntries.reduce((sum, [, v]) => sum + v.score, 0) / axisEntries.length).toFixed(1)
+    : "–";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="mb-6"
+    >
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-[13px] font-black text-gray-500 uppercase tracking-wider">5축 정밀 평가</p>
+        <span className="text-[13px] font-bold text-gray-500">평균 {avgScore} / 5.0</span>
+      </div>
+
+      <div className="space-y-3">
+        {axisEntries.map(([key, axis], idx) => {
+          const meta = AXIS_META[key];
+          if (!meta) return null;
+          const pct = (axis.score / 5) * 100;
+          const isExpanded = expandedAxis === key;
+
+          return (
+            <div key={key}>
+              <button
+                onClick={() => setExpandedAxis(isExpanded ? null : key)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center gap-3 mb-1.5">
+                  <span className="text-[15px]">{meta.emoji}</span>
+                  <span className={`text-[13px] font-bold ${meta.color} flex-1`}>{meta.label}</span>
+                  <span className={`text-[14px] font-black ${meta.color}`}>{axis.score}</span>
+                  <span className="text-[11px] text-gray-400 font-medium">/ 5</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                </div>
+                <div className="h-3 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.8, delay: 0.1 * idx, ease: "easeOut" }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: meta.barColor }}
+                  />
+                </div>
+              </button>
+              <AnimatePresence>
+                {isExpanded && axis.analysis && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className={`mt-2 ${meta.bgColor} rounded-xl p-4 border border-gray-100`}>
+                      <p className="text-[14px] text-gray-700 leading-[1.8] break-keep">{axis.analysis}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
   );
 }
 
@@ -367,58 +529,58 @@ function SinglePledgeView({
         {promise.realmName && (
           <span className="inline-block text-[11px] font-black text-indigo-600 bg-indigo-100 px-3 py-1 rounded-lg mb-3 uppercase tracking-wider">{promise.realmName}</span>
         )}
-        <h1 className="text-2xl font-black text-gray-900 leading-tight mb-6">{promise.title}</h1>
+        <h1 className="text-2xl font-black text-gray-900 leading-[1.4] mb-6 break-keep">{promise.title}</h1>
         {promise.description && (
-          <div className="bg-white rounded-2xl p-5 border border-indigo-100/50 shadow-sm">
-            <p className="text-[16px] text-gray-600 leading-relaxed font-medium">{promise.description}</p>
+          <div className="bg-white rounded-[20px] p-6 border border-indigo-100/50 shadow-sm">
+            <p className="text-[16px] text-gray-700 leading-[1.8] font-medium break-keep">{promise.description}</p>
           </div>
         )}
 
         {/* 구조화 공약 정보 패널 — 선관위 공보 원문 기반 */}
         {(promise.content || promise.method || promise.funding || promise.duration) && (
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
             {promise.content && (
-              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm sm:col-span-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-3 h-3 text-indigo-600" />
+              <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm sm:col-span-2">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                    <CheckCircle2 className="w-4 h-4 text-indigo-600" />
                   </div>
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
+                  <span className="text-[13px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
                 </div>
-                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.content}</p>
+                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.content}</p>
               </div>
             )}
             {promise.method && (
-              <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/60">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center">
-                    <span className="text-[10px]">📋</span>
+              <div className="bg-emerald-50/40 rounded-[20px] p-6 border border-emerald-100">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                    <span className="text-[13px]">📋</span>
                   </div>
-                  <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                  <span className="text-[13px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
                 </div>
-                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.method}</p>
+                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.method}</p>
               </div>
             )}
             {promise.funding && (
-              <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/60">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center">
-                    <span className="text-[10px]">💰</span>
+              <div className="bg-amber-50/40 rounded-[20px] p-6 border border-amber-100">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                    <span className="text-[13px]">💰</span>
                   </div>
-                  <span className="text-[11px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                  <span className="text-[13px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
                 </div>
-                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.funding}</p>
+                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.funding}</p>
               </div>
             )}
             {promise.duration && (
-              <div className="bg-sky-50/50 rounded-2xl p-4 border border-sky-100/60">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 rounded-md bg-sky-100 flex items-center justify-center">
-                    <span className="text-[10px]">⏱️</span>
+              <div className="bg-sky-50/40 rounded-[20px] p-6 border border-sky-100">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                    <span className="text-[13px]">⏱️</span>
                   </div>
-                  <span className="text-[11px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                  <span className="text-[13px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
                 </div>
-                <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{promise.duration}</p>
+                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.duration}</p>
               </div>
             )}
           </div>
@@ -441,14 +603,14 @@ function SinglePledgeView({
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
+            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-[20px] p-5 border border-indigo-100"
           >
-            <p className="text-[13px] text-gray-700 leading-relaxed">{ai.summary}</p>
+            <p className="text-[15px] text-gray-700 leading-[1.8] break-keep font-medium">{ai.summary}</p>
           </motion.div>
         )}
 
-        {/* 점수 카드 */}
-        <div className={`rounded-[2.5rem] p-8 ${scoreBg} shadow-sm`}>
+        {/* 종합 점수 카드 */}
+        <div className={`rounded-[2rem] p-8 ${scoreBg} shadow-sm`}>
           <div className="flex items-center justify-between mb-6">
             <span className="text-[16px] font-black text-gray-800">종합 평가</span>
             <div className="flex items-center gap-3">
@@ -471,29 +633,69 @@ function SinglePledgeView({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white/50 rounded-3xl p-6 shadow-sm">
+          {/* ─── 5축 정밀 평가 차트 ─── */}
+          {ai?.detailedAxes && (
+            <DetailedAxesChart axes={ai.detailedAxes} />
+          )}
+
+          {/* ─── 핵심 취약점 카드 ─── */}
+          {ai?.keyVulnerability && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 bg-red-50 border border-red-200 rounded-[20px] p-5"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-red-600" />
+                </div>
+                <span className="text-[13px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
+              </div>
+              <p className="text-[15px] text-red-800 leading-[1.8] font-medium break-keep">{ai.keyVulnerability}</p>
+            </motion.div>
+          )}
+
+          {/* ─── 비판적 평가 (feasibilityCritique) ─── */}
+          {ai?.feasibilityCritique && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-5 bg-amber-50 border border-amber-200 rounded-[20px] p-5"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-amber-700" />
+                </div>
+                <span className="text-[13px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
+              </div>
+              <p className="text-[15px] text-amber-900 leading-[1.8] font-medium break-keep">{ai.feasibilityCritique}</p>
+            </motion.div>
+          )}
+
+          {/* ─── 긍정/우려 요인 ─── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div className="bg-white/50 rounded-[20px] p-6 shadow-sm">
               <p className="text-[14px] font-bold text-emerald-600 mb-4 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[11px]">✓</span>
                 긍정 요인
               </p>
               <div className="space-y-3">
                 {(ai?.strengths ?? fallback.reasons).map((r, i) => (
-                  <p key={i} className="text-[14px] text-gray-700 leading-relaxed flex gap-2">
-                    <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" /> {r}
+                  <p key={i} className="text-[14px] text-gray-700 leading-[1.7] flex gap-2 break-keep">
+                    <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" /> {r}
                   </p>
                 ))}
               </div>
             </div>
-            <div className="bg-white/50 rounded-3xl p-6 shadow-sm">
+            <div className="bg-white/50 rounded-[20px] p-6 shadow-sm">
               <p className="text-[14px] font-bold text-red-500 mb-4 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-[11px]">!</span>
                 우려 요인
               </p>
               <div className="space-y-3">
                 {(ai?.concerns ?? fallback.concerns).map((c, i) => (
-                  <p key={i} className="text-[14px] text-gray-700 leading-relaxed flex gap-2">
-                    <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" /> {c}
+                  <p key={i} className="text-[14px] text-gray-700 leading-[1.7] flex gap-2 break-keep">
+                    <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-red-300" /> {c}
                   </p>
                 ))}
               </div>
@@ -505,10 +707,10 @@ function SinglePledgeView({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-6 p-4 bg-white/60 rounded-2xl border border-white"
+              className="mt-6 p-5 bg-white/60 rounded-[20px] border border-white"
             >
-              <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-1">유권자 체크포인트</p>
-              <p className="text-[13px] text-gray-700">{ai.voterTip}</p>
+              <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 체크포인트</p>
+              <p className="text-[15px] text-gray-700 leading-[1.7] break-keep font-medium">{ai.voterTip}</p>
             </motion.div>
           )}
 

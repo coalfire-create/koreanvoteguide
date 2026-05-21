@@ -233,10 +233,10 @@ function normalizePledges(raw: any[]): { id: string; title: string; description:
       title: item.title ?? String(item),
       description: item.description ?? item.goalCont ?? "",
       realmName: item.realmName ?? undefined,
-      content: item.goalCont ?? item.content ?? undefined,
-      method: item.methCont ?? item.method ?? undefined,
-      funding: item.deptCont ?? item.funding ?? undefined,
-      duration: item.distCont ?? item.duration ?? undefined,
+      content: item.content ?? item.goalCont ?? undefined,
+      method: item.method ?? item.methCont ?? undefined,
+      funding: item.funding ?? item.deptCont ?? undefined,
+      duration: item.duration ?? item.distCont ?? undefined,
     };
   });
 }

@@ -4992,26 +4992,35 @@ export async function registerRoutes(
       const blockContent = orNotProvided(content);
 
       const SYSTEM_PROMPT = [
-        "당신은 아주 냉혹하고 비판적인 예산 분석관입니다. 후보자의 공약 '제목'이나 '의도'는 평가하지 마십시오. 오직 '이행방법'과 '재원조달방안'의 구체성만 봅니다.",
+        "당신은 비당파 정책감사기관의 수석 분석관입니다. 후보자의 공약 '제목'이나 '의도'는 평가하지 마십시오. 오직 이행방법·재원조달방안·이행기간의 구체성과 실현가능성만 데이터 기반으로 봅니다.",
         "",
         "[엄격 채점 규칙]",
         "1. 재원조달방안이 '기재 안 됨'이거나 '국비 확보', '민자 유치' 등 구체적인 세수(Tax) 계획 없이 막연하다면 실현가능성 점수를 40점 이하로 대폭 깎으십시오.",
         "2. 이행방법에 법률 개정(국회 권한)이 필요한데 본인이 지자체장(시장/도지사) 후보라면 권한 밖이므로 점수를 깎으십시오.",
-        "3. 평가 코멘트(feasibility_critique)에는 '이러이러해서 예산 확보가 불투명함'과 같이 팩트 기반의 비판을 1~2줄로 강하게 적으십시오.",
+        "3. 평가 코멘트(feasibility_critique)에는 팩트 기반의 비판을 1~2줄로 강하게 적으십시오.",
         "",
         "[채점 축 — 항목별 0~100. 최종 feasibilityScore는 가중평균(권한 0.30, 재원 0.45, 기간 0.25) 정수.]",
         "A. authorityScore (권한): 후보 직위의 법적 권한 안에서 단독 실행 가능한가. 법률 개정·국가예산 신설 필요 시 30점 이하.",
-        "B. fundingScore (재원, deptCont): 구체 세입 출처·금액·연차로 검증 가능한가. '국비 확보' '민자 유치' '예산 절감'은 25점 이하.",
-        "C. timelineScore (기간, distCont): 임기 4년 내 분기·연차별 마일스톤이 명시되어 있는가. '추진' '검토' '단계적'만 있으면 25점 이하.",
+        "B. fundingScore (재원): 구체 세입 출처·금액·연차로 검증 가능한가. '국비 확보' '민자 유치' '예산 절감'은 25점 이하.",
+        "C. timelineScore (기간): 임기 4년 내 분기·연차별 마일스톤이 명시되어 있는가. '추진' '검토' '단계적'만 있으면 25점 이하.",
+        "",
+        "[5축 정밀 평가 — 각 항목 1~5점(정수) + 2~3문장 분석]",
+        "아래 5개 축을 detailedAxes 객체 안에 포함시켜라. 각 축은 {score: 1~5 정수, analysis: '2~3문장 한국어 평가'} 형태이다.",
+        "1. internalConsistency (내부 정합성): 재원조달방안이 이행방법을 논리적으로 뒷받침하는가? 재원 규모와 일정 사이에 모순은 없는가?",
+        "2. planSpecificity (이행계획 구체성): 단계별 계획이 구체적인가, 아니면 선언적 수준에 머무는가? 후보 고유의 전략이 있는가, 기존 정부 계획을 인용한 것인가?",
+        "3. financialFeasibility (재정 실현가능성): 재원 조달 수단(국비/지방비/민자)의 현실성은? 유사 사업의 예산 초과 선례를 감안할 때 총사업비 전망은?",
+        "4. economicViability (경제적 타당성): 비용편익(B/C) 비율, 경제적 파급효과, 주요 변수 리스크는?",
+        "5. precedentVerification (선례 검증): 유사 사업의 성공/실패 이력, 전문가 컨센서스, 정치적 리스크는?",
         "",
         "[추가 룰]",
         "• 이행방법·재원조달·이행기간 중 어느 하나라도 '기재 안 됨'이면 feasibilityScore는 50점을 절대 넘지 마라.",
         "• 의도·비전·필요성에 가산점 금지. strengths에는 검증 가능한 실행 메커니즘만 적는다.",
         "• 후보 경력·정당·현직은 가산점 사유가 아니다. 정당명·이념·인신을 평가 근거로 쓰지 않는다.",
         "• feasibilityLabel은 점수와 엄격히 연동: 75+ '높음', 55-74 '중간', 35-54 '보통', 0-34 '낮음'.",
+        "• keyVulnerability에는 이 공약의 가장 큰 구조적 약점을 2~3문장으로 적는다.",
         "",
         "[출력 — 아래 JSON 스키마와 정확히 동일한 키만 사용. 코드펜스·접두어·설명문 금지.]",
-        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판(예: \'재원조달방안에 구체 세입 출처가 없어 예산 확보가 불투명함\')","voterTip":"유권자가 후보에게 추가로 물을 가장 핵심 질문 1문장"}',
+        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 후보에게 추가로 물을 가장 핵심 질문 1문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"2~3문장"},"planSpecificity":{"score":<1-5>,"analysis":"2~3문장"},"financialFeasibility":{"score":<1-5>,"analysis":"2~3문장"},"economicViability":{"score":<1-5>,"analysis":"2~3문장"},"precedentVerification":{"score":<1-5>,"analysis":"2~3문장"}}}',
       ].join("\n");
 
       // 사용자 명시 포맷 — [공약 1] {title} / - 이행방법 / - 재원조달 / - 이행기간
@@ -5031,14 +5040,14 @@ export async function registerRoutes(
         `- 전과 기록: ${criminalRecords}\n\n` +
         `${pledgeBlock}\n` +
         `(분야: ${blockRealm} · 목표/내용: ${blockContent})\n\n` +
-        `위 엄격 채점 규칙에 따라 평가하라. 이행방법·재원조달·이행기간 중 '기재 안 됨'이 하나라도 있으면 50점을 넘지 마라.`;
+        `위 엄격 채점 규칙에 따라 평가하라. 이행방법·재원조달·이행기간 중 '기재 안 됨'이 하나라도 있으면 50점을 넘지 마라. 반드시 detailedAxes 5개 축 모두 포함하라.`;
 
       const rawResult = await callLLMJsonOrFallback<Record<string, any>>(
         {
           system: SYSTEM_PROMPT,
           user: userPrompt,
           temperature: 0.2,
-          maxTokens: 700,
+          maxTokens: 1500,
           label: "candidates/analyze-pledge",
         },
         fallback,
@@ -5069,6 +5078,8 @@ export async function registerRoutes(
         feasibility_critique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
         feasibilityCritique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
         voterTip: "잠시 후 다시 시도해 주세요.",
+        keyVulnerability: "AI 분석 서비스에 접근할 수 없어 공약의 구조적 약점을 평가할 수 없습니다.",
+        detailedAxes: null,
       });
     }
   });
