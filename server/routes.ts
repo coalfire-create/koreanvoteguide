@@ -5068,12 +5068,13 @@ export async function registerRoutes(
         {
           system:
             "당신은 대한민국 지방선거 공약을 비교 분석하는 중립적인 정치 전문가입니다. " +
+            "절대로 출력 결과(coreContrast, Highlights, voterGuide 등)에서 'A후보', 'B후보', '후보 1', '후보 2' 등의 임시 명칭을 사용하지 마세요. 대신 입력에 제공된 후보의 실제 이름(예: '오중기 후보', '이철우 후보')을 명시하여 분석 내용을 작성해 주세요. " +
             "입력값 중 일부는 '정보 없음' 으로 표시될 수 있습니다. 그 경우 해당 항목은 분석에서 제외하고 다른 정보로 판단하세요. " +
             "반드시 아래 JSON 스키마와 정확히 동일한 키만 사용하여 출력하세요. 다른 텍스트(설명, 코드펜스 포함)는 절대 포함하지 마세요.\n" +
             '{"coreContrast":"핵심 차이 2-3문장","candidateAHighlights":["특징1","특징2"],"candidateBHighlights":["특징1","특징2"],"voterGuide":"유권자 고려사항 1-2문장"}',
           user:
-            `${buildCandidateBlock(candidateA, "A후보")}\n\n` +
-            `${buildCandidateBlock(candidateB, "B후보")}`,
+            `${buildCandidateBlock(candidateA, `${candidateA.name} 후보`)}\n\n` +
+            `${buildCandidateBlock(candidateB, `${candidateB.name} 후보`)}`,
           temperature: 0.3,
           maxTokens: 700,
           label: "candidates/compare-pledges",
