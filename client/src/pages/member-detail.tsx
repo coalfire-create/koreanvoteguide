@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
-import { useAssemblyMembers, useMemberDetail, useMemberAlumni, useLegislatorAnalysis } from "@/lib/api-data";
+import { useAssemblyMembers, useMemberDetail, useMemberAlumni } from "@/lib/api-data";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -324,7 +324,6 @@ export default function MemberDetail() {
 
   // 선관위 22대 총선 상세 데이터 (재산/학력/전과/경력)
   const { detail, isLoading: isDetailLoading } = useMemberDetail(id);
-  const { analysis, isLoading: isAnalysisLoading } = useLegislatorAnalysis(id);
   const { alumni, university, isLoading: isAlumniLoading } = useMemberAlumni(id);
 
   const { user } = useAuth();
@@ -880,169 +879,6 @@ export default function MemberDetail() {
         </Card>
       </div>
 
-      {/* ===== AI 의원 성향 분석 섹션 ===== */}
-      <div className="mb-8 sm:mb-12">
-        <Card className="border-none shadow-xl bg-gradient-to-br from-primary/[0.03] via-background to-primary/[0.01] overflow-hidden">
-          <div className="h-1.5 w-full bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
-          <CardContent className="p-4 sm:p-8">
-            <div className="flex items-center gap-3 mb-5 sm:mb-8">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-                <TrendingUp className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                  AI 입법·표결 성향 분석
-                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] py-0 px-2 font-bold h-5">beta</Badge>
-                </h2>
-                <p className="text-xs font-bold text-muted-foreground">실제 법안 투표 기록을 분석한 정치적 정체성</p>
-              </div>
-            </div>
-
-            {isAnalysisLoading ? (
-              <div className="space-y-4 py-4">
-                <Skeleton className="h-20 w-full rounded-2xl" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Skeleton className="h-24 w-full rounded-2xl" />
-                  <Skeleton className="h-24 w-full rounded-2xl" />
-                </div>
-              </div>
-            ) : analysis && analysis.meaningfulVotesCount > 0 ? (
-              <div className="space-y-6 sm:space-y-10">
-                {/* 1. 요약 텍스트 */}
-                <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary/5 shadow-sm relative group">
-                  <div className="absolute -top-3 -left-2 px-3 py-1 bg-primary text-white text-[10px] font-black rounded-lg shadow-md transform -rotate-2">
-                    CHARACTER SUMMARY
-                  </div>
-                  <p className="text-lg font-bold leading-relaxed text-foreground/90">
-                    "{analysis.summaryText}"
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
-                  {/* 2. 가치 지향성 (경제/정부) */}
-                  <div className="space-y-5 sm:space-y-8">
-                    <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase flex items-center gap-2">
-                      <Landmark className="w-3.5 h-3.5" /> 정치적 가치 지향성
-                    </h3>
-                    {analysis.valueAxes.map((axis) => (
-                      <div key={axis.id} className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-black text-foreground">{axis.label}</span>
-                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                            {axis.description}
-                          </span>
-                        </div>
-                        <div className="relative pt-2">
-                          {/* 축 배경 */}
-                          <div className="h-1.5 w-full rounded-full bg-muted/40 relative">
-                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-4 bg-muted-foreground/30 z-0" />
-                          </div>
-                          {/* 스코어 마커 */}
-                          <div 
-                            className="absolute top-0 transition-all duration-1000 ease-out"
-                            style={{ left: `${((axis.score + 1) / 2) * 100}%` }}
-                          >
-                            <div className="w-4 h-4 -ml-2 rounded-full bg-primary border-4 border-white shadow-lg ring-4 ring-primary/10" />
-                          </div>
-                          {/* 라벨 */}
-                          <div className="flex justify-between mt-3">
-                            <div className="flex flex-col items-start">
-                              <span className="text-[10px] font-bold text-muted-foreground leading-none">{axis.leftLabel}</span>
-                              <span className="text-[9px] text-muted-foreground/60 mt-1">-1.0</span>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-bold text-muted-foreground leading-none">{axis.rightLabel}</span>
-                              <span className="text-[9px] text-muted-foreground/60 mt-1">+1.0</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 3. 주요 관심 분야 (Top Categories) */}
-                  <div className="space-y-6">
-                    <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase flex items-center gap-2">
-                      <Target className="w-3.5 h-3.5" /> 입법 집중 분야 (TOP 3)
-                    </h3>
-                    <div className="space-y-4">
-                      {analysis.topCategories.map((cat, idx) => (
-                        <div key={cat.category} className="group">
-                          <div className="flex justify-between items-center mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
-                              <span className="text-sm font-bold">{cat.category}</span>
-                            </div>
-                            <span className="text-xs font-black text-primary">{cat.percentage}%</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
-                            <div 
-                              className={`h-full transition-all duration-1000 delay-${idx * 200} ${idx === 0 ? 'bg-primary' : 'bg-primary/40'}`}
-                              style={{ width: `${cat.percentage}%` }}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1.5 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                            총 {cat.billCount}건의 관련 법안 표결에 참여했습니다.
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. 분석에 영향을 준 주요 법안 */}
-                <div className="pt-6 border-t border-dashed border-primary/10">
-                  <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase mb-4 flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5" /> 분석 결정적 법안 (TOP 3)
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {analysis.keyBills.map((bill) => (
-                      <div 
-                        key={bill.billId} 
-                        className="bg-muted/20 hover:bg-muted/40 transition-colors p-4 rounded-2xl border border-muted/30 cursor-help group"
-                        onClick={() => setSelectedBill({ billId: bill.billId, billName: bill.billName, vote: bill.vote })}
-                      >
-                        <Badge variant="outline" className="mb-2 bg-white text-[9px] font-bold py-0 h-4 border-muted">
-                          {bill.category}
-                        </Badge>
-                        <h4 className="text-xs font-bold leading-snug line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-                          {bill.billName}
-                        </h4>
-                        <div className="flex justify-between items-center mt-auto">
-                          <div className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                            bill.vote === "찬성" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
-                          }`}>
-                            {bill.vote}
-                          </div>
-                          <div className="text-[9px] font-bold text-muted-foreground">
-                            영향력 {Math.round(bill.impactScore * 100)}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="py-10 text-center">
-                <Info className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground font-medium">분석을 위한 유효 표결 데이터가 부족합니다.</p>
-              </div>
-            )}
-            
-            <div className="mt-8 pt-6 border-t border-primary/5 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold">
-                <Loader2 className="w-3 h-3" />
-                분석 데이터 업데이트: {analysis?.analyzedAt ? new Date(analysis.analyzedAt).toLocaleDateString() : '-'}
-              </div>
-              <p className="text-[9px] text-muted-foreground leading-relaxed max-w-md text-center md:text-right">
-                ※ 위 분석은 국회 공공데이터의 법안 제목 및 위원회 정보를 기반으로 한 자동 알고리즘의 결과입니다. 
-                의원의 실제 정치적 신념과 100% 일치하지 않을 수 있으니 참고용으로만 활용해 주시기 바랍니다.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* ===== AI "이유있는 점수" — 차원별 정책 성향 분석 ===== */}
       <div className="mb-8 sm:mb-12">

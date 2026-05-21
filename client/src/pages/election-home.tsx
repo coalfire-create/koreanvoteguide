@@ -398,31 +398,9 @@ function RegionView({
     return { vsCandidates: vs, minorCandidates: minor };
   }, [displayCandidates]);
 
-  const allCandidateNames = useMemo(
-    () => displayCandidates.map((c: any) => c.name).filter(Boolean).join(","),
-    [displayCandidates],
-  );
+  // 후보자 사진은 엑셀에서 추출해 /uploads/candidate-photos/에 저장, DB photo 필드로 직접 서빙.
+  // 별도 batch API 호출 불필요 — PoliticianPhoto 컴포넌트가 photo prop(/uploads/...)을 최우선 사용.
 
-  // 동명이인 disambiguation: 후보 이름→정당 컨텍스트 맵 (서버가 "김종훈 국민의힘" 식으로 검색)
-  const candidateContexts = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const c of displayCandidates) {
-      if (c.name && c.party) map[c.name] = c.party;
-    }
-    return map;
-  }, [displayCandidates]);
-
-  const { data: candidatePhotos = {} } = useQuery<Record<string, string | null>>({
-    queryKey: ["/api/politician-photos/batch", "candidates", allCandidateNames],
-    queryFn: ({ signal }) => {
-      const params = new URLSearchParams({ names: allCandidateNames });
-      const ctxStr = JSON.stringify(candidateContexts);
-      if (ctxStr !== "{}") params.set("contexts", ctxStr);
-      return fetch(`/api/politician-photos/batch?${params}`, { signal }).then((r) => r.json());
-    },
-    staleTime: 60 * 60 * 1000,
-    enabled: !!allCandidateNames,
-  });
 
   // 홈 "가장 인기있는 토론" 위젯 — 오늘 가장 좋아요가 많은 게시물 최대 5건
   const { data: topLikedPosts } = useQuery<{ id: string; title: string; likes: number }[]>({
@@ -567,7 +545,7 @@ function RegionView({
                               <PoliticianPhoto
                                 name={candidate.name}
                                 photo={candidate.photo}
-                                resolvedUrl={candidatePhotos[candidate.name]}
+
                                 context={candidate.party}
                                 avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl font-black`}
                               />
@@ -635,7 +613,7 @@ function RegionView({
                                   <PoliticianPhoto
                                     name={candidate.name}
                                     photo={candidate.photo}
-                                    resolvedUrl={candidatePhotos[candidate.name]}
+    
                                     context={candidate.party}
                                     avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-xl font-black`}
                                   />
