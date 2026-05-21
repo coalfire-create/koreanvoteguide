@@ -524,7 +524,16 @@ export const electionCandidates = pgTable("election_candidates", {
   pledges: jsonb("pledges").default([]),            // 공약 목록
   edu: text("edu"),                                  // 학력 (API: edu)
   criminal: text("criminal"),                       // 전과기록 (legacy text 필드, 호환 유지)
-  criminalRecords: jsonb("criminal_records").default([]).notNull(), // 전과기록 (신규 JSONB; 선관위 API 미제공으로 기본 [])
+  criminalRecords: jsonb("criminal_records").default([]).notNull(), // 전과기록 (JSONB; 선관위 후보자정보 CSV import로 채움)
+  // ===== 검증 정보 (선관위 선거통계시스템 후보자정보 CSV import — etl: matchKey 기준) =====
+  // 기본 등록 API(getPofelcddRegistSttusInfoInqire)는 미제공. info.nec.go.kr 다운로드 엑셀을
+  // CSV로 변환 → import-candidate-verification 스크립트가 matchKey(이름_생년월일_선거구)로 병합.
+  propertyAmount: text("property_amount"),          // 재산 신고 총액 (원문 그대로, 예: "1,234,567천원")
+  militaryService: text("military_service"),         // 병역 사항 (예: "필 / 육군 병장 만기전역", "면제", "비대상")
+  taxPaid: text("tax_paid"),                         // 최근 5년 세금 납부 실적 (원문)
+  taxArrears: text("tax_arrears"),                   // 세금 체납 실적 (원문; 없으면 "없음")
+  candidacyHistory: text("candidacy_history"),       // 공직선거 입후보(당선) 경력
+  verificationSyncedAt: timestamp("verification_synced_at"), // 검증정보 CSV 마지막 import 시각
   status: text("status").notNull().default("예비후보"), // 라이프사이클 라벨: 예비후보 | 후보자
   candidateStatus: text("candidate_status"),        // API 등록 상태: 등록 | 사퇴 | 등록무효 등
   birthday: text("birthday"),                       // 생년월일 YYYYMMDD (API: birthday)

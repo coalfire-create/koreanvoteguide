@@ -5,6 +5,7 @@ import {
   ArrowLeft, ThumbsUp, ThumbsDown, MessageSquare, Send,
   CheckCircle2, XCircle, Flame, Loader2, Users, TrendingUp,
   Newspaper, ChevronRight, MoreVertical, Flag, FileText,
+  Sparkles, Lightbulb, ShieldCheck, AlertTriangle, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,6 +64,14 @@ interface OpinionData {
   myOpinion: "agree" | "disagree" | null;
 }
 
+interface BillAnalysis {
+  background: string;
+  beneficiaries: string;
+  drawbacks: string;
+  impact: string;
+  keyPoints: string[];
+}
+
 interface Comment {
   id: number;
   content: string;
@@ -118,6 +127,30 @@ export default function BillVote() {
     queryFn: () => fetch(`/api/bills/${billId}/comments`, { credentials: "include" }).then(r => r.json()),
     enabled: !!billId,
     staleTime: 30 * 1000,
+  });
+
+  // AI 심층 분석 — 왜 발의됐고 누구에게 어떤 영향인지
+  const {
+    data: analysis,
+    isLoading: analysisLoading,
+    isError: analysisError,
+  } = useQuery<BillAnalysis>({
+    queryKey: ["/api/bills", billId, "analyze"],
+    queryFn: async () => {
+      const res = await apiRequest("POST", "/api/bills/analyze", {
+        billId: bill?.billId,
+        billName: bill?.billName,
+        committee: bill?.committee,
+        proposer: bill?.proposer,
+        result: bill?.result,
+        proposeDate: bill?.proposeDate,
+      });
+      if (!res.ok) throw new Error("분석 실패");
+      return res.json();
+    },
+    enabled: !!bill?.billName,
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
   });
 
   // 찬반 투표 뮤테이션
@@ -319,6 +352,94 @@ export default function BillVote() {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {/* AI 심층 분석 */}
+        {bill && (
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#6D28D9] to-[#7C3AED] flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-white" />
+              </div>
+              <h2 className="text-[15px] font-bold text-slate-900">AI 심층 분석</h2>
+              <span className="ml-auto text-[10px] font-bold text-slate-300 uppercase tracking-wider">AI 생성</span>
+            </div>
+
+            {analysisLoading ? (
+              <div className="px-6 py-6 space-y-4">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-4 w-full rounded-full" />
+                <Skeleton className="h-4 w-2/3 rounded-full" />
+                <p className="text-center text-[12px] text-slate-400 pt-2">
+                  AI가 이 법안의 배경과 영향을 분석 중입니다...
+                </p>
+              </div>
+            ) : analysisError || !analysis ? (
+              <div className="px-6 py-6 flex items-center gap-3 text-[13px] text-slate-500">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                AI 분석을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {/* 발의 배경 */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    <p className="text-[12px] font-extrabold text-slate-900">왜 이 법안이 나왔나</p>
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.background}</p>
+                </div>
+
+                {/* 수혜자 */}
+                <div className="px-6 py-5 bg-emerald-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <p className="text-[12px] font-extrabold text-emerald-800">누구에게 좋은가</p>
+                  </div>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.beneficiaries}</p>
+                </div>
+
+                {/* 부담/불리한 측 */}
+                <div className="px-6 py-5 bg-rose-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" />
+                    <p className="text-[12px] font-extrabold text-rose-800">누구에게 부담인가</p>
+                  </div>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.drawbacks}</p>
+                </div>
+
+                {/* 예상 영향 */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-4 h-4 text-[#6D28D9]" />
+                    <p className="text-[12px] font-extrabold text-slate-900">어떤 영향이 예상되나</p>
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.impact}</p>
+                </div>
+
+                {/* 핵심 포인트 */}
+                {analysis.keyPoints && analysis.keyPoints.length > 0 && (
+                  <div className="px-6 py-5 bg-indigo-50/40">
+                    <p className="text-[12px] font-extrabold text-[#6D28D9] mb-3">핵심 포인트</p>
+                    <ul className="space-y-2">
+                      {analysis.keyPoints.map((point, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px] text-slate-700 leading-relaxed">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#6D28D9] mt-0.5 shrink-0" />
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="px-6 py-3">
+                  <p className="text-[11px] text-slate-400 italic">
+                    * AI가 법안명·메타데이터를 기반으로 자동 생성한 분석입니다. 참고용으로만 활용하세요.
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

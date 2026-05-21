@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users } from "lucide-react";
+import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { saveCandidateToSession } from "@/pages/candidate-detail";
@@ -417,12 +417,22 @@ function RegionView({
     enabled: !!allCandidateNames,
   });
 
-  // 홈 "가장 인기있는 토론" 위젯 — 오늘 가장 좋아요가 많은 게시물
-  const { data: topLikedPost } = useQuery<{ id: string; title: string; likes: number } | null>({
+  // 홈 "가장 인기있는 토론" 위젯 — 오늘 가장 좋아요가 많은 게시물 최대 5건
+  const { data: topLikedPosts } = useQuery<{ id: string; title: string; likes: number }[]>({
     queryKey: ["/api/community/top-liked"],
     queryFn: () => apiRequest("GET", "/api/community/top-liked").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
+
+  const [currentPostIndex, setCurrentPostIndex] = useState(0);
+
+  useEffect(() => {
+    if (!topLikedPosts || topLikedPosts.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentPostIndex((prev) => (prev + 1) % topLikedPosts.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [topLikedPosts]);
 
   interface TrendingMember {
     id: string;
@@ -814,40 +824,108 @@ function RegionView({
             <ScheduleWidget regionName={region.name} />
 
             {/* Widget 2: 가장 인기있는 토론 참여 */}
-            <div className="bg-primary rounded-[1.5rem] p-6 shadow-md text-primary-foreground relative overflow-hidden">
-              {/* Background abstract element */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 rounded-[2rem] p-6 shadow-xl text-white relative overflow-hidden border border-white/10 group">
+              {/* Background abstract glowing circles */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-pink-500/20 rounded-full blur-2xl pointer-events-none group-hover:bg-pink-500/35 transition-all duration-700"></div>
+              <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-blue-500/25 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/40 transition-all duration-700"></div>
               
-
-              <h3 className="font-bold text-[15px] mb-3">가장 인기있는 토론 참여</h3>
-              {topLikedPost ? (
-                <p className="text-xs text-primary-foreground/95 leading-relaxed mb-6 opacity-90">
-                  <span className="font-bold">🔥 오늘 가장 인기있는 글</span>
-                  <br />
-                  “{topLikedPost.title}”
-                </p>
-              ) : (
-                <p className="text-xs text-primary-foreground/95 leading-relaxed mb-6 opacity-90">
-                  현재 수많은 유권자가 이번 선거 쟁점에 대해 열띤 토론 중입니다. 지금 참여하여 의견을 나누세요.
-                </p>
-              )}
-              
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex -space-x-2">
-                  <img src="https://i.pravatar.cc/100?img=11" className="w-7 h-7 rounded-full border-2 border-primary" alt="User"/>
-                  <img src="https://i.pravatar.cc/100?img=12" className="w-7 h-7 rounded-full border-2 border-primary" alt="User"/>
-                  <img src="https://i.pravatar.cc/100?img=13" className="w-7 h-7 rounded-full border-2 border-primary" alt="User"/>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
+                    <MessageSquare className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="font-black text-[15px] tracking-tight">가장 인기있는 토론</h3>
                 </div>
-                <span className="text-[10px] text-primary-foreground/80">실시간 토론 진행 중</span>
+                
+                {/* Live pulsing dot */}
+                <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[9px] text-emerald-300 font-bold uppercase tracking-wider">LIVE</span>
+                </div>
               </div>
 
+              {/* Debate Card Slider */}
+              <div className="h-[120px] relative z-10 mb-5 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  {topLikedPosts && topLikedPosts.length > 0 ? (
+                    (() => {
+                      const post = topLikedPosts[currentPostIndex % topLikedPosts.length];
+                      if (!post) return null;
+                      return (
+                        <motion.div
+                          key={post.id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -30 }}
+                          transition={{ duration: 0.4, ease: "easeInOut" }}
+                          className="absolute inset-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shadow-inner hover:bg-white/15 transition-colors duration-300 cursor-pointer flex flex-col justify-between"
+                          onClick={() => setLocation(`/community/${post.id}`)}
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Flame className="w-3.5 h-3.5 text-orange-400 fill-orange-400/20 animate-bounce" />
+                              <span className="text-[10px] font-black text-orange-300 tracking-wider">오늘의 핫 토론</span>
+                            </div>
+                            <p className="text-[13px] font-bold leading-relaxed text-white line-clamp-2">
+                              “{post.title}”
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-white/70 font-semibold mt-1">
+                            <div className="flex items-center gap-1">
+                              <span>공감 {post.likes}개</span>
+                              <span>•</span>
+                              <span>실시간 참여 중</span>
+                            </div>
+                            {topLikedPosts.length > 1 && (
+                              <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-white/60">
+                                {currentPostIndex + 1}/{topLikedPosts.length}
+                              </span>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })()
+                  ) : (
+                    <motion.div
+                      key="empty"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shadow-inner flex items-center justify-center"
+                    >
+                      <p className="text-[12px] text-white/90 leading-relaxed font-medium text-center">
+                        현재 수많은 유권자가 이번 선거 쟁점에 대해 열띤 토론 중입니다. 지금 참여하여 의견을 나누세요.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              
+              {/* User Avatars & Info */}
+              <div className="flex items-center justify-between mb-5 relative z-10 px-0.5">
+                <div className="flex -space-x-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">김</div>
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">이</div>
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">박</div>
+                  <div className="w-7 h-7 rounded-full bg-slate-700/80 flex items-center justify-center text-[8px] font-bold border-2 border-indigo-600 text-white shadow-md">+99</div>
+                </div>
+                <span className="text-[10px] text-white/70 font-bold">지금 328명이 토론방에 있음</span>
+              </div>
+
+              {/* Action Button */}
               <Button
-                className="w-full bg-primary-foreground text-primary hover:opacity-90 h-12 rounded-xl font-bold shadow-lg"
-                onClick={() =>
-                  setLocation(topLikedPost?.id ? `/community/${topLikedPost.id}` : "/community?board=candidate")
-                }
+                className="w-full bg-white hover:bg-white/95 text-indigo-700 hover:text-indigo-800 active:scale-[0.98] transition-all h-12 rounded-xl font-extrabold shadow-lg border-none flex items-center justify-center gap-1.5 group/btn cursor-pointer relative z-10"
+                onClick={() => {
+                  const currentPost = topLikedPosts?.[currentPostIndex % topLikedPosts.length];
+                  setLocation(currentPost?.id ? `/community/${currentPost.id}` : "/community?board=candidate");
+                }}
               >
-                {topLikedPost ? "인기글 보러가기" : "토론방 입장하기"} <ChevronRight className="w-4 h-4 ml-1" />
+                {topLikedPosts && topLikedPosts.length > 0 ? "인기 토론 참여하기" : "토론방 입장하기"} 
+                <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
               </Button>
             </div>
 

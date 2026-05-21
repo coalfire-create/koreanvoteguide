@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Dialog,
@@ -6,11 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, ThumbsUp, MessageCircle, X } from "lucide-react";
+import { Eye, ThumbsUp, MessageCircle, X, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -53,7 +57,10 @@ function AuthorDisplay({ displayName, authorType }: { displayName?: string; auth
 export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [commentText, setCommentText] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/community/posts", postId],
@@ -85,12 +92,72 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
     },
   });
 
+  const deletePostMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/community/posts/${postId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
+      toast({ title: "삭제 완료", description: "게시글이 삭제되었습니다." });
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "삭제 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      await apiRequest("DELETE", `/api/community/comments/${commentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts", postId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
+      toast({ title: "삭제 완료", description: "댓글이 삭제되었습니다." });
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "댓글 삭제 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const updateCommentMutation = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/community/comments/${commentId}`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditingCommentId(null);
+      setEditCommentText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts", postId] });
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "댓글 수정 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
   function handleComment() {
     commentMutation.mutate(commentText.trim());
   }
 
   function handleLike() {
     reactMutation.mutate("like");
+  }
+
+  function handleEditPost() {
+    onOpenChange(false);
+    navigate(`/community/write?edit=${postId}`);
+  }
+
+  function handleDeletePost() {
+    if (window.confirm("이 게시글을 삭제하시겠습니까? 삭제 후에는 되돌릴 수 없습니다.")) {
+      deletePostMutation.mutate();
+    }
+  }
+
+  function handleDeleteComment(commentId: string) {
+    if (window.confirm("이 댓글을 삭제하시겠습니까?")) {
+      deleteCommentMutation.mutate(commentId);
+    }
   }
 
   // postId props 변경시 모달 열릴때 커멘트 텍스트 초기화
@@ -153,6 +220,21 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                       <ThumbsUp className={`w-3.5 h-3.5 ${data.userReactions?.sentiment === 'like' ? 'fill-primary text-primary' : ''}`} /> {data.post.likes}
                     </button>
                     <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {data.comments?.length || 0}</span>
+                    {data.post.isMine && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="flex items-center hover:text-slate-600 transition-colors"><MoreVertical className="w-3.5 h-3.5" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={handleEditPost}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> 수정
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> 삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
 
@@ -251,11 +333,45 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
                               {c.isAuthor && <Badge variant="destructive" className="text-[9px] h-3.5 px-1 bg-red-50 text-red-600 hover:bg-red-100 border-none">글쓴이</Badge>}
                               <AuthorBadges badges={c.authorBadges} />
                             </div>
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              {new Date(c.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {new Date(c.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {c.isMine && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="text-slate-400 hover:text-slate-600 transition-colors"><MoreVertical className="w-3 h-3" /></button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem className="text-xs" onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); }}>
+                                      <Pencil className="w-3 h-3 mr-1.5" /> 수정
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive text-xs" onClick={() => handleDeleteComment(c.id)}>
+                                      <Trash2 className="w-3 h-3 mr-1.5" /> 삭제
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-[13px] text-slate-800 leading-snug">{c.content}</p>
+                          {editingCommentId === c.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editCommentText}
+                                onChange={(e) => setEditCommentText(e.target.value)}
+                                className="min-h-[56px] text-[13px] resize-none bg-white"
+                                maxLength={500}
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditingCommentId(null); setEditCommentText(""); }}>취소</Button>
+                                <Button size="sm" className="h-7 text-xs" disabled={!editCommentText.trim() || updateCommentMutation.isPending} onClick={() => updateCommentMutation.mutate({ commentId: c.id, content: editCommentText.trim() })}>
+                                  {updateCommentMutation.isPending ? "저장 중..." : "저장"}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[13px] text-slate-800 leading-snug">{c.content}</p>
+                          )}
                         </div>
                       </div>
                     ))}

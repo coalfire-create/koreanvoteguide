@@ -131,6 +131,8 @@ export default function CommunityWrite() {
   const tagTypeFromQuery = searchParams.get("tagType");
   const tagIdFromQuery = searchParams.get("tagId");
   const tagNameFromQuery = searchParams.get("tagName");
+  const editId = searchParams.get("edit");
+  const isEditing = !!editId;
 
   const { toast } = useToast();
   const [title, setTitle] = useState("");
@@ -147,8 +149,31 @@ export default function CommunityWrite() {
     tagIdFromQuery && tagNameFromQuery ? { id: tagIdFromQuery, name: tagNameFromQuery } : null
   );
   const [hasPoll, setHasPoll] = useState(false);
+  // 신규 작성은 즉시 준비완료, 수정은 기존 글을 불러온 뒤 준비완료(에디터 초기 content 보장)
+  const [initialized, setInitialized] = useState(!isEditing);
+
+  // 수정 모드: 기존 글 로드
+  const { data: editData } = useQuery<any>({
+    queryKey: ["/api/community/posts", editId],
+    queryFn: () => apiRequest("GET", `/api/community/posts/${editId}`).then((r) => r.json()),
+    enabled: isEditing,
+  });
 
   useEffect(() => {
+    if (!isEditing || initialized || !editData?.post) return;
+    const p = editData.post;
+    setTitle(p.title || "");
+    setContent(p.content || "");
+    setCategory(p.category || "자유");
+    setBoardType((BOARD_CONFIGS as any)[p.boardType] ? (p.boardType as BoardType) : "free");
+    setHasPoll(!!p.hasPoll);
+    setThumbnailUrl(p.thumbnailUrl || null);
+    if (p.tagId && p.tagName) setSelectedTag({ id: p.tagId, name: p.tagName });
+    setInitialized(true);
+  }, [isEditing, initialized, editData]);
+
+  useEffect(() => {
+    if (isEditing) return; // 수정 모드에선 게시판 고정
     if (tagTypeFromQuery === "candidate") {
       setBoardType("candidate" as BoardType);
     } else if (tagTypeFromQuery === "legislator") {
@@ -200,7 +225,10 @@ export default function CommunityWrite() {
       if (boardType === "legislators" && selectedTag) {
         payload.legislatorId = selectedTag.id;
       }
-      const res = await apiRequest("POST", "/api/community/posts", payload);
+      // 수정 모드: 제목/내용/카테고리만 변경(게시판·태그 고정)
+      const res = isEditing
+        ? await apiRequest("PATCH", `/api/community/posts/${editId}`, { title, content, category })
+        : await apiRequest("POST", "/api/community/posts", payload);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "오류");
@@ -209,11 +237,12 @@ export default function CommunityWrite() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
-      toast({ title: "게시글 작성 완료", description: "글이 등록되었습니다." });
-      navigate(`/community/${data.id}`);
+      if (isEditing) queryClient.invalidateQueries({ queryKey: ["/api/community/posts", editId] });
+      toast({ title: isEditing ? "수정 완료" : "게시글 작성 완료", description: isEditing ? "글이 수정되었습니다." : "글이 등록되었습니다." });
+      navigate(`/community/${isEditing ? editId : data.id}`);
     },
     onError: (err: any) => {
-      toast({ title: "오류", description: err.message || "글 작성 중 오류가 발생했습니다.", variant: "destructive" });
+      toast({ title: "오류", description: err.message || (isEditing ? "글 수정 중 오류가 발생했습니다." : "글 작성 중 오류가 발생했습니다."), variant: "destructive" });
     },
   });
 
@@ -229,7 +258,7 @@ export default function CommunityWrite() {
           <ArrowLeft className="w-5 h-5 text-slate-700" />
         </Button>
         <div>
-          <h1 className="text-2xl font-black text-slate-900 leading-tight">글쓰기</h1>
+          <h1 className="text-2xl font-black text-slate-900 leading-tight">{isEditing ? "글 수정" : "글쓰기"}</h1>
           <p className="text-xs font-bold text-slate-400 flex items-center gap-1 mt-0.5 uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"></span>
             anonymous voter mode
@@ -250,8 +279,15 @@ export default function CommunityWrite() {
         </div>
 
         <CardContent className="p-8 space-y-8 bg-white">
+          {/* 수정 모드 안내 — 게시판/태그는 변경 불가 */}
+          {isEditing && (
+            <div className="text-[13px] font-medium text-slate-500 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              제목·내용·카테고리만 수정할 수 있습니다. 게시판과 태그는 변경할 수 없습니다.
+            </div>
+          )}
+
           {/* 게시판 선택 탭 */}
-          <div className="space-y-3">
+          <div className={`space-y-3 ${isEditing ? "hidden" : ""}`}>
             <Label className="text-sm font-black text-slate-700 ml-1">게시판 선택</Label>
             <Tabs value={boardType} onValueChange={(v) => { setBoardType(v as BoardType); setSelectedTag(null); }} className="w-full">
               <TabsList className="w-full h-12 p-1 bg-slate-100 rounded-xl">
@@ -271,8 +307,8 @@ export default function CommunityWrite() {
             </Tabs>
           </div>
 
-          {/* 태그 선택 (국회의원/법안 게시판일 때만) */}
-          {boardConfig.showTag && (
+          {/* 태그 선택 (국회의원/법안 게시판일 때만, 수정 모드 제외) */}
+          {!isEditing && boardConfig.showTag && (
             <div className="space-y-3">
               <Label className="text-sm font-black text-slate-700 ml-1 flex items-center gap-1.5">
                 <Tag className="w-4 h-4 text-primary" />
@@ -416,12 +452,18 @@ export default function CommunityWrite() {
             <div className="flex items-center justify-between ml-1">
               <Label htmlFor="post-content" className="text-sm font-black text-slate-700">내용</Label>
             </div>
-            <PostEditor
-              content={content}
-              onChange={setContent}
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-            />
+            {initialized ? (
+              <PostEditor
+                content={content}
+                onChange={setContent}
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+              />
+            ) : (
+              <div className="min-h-[300px] flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-400">
+                불러오는 중...
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -435,17 +477,17 @@ export default function CommunityWrite() {
             <Button
               size="lg"
               className="h-14 rounded-2xl font-black flex-[2] bg-slate-900 shadow-xl shadow-slate-900/10 hover:shadow-primary/40 text-md transition-all duration-300"
-              disabled={!title.trim() || !content.trim() || createMutation.isPending || (boardConfig.showTag && !selectedTag)}
+              disabled={!title.trim() || !content.trim() || createMutation.isPending || (!isEditing && boardConfig.showTag && !selectedTag)}
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                  게시 중...
+                  {isEditing ? "수정 중..." : "게시 중..."}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  작성 완료하기
+                  {isEditing ? "수정 완료하기" : "작성 완료하기"}
                 </div>
               )}
             </Button>

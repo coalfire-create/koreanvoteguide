@@ -18,10 +18,14 @@ const CANDIDATE_API_BASE = "https://apis.data.go.kr/9760000/PofelcddInfoInqireSe
 const SG_ID_2026 = "20260603"; // 2026년 6월 3일 지방선거
 
 // 선거 유형 코드 (sgTypecode)
+// 2: 국회의원 — 지방선거와 동시 실시되는 국회의원 재·보궐선거
 // 3: 시도지사 — 광역시장 + 도지사
 // 4: 구시군의장 — 구청장 + 시장 + 군수
+// 5: 시도의원 — 광역의회 의원 (지역구)
+// 6: 구시군의원 — 기초의회 의원 (지역구)
 // 11: 교육감
-const SG_TYPE_CODES = ["3", "4", "11"];
+// 5/6은 후보 수가 많아(시도의원 ~1,657 / 구시군의원 ~4,402) 동기화 시간이 길다.
+const SG_TYPE_CODES = ["2", "3", "4", "5", "6", "11"];
 
 export interface SyncSummary {
   totalFetched: number;
@@ -64,12 +68,12 @@ function computeAgeFromBirthday(birthday: string): number | null {
   return age >= 0 && age < 130 ? age : null;
 }
 
-export async function syncElectionCandidates(): Promise<SyncSummary> {
+export async function syncElectionCandidates(typeCodes: string[] = SG_TYPE_CODES): Promise<SyncSummary> {
   if (!SERVICE_KEY) {
     throw new Error("DATA_GO_KR_API_KEY 환경변수가 설정되지 않았습니다.");
   }
 
-  console.log(`[nec-sync] 2026 지방선거(${SG_ID_2026}) 후보자 Deep Sync 시작...`);
+  console.log(`[nec-sync] 2026 지방선거(${SG_ID_2026}) 후보자 Deep Sync 시작... (유형: ${typeCodes.join(",")})`);
 
   // 기존 sourceId 사전 조회 → insert / update 판정에 사용
   const existing = await db
@@ -90,7 +94,7 @@ export async function syncElectionCandidates(): Promise<SyncSummary> {
     matchKeySample: [],
   };
 
-  for (const typeCode of SG_TYPE_CODES) {
+  for (const typeCode of typeCodes) {
     const typeLabel = getElectionTypeLabel(typeCode);
     summary.byType[typeLabel] = { fetched: 0, inserted: 0, updated: 0, missingPhoto: 0, errors: 0 };
     try {
@@ -308,6 +312,7 @@ async function fetchAndSyncType(
 
 function getElectionTypeLabel(code: string): string {
   const map: Record<string, string> = {
+    "2": "국회의원",
     "3": "시도지사",
     "4": "구시군의장",
     "5": "시도의원",
@@ -442,6 +447,7 @@ export async function enrichCandidatePledges(opts: { force?: boolean } = {}): Pr
 
   // electionType → sgTypecode 역매핑
   const typecodeOf: Record<string, string> = {
+    국회의원: "2",
     시도지사: "3",
     구시군의장: "4",
     시도의원: "5",

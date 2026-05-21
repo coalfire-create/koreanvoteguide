@@ -18,6 +18,13 @@ import {
   ThumbsUp,
   PenSquare,
   Sparkles,
+  Landmark,
+  ShieldCheck,
+  Receipt,
+  Scale,
+  Vote,
+  MapPin,
+  ShieldQuestion,
 } from "lucide-react";
 import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +100,17 @@ interface SessionCandidate {
   career2?: string;
   timeline?: TimelineEvent[];
   ratings?: number[];
+  // 검증정보 (선관위 후보자정보 CSV import)
+  propertyAmount?: string | null;
+  militaryService?: string | null;
+  taxPaid?: string | null;
+  taxArrears?: string | null;
+  candidacyHistory?: string | null;
+  criminal?: string | null;
+  criminalRecords?: (string | { title?: string; crime?: string; summary?: string; date?: string })[];
+  job?: string | null;
+  districtName?: string | null;
+  electionType?: string | null;
 }
 
 export function saveCandidateToSession(key: string, data: unknown) {
@@ -259,6 +277,28 @@ export default function CandidateDetail() {
 
   const partyBg = getPartyColor(candidate.party);
 
+  // ── 검증정보 (선관위 후보자정보 CSV import) — mock/mayor 후보는 session에 없으므로 fresh load ──
+  const verifData = sessionCandidate ?? loadCandidateFromSession(decodedId);
+  const criminalRecords = Array.isArray(verifData?.criminalRecords) ? verifData!.criminalRecords : [];
+  const criminalLines = criminalRecords
+    .map((r) => (typeof r === "string" ? r : `${r.title ?? r.crime ?? r.summary ?? "내용 미상"}${r.date ? ` (${r.date})` : ""}`))
+    .filter(Boolean);
+  const verification = {
+    district: verifData?.districtName ?? null,
+    job: verifData?.job ?? null,
+    property: verifData?.propertyAmount ?? null,
+    military: verifData?.militaryService ?? null,
+    taxPaid: verifData?.taxPaid ?? null,
+    taxArrears: verifData?.taxArrears ?? null,
+    candidacy: verifData?.candidacyHistory ?? null,
+    criminalText: verifData?.criminal ?? null,
+  };
+  const hasVerification = !!(
+    verification.property || verification.military || verification.taxPaid ||
+    verification.taxArrears || verification.candidacy || verification.criminalText ||
+    criminalLines.length
+  );
+
   return (
     <>
       <motion.div
@@ -344,6 +384,24 @@ export default function CandidateDetail() {
               <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                  </div>
+                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">선거구</span>
+                </div>
+                <p className="text-[13px] font-bold text-gray-800 leading-snug">{verification.district || "정보 없음"}</p>
+              </div>
+              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-indigo-600" />
+                  </div>
+                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">직업</span>
+                </div>
+                <p className="text-[13px] font-bold text-gray-800 leading-snug">{verification.job || "정보 없음"}</p>
+              </div>
+              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
                   </div>
                   <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">학력</span>
@@ -357,9 +415,92 @@ export default function CandidateDetail() {
                   </div>
                   <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">주요 경력</span>
                 </div>
-                <p className="text-[13px] font-bold text-gray-800 leading-snug">{candidate.career || "정보 없음"}</p>
+                <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{candidate.career || "정보 없음"}</p>
               </div>
+              {verification.candidacy && (
+                <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50 md:col-span-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                      <Vote className="w-3.5 h-3.5 text-indigo-600" />
+                    </div>
+                    <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">공직선거 입후보 경력</span>
+                  </div>
+                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.candidacy}</p>
+                </div>
+              )}
             </div>
+          </section>
+
+          {/* ── 검증 정보 (재산·병역·세금·전과) ── */}
+          <section className="p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-[16px] font-black text-gray-900">검증 정보</h3>
+              <span className="text-[11px] text-gray-400 font-medium ml-1">선관위 후보자정보 기준</span>
+            </div>
+            {!hasVerification ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-dashed border-gray-200">
+                <ShieldQuestion className="w-8 h-8 text-gray-300" />
+                <p className="text-[14px] font-bold text-gray-700">검증 정보가 아직 등록되지 않았습니다</p>
+                <p className="text-[12px] text-gray-400 text-center max-w-xs">재산·병역·세금·전과 등 선관위 후보자정보가 반영되면 자동으로 표시됩니다.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 재산 */}
+                <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Landmark className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[11px] font-black text-emerald-700 uppercase tracking-tight">재산 신고액</span>
+                  </div>
+                  <p className="text-[15px] font-black text-emerald-800 leading-snug">{verification.property || "정보 없음"}</p>
+                </div>
+                {/* 병역 */}
+                <div className="bg-sky-50/50 rounded-2xl p-4 border border-sky-100/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <ShieldCheck className="w-4 h-4 text-sky-600" />
+                    <span className="text-[11px] font-black text-sky-700 uppercase tracking-tight">병역 사항</span>
+                  </div>
+                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.military || "정보 없음"}</p>
+                </div>
+                {/* 세금 납부 */}
+                <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Receipt className="w-4 h-4 text-amber-600" />
+                    <span className="text-[11px] font-black text-amber-700 uppercase tracking-tight">세금 납부</span>
+                  </div>
+                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.taxPaid || "정보 없음"}</p>
+                </div>
+                {/* 세금 체납 */}
+                <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-100/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Receipt className="w-4 h-4 text-rose-600" />
+                    <span className="text-[11px] font-black text-rose-700 uppercase tracking-tight">세금 체납</span>
+                  </div>
+                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.taxArrears || "없음"}</p>
+                </div>
+                {/* 전과 기록 */}
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 sm:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Scale className="w-4 h-4 text-gray-600" />
+                    <span className="text-[11px] font-black text-gray-700 uppercase tracking-tight">전과 기록</span>
+                  </div>
+                  {criminalLines.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {criminalLines.map((line, i) => (
+                        <li key={i} className="text-[13px] font-bold text-rose-700 flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : verification.criminalText ? (
+                    <p className="text-[13px] font-bold text-rose-700 leading-snug whitespace-pre-line">{verification.criminalText}</p>
+                  ) : (
+                    <p className="text-[13px] font-bold text-emerald-700">전과 기록 없음</p>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── 핵심 공약 ── */}

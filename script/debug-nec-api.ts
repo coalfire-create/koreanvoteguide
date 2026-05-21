@@ -22,7 +22,7 @@ async function testApi() {
 
   for (const sgId of SG_IDS_TO_TEST) {
     for (const sgTypecode of SG_TYPE_CODES) {
-      const url = `${CANDIDATE_API_BASE}/getPoelpcddRegistSttusInfoInqire`;
+      const url = `${CANDIDATE_API_BASE}/getPofelcddRegistSttusInfoInqire`;
       const params = {
         serviceKey: SERVICE_KEY,
         pageNo: "1",

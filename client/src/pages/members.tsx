@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useState, useMemo } from "react";
 import {
   Search, Users, ChevronDown, FileText, Vote, Sparkles,
-  UserPlus, UserCheck, Heart, Compass, Rss,
+  UserPlus, UserCheck, Heart, Compass, Rss, TrendingUp,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssemblyMembers } from "@/lib/api-data";
@@ -186,6 +186,18 @@ export default function Members() {
   const queryClient = useQueryClient();
   const { members, isLoading } = useAssemblyMembers();
 
+  interface TrendingMember {
+    id: string; name: string; party: string; district: string;
+    photo: string; primaryKeyword: string;
+    recentNewsCount: number; profileViewCount: number; followerCount: number; score: number;
+  }
+  const { data: trendingRaw } = useQuery<{ success: boolean; data: TrendingMember[] }>({
+    queryKey: ["/api/trending-members"],
+    queryFn: () => fetch("/api/trending-members").then((r) => r.json()),
+    staleTime: 10 * 60 * 1000,
+  });
+  const trendingMembers = trendingRaw?.data ?? [];
+
   // 팔로우 타임라인 (인스타 피드)
   const { data: timeline, isLoading: feedLoading } = useQuery<TimelineResponse>({
     queryKey: ["/api/feed/timeline"],
@@ -245,7 +257,11 @@ export default function Members() {
           const p = selectedParty === "전체" || m.party === selectedParty;
           return q && p;
         })
-        .sort((a, b) => getPartyRank(a.party) - getPartyRank(b.party)),
+        .sort((a, b) => {
+          // 전체 탭: 이름(가나다)순 — 특정 정당만 보면 쏠리지 않게
+          if (selectedParty === "전체" && !searchQuery) return a.name.localeCompare(b.name, "ko");
+          return getPartyRank(a.party) - getPartyRank(b.party);
+        }),
     [members, searchQuery, selectedParty],
   );
   const visibleMembers = filtered.slice(0, visibleCount);
@@ -390,6 +406,97 @@ export default function Members() {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
+              {/* ── 요즘 핫한 의원 ── */}
+              {trendingMembers.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-[9px] bg-orange-50 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-3.5 h-3.5 text-orange-500" />
+                    </div>
+                    <span className="text-[14px] font-black text-foreground">요즘 핫한 의원</span>
+                    <motion.span
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2 }}
+                      className="text-sm leading-none"
+                    >
+                      🔥
+                    </motion.span>
+                    <span className="text-[11px] text-muted-foreground ml-1">이번 주 급상승</span>
+                  </div>
+
+                  <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+                    {trendingMembers.map((m, i) => {
+                      const rankColors = ["#f59e0b", "#94a3b8", "#cd7c43", "#a1a1aa", "#a1a1aa"];
+                      const partyColor =
+                        m.party.includes("더불어민주당") ? "#3A6BFF"
+                        : m.party.includes("국민의힘") ? "#FF3B3B"
+                        : m.party.includes("조국혁신당") ? "#4338ca"
+                        : m.party.includes("개혁신당") ? "#f97316"
+                        : "#6b7280";
+                      const trendLabel =
+                        m.recentNewsCount > 0 ? `뉴스 ${m.recentNewsCount}건`
+                        : m.profileViewCount > 0 ? `조회 ${m.profileViewCount.toLocaleString()}`
+                        : m.followerCount > 0 ? `팔로워 ${m.followerCount}명`
+                        : "주목 의원";
+                      return (
+                        <motion.div
+                          key={m.id}
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.06 }}
+                          className="shrink-0"
+                        >
+                          <Link href={`/members/${m.id}`}>
+                            <div className="w-[110px] bg-card rounded-[20px] border border-border/30 shadow-sm hover:shadow-md hover:border-primary/20 transition-all p-3.5 flex flex-col items-center cursor-pointer active:scale-95">
+                              {/* Rank badge */}
+                              <div className="relative w-full flex justify-end mb-1.5">
+                                <span
+                                  className="text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center"
+                                  style={{ color: rankColors[i] ?? "#a1a1aa", background: `${rankColors[i] ?? "#a1a1aa"}18` }}
+                                >
+                                  {i + 1}
+                                </span>
+                              </div>
+                              {/* Photo */}
+                              <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-border/40 shadow-sm mb-2.5">
+                                <PoliticianPhoto
+                                  name={m.name}
+                                  photo={m.photo}
+                                  monaCd={m.id}
+                                  context={m.party}
+                                  className="w-full h-full object-cover"
+                                  avatarClassName="w-full h-full flex items-center justify-center bg-muted text-muted-foreground/40 text-[18px] font-black"
+                                />
+                              </div>
+                              {/* Name */}
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-[13px] font-black text-foreground truncate">{m.name}</span>
+                                {i === 0 && (
+                                  <motion.span
+                                    animate={{ scale: [1, 1.15, 1] }}
+                                    transition={{ duration: 1.2, repeat: Infinity }}
+                                    className="text-[10px] leading-none"
+                                  >🔥</motion.span>
+                                )}
+                              </div>
+                              {/* Party */}
+                              <span className="text-[9px] font-bold truncate w-full text-center" style={{ color: partyColor }}>
+                                {m.party.replace("더불어", "").replace("당", "당")}
+                              </span>
+                              {/* Trend */}
+                              <div className="flex items-center gap-0.5 mt-1.5">
+                                <TrendingUp className="w-2.5 h-2.5 text-orange-400 shrink-0" />
+                                <span className="text-[9px] font-bold text-orange-500 truncate">{trendLabel}</span>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* 정당 필터 */}
               <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
                 {parties.map((p) => {

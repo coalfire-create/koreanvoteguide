@@ -4,7 +4,7 @@ import {
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc, inArray, or } from "drizzle-orm";
+import { eq, desc, sql, and, asc, inArray, or, isNull, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -27,7 +27,12 @@ export interface IStorage {
   createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments?: any[], contentType?: string, hasPoll?: boolean): Promise<CommunityPost>;
   incrementViewCount(postId: string): Promise<void>;
   getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]>;
+  getComment(id: string): Promise<CommunityComment | undefined>;
   createComment(postId: string, userId: string, content: string, anonNickname: string, authorType?: string, displayName?: string | null, isVerified?: boolean): Promise<CommunityComment & { authorBadges: string[] }>;
+  updatePost(id: string, fields: { title?: string; content?: string; category?: string }): Promise<CommunityPost | undefined>;
+  softDeletePost(id: string): Promise<void>;
+  updateComment(id: string, content: string): Promise<void>;
+  softDeleteComment(id: string): Promise<void>;
   addReaction(postId: string, userId: string, type: string): Promise<void>;
   getUserReactions(postId: string, userId: string): Promise<{ sentiment: string | null; stance: string | null }>;
   createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void>;
@@ -169,8 +174,11 @@ export class DatabaseStorage implements IStorage {
       ? desc(communityPosts.viewCount)
       : desc(communityPosts.createdAt);
       
-    // Build conditions
-    const conditions = [];
+    // Build conditions — 모더레이션(숨김)·삭제된 글은 목록에서 제외
+    const conditions: (SQL<unknown> | undefined)[] = [
+      isNull(communityPosts.hiddenAt),
+      isNull(communityPosts.deletedAt),
+    ];
     if (opts.boardType) conditions.push(eq(communityPosts.boardType, opts.boardType));
     if (opts.category) conditions.push(eq(communityPosts.category, opts.category));
     if (opts.legislatorId) {
@@ -203,6 +211,7 @@ export class DatabaseStorage implements IStorage {
     const counts = await db
       .select({ postId: communityComments.postId, count: sql<number>`count(*)::int` })
       .from(communityComments)
+      .where(isNull(communityComments.deletedAt))
       .groupBy(communityComments.postId);
     const countMap = new Map(counts.map((c) => [c.postId, c.count]));
 
@@ -229,7 +238,7 @@ export class DatabaseStorage implements IStorage {
     let allComments: any[] = [];
     let commentLikes = new Map<string, number>();
     if (posts.length > 0) {
-      allComments = await db.select().from(communityComments).where(inArray(communityComments.postId, posts.map(p => p.id)));
+      allComments = await db.select().from(communityComments).where(and(inArray(communityComments.postId, posts.map(p => p.id)), isNull(communityComments.deletedAt)));
       const commentIds = allComments.map(c => c.id);
       if (commentIds.length > 0) {
         const { reactions } = await import("@shared/schema");
@@ -257,7 +266,8 @@ export class DatabaseStorage implements IStorage {
 
   async getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined> {
     const [post] = await db.select().from(communityPosts).where(eq(communityPosts.id, id));
-    if (!post) return undefined;
+    // 숨김(모더레이션)·삭제된 글은 직접 링크로도 열람 불가
+    if (!post || post.hiddenAt || post.deletedAt) return undefined;
     const badges = await this.getUserBadges(post.userId);
     const [authorRow] = await db.select({ name: users.name }).from(users).where(eq(users.id, post.userId));
     const authorName = authorRow ? (authorRow.name.length <= 1 ? authorRow.name : authorRow.name[0] + "*".repeat(authorRow.name.length - 2) + authorRow.name[authorRow.name.length - 1]) : "";
@@ -294,7 +304,7 @@ export class DatabaseStorage implements IStorage {
     const comments = await db
       .select()
       .from(communityComments)
-      .where(eq(communityComments.postId, postId))
+      .where(and(eq(communityComments.postId, postId), isNull(communityComments.deletedAt)))
       .orderBy(communityComments.createdAt);
     const userIds = Array.from(new Set(comments.map((c) => c.userId)));
     const authorBadgeMap = new Map<string, string[]>();
@@ -317,6 +327,41 @@ export class DatabaseStorage implements IStorage {
     const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname, authorType, displayName: displayName ?? null, isVerified }).returning();
     const badges = await this.getUserBadges(userId);
     return { ...comment, authorBadges: badges };
+  }
+
+  // 단일 댓글 조회 — 소유자 검증용. 삭제된 댓글은 반환하지 않는다.
+  async getComment(id: string): Promise<CommunityComment | undefined> {
+    const [comment] = await db.select().from(communityComments).where(eq(communityComments.id, id));
+    if (!comment || comment.deletedAt) return undefined;
+    return comment;
+  }
+
+  async updatePost(id: string, fields: { title?: string; content?: string; category?: string }): Promise<CommunityPost | undefined> {
+    const patch: Partial<typeof communityPosts.$inferInsert> = {};
+    if (fields.title !== undefined) patch.title = fields.title;
+    if (fields.content !== undefined) patch.content = fields.content;
+    if (fields.category !== undefined) patch.category = fields.category;
+    if (Object.keys(patch).length === 0) return this.getPost(id);
+    const [updated] = await db.update(communityPosts).set(patch).where(eq(communityPosts.id, id)).returning();
+    return updated;
+  }
+
+  async softDeletePost(id: string): Promise<void> {
+    const [deleted] = await db.update(communityPosts).set({ deletedAt: new Date() } as any)
+      .where(and(eq(communityPosts.id, id), isNull(communityPosts.deletedAt)))
+      .returning({ userId: communityPosts.userId });
+    // 작성자 글 카운트 감소(0 미만 방지) — 익명/탈퇴 사용자는 users 행이 없어 영향 없음
+    if (deleted) {
+      await db.execute(sql`UPDATE users SET post_count = GREATEST(post_count - 1, 0) WHERE id = ${deleted.userId}`);
+    }
+  }
+
+  async updateComment(id: string, content: string): Promise<void> {
+    await db.update(communityComments).set({ content }).where(eq(communityComments.id, id));
+  }
+
+  async softDeleteComment(id: string): Promise<void> {
+    await db.update(communityComments).set({ deletedAt: new Date() } as any).where(eq(communityComments.id, id));
   }
 
   async toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }> {

@@ -83,7 +83,7 @@ export default function CommunityBookmarks() {
               <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-sm mb-1 line-clamp-1">{post.title}</h3>
-                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{post.content}</p>
+                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{post.content.replace(/<[^>]*>/g, ' ')}</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] text-muted-foreground">익명의 유권자</span>

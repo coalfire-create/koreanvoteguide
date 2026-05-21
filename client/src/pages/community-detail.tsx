@@ -8,16 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   ThumbsUp, ThumbsDown, MessageCircle, ArrowLeft, Flag,
-  MoreVertical, CheckCircle, XCircle, Bookmark, BookmarkCheck, Eye,
+  MoreVertical, CheckCircle, XCircle, Bookmark, BookmarkCheck, Eye, Pencil, Trash2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BADGE_LABELS } from "@shared/schema";
+import DOMPurify from "dompurify";
 
 interface SanitizedPost {
   id: string;
@@ -35,6 +36,8 @@ interface SanitizedPost {
   disagreeCount: number;
   authorBadges: string[];
   hasPoll?: boolean;
+  contentType?: string;
+  isMine?: boolean;
   createdAt: string;
 }
 
@@ -45,6 +48,7 @@ interface SanitizedComment {
   anonNickname: string;
   displayName: string;
   isAuthor: boolean;
+  isMine?: boolean;
   authorBadges: string[];
   createdAt: string;
 }
@@ -82,6 +86,8 @@ export default function CommunityDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [commentText, setCommentText] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
 
   const { data, isLoading } = useQuery<PostDetailData>({
     queryKey: ["/api/community/posts", params.id],
@@ -138,6 +144,61 @@ export default function CommunityDetail() {
       toast({ title: "신고 접수", description: "신고가 접수되었습니다. 검토 후 조치하겠습니다." });
     },
   });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/community/posts/${params.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
+      toast({ title: "삭제 완료", description: "게시글이 삭제되었습니다." });
+      navigate("/community");
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "삭제 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      await apiRequest("DELETE", `/api/community/comments/${commentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
+      toast({ title: "삭제 완료", description: "댓글이 삭제되었습니다." });
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "댓글 삭제 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const updateCommentMutation = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/community/comments/${commentId}`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditingCommentId(null);
+      setEditCommentText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts", params.id] });
+    },
+    onError: (err: any) => {
+      toast({ title: "오류", description: err.message || "댓글 수정 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  function handleDeletePost() {
+    if (window.confirm("이 게시글을 삭제하시겠습니까? 삭제 후에는 되돌릴 수 없습니다.")) {
+      deletePostMutation.mutate();
+    }
+  }
+
+  function handleDeleteComment(commentId: string) {
+    if (window.confirm("이 댓글을 삭제하시겠습니까?")) {
+      deleteCommentMutation.mutate(commentId);
+    }
+  }
 
   function handleReact(type: string) {
     // 좋아요/싫어요/찬반 모두 비로그인 허용 (서버가 세션 기반으로 중복 방지)
@@ -226,10 +287,23 @@ export default function CommunityDetail() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {post.isMine && (
+                    <>
+                      <DropdownMenuItem onClick={() => navigate(`/community/write?edit=${post.id}`)}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />
+                        수정
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
+                        <Trash2 className="w-3.5 h-3.5 mr-2" />
+                        삭제
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   {reportReasons.map((reason) => (
                     <DropdownMenuItem
                       key={reason}
-                      onClick={() => user && reportMutation.mutate({ reason, postId: post.id })}
+                      onClick={() => user ? reportMutation.mutate({ reason, postId: post.id }) : requireLoginToast()}
                       className="text-destructive"
                     >
                       <Flag className="w-3.5 h-3.5 mr-2" />
@@ -241,8 +315,15 @@ export default function CommunityDetail() {
             </div>
           </div>
 
-          {/* 본문 */}
-          <p className="text-sm leading-relaxed whitespace-pre-wrap mb-5">{post.content}</p>
+          {/* 본문 — rich(HTML) 글은 DOMPurify로 정화 후 렌더, 평문은 그대로 표시 */}
+          {post.contentType === "rich" ? (
+            <div
+              className="prose prose-sm max-w-none text-sm leading-relaxed mb-5"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+            />
+          ) : (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap mb-5">{post.content}</p>
+          )}
 
           {/* 찬반 */}
           {post.hasPoll && (
@@ -343,10 +424,29 @@ export default function CommunityDetail() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {c.isMine && (
+                            <>
+                              <DropdownMenuItem
+                                className="text-xs"
+                                onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); }}
+                              >
+                                <Pencil className="w-3 h-3 mr-1.5" />
+                                수정
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive text-xs"
+                                onClick={() => handleDeleteComment(c.id)}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1.5" />
+                                삭제
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
                           {reportReasons.map((reason) => (
                             <DropdownMenuItem
                               key={reason}
-                              onClick={() => user && reportMutation.mutate({ reason, commentId: c.id })}
+                              onClick={() => user ? reportMutation.mutate({ reason, commentId: c.id }) : requireLoginToast()}
                               className="text-destructive text-xs"
                             >
                               <Flag className="w-3 h-3 mr-1.5" />
@@ -357,7 +457,36 @@ export default function CommunityDetail() {
                       </DropdownMenu>
                     </div>
                   </div>
-                  <p className="text-xs leading-relaxed">{c.content}</p>
+                  {editingCommentId === c.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editCommentText}
+                        onChange={(e) => setEditCommentText(e.target.value)}
+                        className="min-h-[60px] text-xs resize-none"
+                        maxLength={500}
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => { setEditingCommentId(null); setEditCommentText(""); }}
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!editCommentText.trim() || updateCommentMutation.isPending}
+                          onClick={() => updateCommentMutation.mutate({ commentId: c.id, content: editCommentText.trim() })}
+                        >
+                          {updateCommentMutation.isPending ? "저장 중..." : "저장"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs leading-relaxed">{c.content}</p>
+                  )}
                 </CardContent>
               </Card>
             ))}

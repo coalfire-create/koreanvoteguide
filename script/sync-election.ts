@@ -30,9 +30,11 @@ function printSummary(summary: SyncSummary) {
 }
 
 async function main() {
-  console.log("===== 지방선거 데이터 Deep Sync 시작 =====");
+  // 인자로 sgTypecode를 주면 해당 유형만 동기화 (예: `npm run sync:candidates -- 2`)
+  const typeCodes = process.argv.slice(2).filter((a) => /^\d+$/.test(a));
+  console.log(`===== 지방선거 데이터 Deep Sync 시작 =====${typeCodes.length ? ` (유형 ${typeCodes.join(",")})` : ""}`);
   try {
-    const summary = await syncElectionCandidates();
+    const summary = await syncElectionCandidates(typeCodes.length ? typeCodes : undefined);
     printSummary(summary);
     console.log("===== 모든 데이터 동기화 성공 =====");
     process.exit(0);

@@ -158,6 +158,15 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 커뮤니티 글/댓글 작성·수정 — 도배 방지(전역 120/분보다 엄격). IP 기준 공유 카운트.
+const communityWriteLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1분
+  max: 20,
+  message: { error: "글/댓글 작성이 너무 잦습니다. 잠시 후 다시 시도해주세요." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ===== 뉴스 캐시 (15분) =====
 let newsCache: { items: NewsItem[]; grouped: NewsGroup[]; cachedAt: number } | null = null;
 const NEWS_CACHE_TTL = 15 * 60 * 1000;
@@ -3142,7 +3151,9 @@ export async function registerRoutes(
     }
   });
 
-  function sanitizePost(post: any) {
+  // actorId: 현재 요청자 식별자(로그인 userId 또는 anon:<uuid>). 본인 글이면 isMine=true.
+  // userId 는 응답에서 제거하되, 작성자 본인에게만 수정/삭제 UI를 노출하기 위한 플래그를 추가한다.
+  function sanitizePost(post: any, actorId?: string | null) {
     const { userId, ...safe } = post;
     return {
       ...safe,
@@ -3152,10 +3163,11 @@ export async function registerRoutes(
       isVerified: post.isVerified || false,
       nickname: post.anonNickname,
       authorBadges: post.authorBadges ?? [],
+      isMine: !!actorId && userId === actorId,
     };
   }
 
-  function sanitizeComment(comment: any, postUserId: string) {
+  function sanitizeComment(comment: any, postUserId: string, actorId?: string | null) {
     const { userId, ...safe } = comment;
     return {
       ...safe,
@@ -3164,6 +3176,7 @@ export async function registerRoutes(
       isVerified: comment.isVerified || false,
       isAuthor: comment.userId === postUserId,
       authorBadges: comment.authorBadges ?? [],
+      isMine: !!actorId && comment.userId === actorId,
     };
   }
   // ===== 인메모리 데일리 투표 시스템 =====
@@ -3616,7 +3629,7 @@ export async function registerRoutes(
     }
   });
 
-  // 오늘 가장 좋아요가 많은 게시물 1건 (홈 "가장 인기있는 토론" 위젯). 오늘 글이 없으면 전체 기간 최다 추천글로 폴백.
+  // 오늘 가장 좋아요가 많은 게시물 최대 5건 (홈 "가장 인기있는 토론" 위젯). 오늘 글이 없으면 전체 기간 최다 추천글로 폴백.
   app.get("/api/community/top-liked", async (_req, res) => {
     try {
       const startOfToday = new Date();
@@ -3640,7 +3653,7 @@ export async function registerRoutes(
         .from(communityPosts)
         .where(and(...baseConditions, gte(communityPosts.createdAt, startOfToday)))
         .orderBy(desc(communityPosts.likes), desc(communityPosts.createdAt))
-        .limit(1);
+        .limit(5);
 
       if (rows.length === 0) {
         rows = await db
@@ -3648,10 +3661,10 @@ export async function registerRoutes(
           .from(communityPosts)
           .where(and(...baseConditions))
           .orderBy(desc(communityPosts.likes), desc(communityPosts.createdAt))
-          .limit(1);
+          .limit(5);
       }
 
-      res.json(rows[0] ?? null);
+      res.json(rows);
     } catch (e: any) {
       console.error("[top-liked] error:", e.message);
       res.status(500).json({ error: e.message });
@@ -3688,7 +3701,8 @@ export async function registerRoutes(
         tagType: tagType || undefined,
         tagId: tagId || undefined,
       });
-      res.json(posts.map(sanitizePost));
+      const listActorId = peekActorId(req);
+      res.json(posts.map((p) => sanitizePost(p, listActorId)));
     } catch (error) {
       console.error("Get posts error:", error);
       res.status(500).json({ error: "게시글 조회 중 오류가 발생했습니다" });
@@ -3717,8 +3731,8 @@ export async function registerRoutes(
         isBookmarked = bookmarks.includes(post.id);
       }
       res.json({
-        post: sanitizePost(post),
-        comments: comments.map((c) => sanitizeComment(c, post.userId)),
+        post: sanitizePost(post, activeUserId),
+        comments: comments.map((c) => sanitizeComment(c, post.userId, activeUserId)),
         userReactions,
         isBookmarked,
       });
@@ -3728,7 +3742,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/community/posts", async (req, res) => {
+  app.post("/api/community/posts", communityWriteLimiter, async (req, res) => {
     try {
       const result = insertPostSchema.safeParse(req.body);
       if (!result.success) {
@@ -3815,10 +3829,61 @@ export async function registerRoutes(
         result.data.hasPoll ?? false,
       );
       const authorBadges = !isAnonId(userId) ? await storage.getUserBadges(userId) : [];
-      res.json(sanitizePost({ ...post, authorBadges, authorName: "" }));
+      res.json(sanitizePost({ ...post, authorBadges, authorName: "" }, userId));
     } catch (error) {
       console.error("Create post error:", error);
       res.status(500).json({ error: "게시글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  // 게시글 수정 — 작성자 본인만. 제목/내용/카테고리만 변경 가능(게시판/태그는 고정).
+  app.patch("/api/community/posts/:id", communityWriteLimiter, async (req, res) => {
+    try {
+      const post = await storage.getPost(req.params.id as string);
+      if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      const actorId = getActorId(req);
+      if (post.userId !== actorId) {
+        return res.status(403).json({ error: "본인이 작성한 글만 수정할 수 있습니다" });
+      }
+      const { title, content, category } = req.body as { title?: string; content?: string; category?: string };
+      const fields: { title?: string; content?: string; category?: string } = {};
+      if (title !== undefined) {
+        const safeTitle = sanitizeText(title, 200);
+        if (!safeTitle) return res.status(400).json({ error: "제목을 다시 확인해주세요" });
+        fields.title = safeTitle;
+      }
+      if (content !== undefined) {
+        const safeContent = sanitizeHtml(content);
+        if (!safeContent) return res.status(400).json({ error: "내용을 다시 확인해주세요" });
+        fields.content = safeContent;
+      }
+      if (category !== undefined && ["자유", "토론", "정보공유", "질문"].includes(category)) {
+        fields.category = category;
+      }
+      const updated = await storage.updatePost(post.id, fields);
+      if (!updated) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      const authorBadges = !isAnonId(actorId) ? await storage.getUserBadges(actorId) : [];
+      res.json(sanitizePost({ ...updated, authorBadges, authorName: "" }, actorId));
+    } catch (error) {
+      console.error("Update post error:", error);
+      res.status(500).json({ error: "게시글 수정 중 오류가 발생했습니다" });
+    }
+  });
+
+  // 게시글 삭제 — 작성자 본인만(soft delete). 목록/상세에서 즉시 숨김 처리된다.
+  app.delete("/api/community/posts/:id", async (req, res) => {
+    try {
+      const post = await storage.getPost(req.params.id as string);
+      if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      const actorId = getActorId(req);
+      if (post.userId !== actorId) {
+        return res.status(403).json({ error: "본인이 작성한 글만 삭제할 수 있습니다" });
+      }
+      await storage.softDeletePost(post.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete post error:", error);
+      res.status(500).json({ error: "게시글 삭제 중 오류가 발생했습니다" });
     }
   });
 
@@ -3837,13 +3902,13 @@ export async function registerRoutes(
       if (postIds.length === 0) return res.json([]);
       const posts = await storage.getPosts();
       const bookmarked = posts.filter((p) => postIds.includes(p.id));
-      res.json(bookmarked.map(sanitizePost));
+      res.json(bookmarked.map((p) => sanitizePost(p, req.session.userId)));
     } catch (error) {
       res.status(500).json({ error: "북마크 조회 중 오류가 발생했습니다" });
     }
   });
 
-  app.post("/api/community/posts/:id/comments", async (req, res) => {
+  app.post("/api/community/posts/:id/comments", communityWriteLimiter, async (req, res) => {
     try {
       const result = insertCommentSchema.safeParse(req.body);
       if (!result.success) {
@@ -3851,6 +3916,10 @@ export async function registerRoutes(
       }
       const post = await storage.getPost(req.params.id as string);
       if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
+      // 회원 게시판 글은 조회와 마찬가지로 댓글도 로그인 필요
+      if (post.boardType === "members" && !req.session.userId) {
+        return res.status(401).json({ error: "회원 게시판은 로그인이 필요합니다" });
+      }
 
       const requestedAuthorType = (req.body.authorType as string) || "anonymous";
       const userId = getActorId(req);
@@ -3883,10 +3952,47 @@ export async function registerRoutes(
         return res.status(400).json({ error: "댓글 내용을 입력하세요" });
       }
       const comment = await storage.createComment(post.id, userId, safeContent, anonNickname, authorType, displayName, isVerified);
-      res.json(sanitizeComment(comment, post.userId));
+      res.json(sanitizeComment(comment, post.userId, userId));
     } catch (error) {
       console.error("Create comment error:", error);
       res.status(500).json({ error: "댓글 작성 중 오류가 발생했습니다" });
+    }
+  });
+
+  // 댓글 수정 — 작성자 본인만. 평문만 허용.
+  app.patch("/api/community/comments/:id", communityWriteLimiter, async (req, res) => {
+    try {
+      const comment = await storage.getComment(req.params.id as string);
+      if (!comment) return res.status(404).json({ error: "댓글을 찾을 수 없습니다" });
+      const actorId = getActorId(req);
+      if (comment.userId !== actorId) {
+        return res.status(403).json({ error: "본인이 작성한 댓글만 수정할 수 있습니다" });
+      }
+      const safeContent = sanitizeText((req.body?.content as string) ?? "", 2000);
+      if (!safeContent) return res.status(400).json({ error: "댓글 내용을 입력하세요" });
+      await storage.updateComment(comment.id, safeContent);
+      const post = await storage.getPost(comment.postId);
+      res.json(sanitizeComment({ ...comment, content: safeContent }, post?.userId ?? "", actorId));
+    } catch (error) {
+      console.error("Update comment error:", error);
+      res.status(500).json({ error: "댓글 수정 중 오류가 발생했습니다" });
+    }
+  });
+
+  // 댓글 삭제 — 작성자 본인만(soft delete).
+  app.delete("/api/community/comments/:id", async (req, res) => {
+    try {
+      const comment = await storage.getComment(req.params.id as string);
+      if (!comment) return res.status(404).json({ error: "댓글을 찾을 수 없습니다" });
+      const actorId = getActorId(req);
+      if (comment.userId !== actorId) {
+        return res.status(403).json({ error: "본인이 작성한 댓글만 삭제할 수 있습니다" });
+      }
+      await storage.softDeleteComment(comment.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete comment error:", error);
+      res.status(500).json({ error: "댓글 삭제 중 오류가 발생했습니다" });
     }
   });
 
@@ -4414,7 +4520,7 @@ export async function registerRoutes(
       await storage.addReaction(req.params.id as string, userId, type);
       const post = await storage.getPost(req.params.id as string);
       const userReactions = await storage.getUserReactions(req.params.id as string, userId);
-      res.json({ post: post ? sanitizePost(post) : null, userReactions });
+      res.json({ post: post ? sanitizePost(post, userId) : null, userReactions });
     } catch (error) {
       console.error("React error:", error);
       res.status(500).json({ error: "반응 처리 중 오류가 발생했습니다" });
@@ -4634,6 +4740,107 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[bills/describe] unexpected error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== 법안 심층 AI 분석 (배경·수혜자·부담·영향) =====
+  // bills/describe 가 한 줄 요약이라면, 여기는 "왜 나왔고 누구에게 어떤 영향인지" 구조화 분석.
+  interface BillAnalysis {
+    background: string;       // 발의 배경·취지
+    beneficiaries: string;    // 혜택 보는 집단
+    drawbacks: string;        // 부담·불리해지는 집단
+    impact: string;           // 통과 시 예상 영향
+    keyPoints: string[];      // 핵심 포인트
+  }
+  const billAnalysisCache = new Map<string, BillAnalysis>();
+  const billAnalysisInFlight = new Map<string, Promise<BillAnalysis>>();
+  let billAnalysisActive = 0;
+  const BILL_ANALYSIS_MAX_CONCURRENT = 3;
+
+  app.post("/api/bills/analyze", async (req, res) => {
+    try {
+      const { billId, billName, committee, proposer, result, proposeDate } = req.body ?? {};
+      if (!billName || typeof billName !== "string") {
+        return res.status(400).json({ error: "billName 필요" });
+      }
+
+      const cacheKey = (billId && typeof billId === "string" ? billId : billName).trim();
+
+      // L1: 인메모리 캐시
+      const cached = billAnalysisCache.get(cacheKey);
+      if (cached) return res.json(cached);
+
+      // 동일 법안 in-flight 요청 재사용
+      if (billAnalysisInFlight.has(cacheKey)) {
+        try {
+          return res.json(await billAnalysisInFlight.get(cacheKey)!);
+        } catch {
+          return res.status(503).json({ error: "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." });
+        }
+      }
+
+      if (billAnalysisActive >= BILL_ANALYSIS_MAX_CONCURRENT) {
+        return res.status(429).json({ error: "분석 요청이 많습니다. 잠시 후 다시 시도해주세요.", analyzing: true });
+      }
+
+      if (!process.env.GROQ_API_KEY) {
+        return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
+      }
+
+      const ctx = [
+        proposer ? `대표발의: ${String(proposer).split("(")[0].trim()}` : "",
+        committee ? `소관위원회: ${committee}` : "",
+        result ? `심사상태: ${result}` : "",
+        proposeDate ? `발의일: ${proposeDate}` : "",
+      ].filter(Boolean).join(" / ");
+
+      const fallback: BillAnalysis = {
+        background: "이 법안의 배경 분석을 일시적으로 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        beneficiaries: "분석 정보가 잠시 후 표시됩니다.",
+        drawbacks: "분석 정보가 잠시 후 표시됩니다.",
+        impact: "분석 정보가 잠시 후 표시됩니다.",
+        keyPoints: [],
+      };
+
+      const generatePromise = (async (): Promise<BillAnalysis> => {
+        billAnalysisActive++;
+        try {
+          return await callLLMJsonOrFallback<BillAnalysis>(
+            {
+              system:
+                "당신은 대한민국 국회 법안을 시민 눈높이로 풀어 설명하는 정책 분석 전문가입니다. " +
+                "법안명과 메타데이터만으로 합리적으로 추론하되, 단정적 허위사실은 피하고 일반적 경향으로 서술하세요. " +
+                "정치적으로 중립적이어야 하며 특정 정당을 편들지 마세요. " +
+                "반드시 아래 JSON 스키마와 정확히 동일한 키만 사용하고, 그 외 텍스트(설명·코드펜스)는 절대 포함하지 마세요. " +
+                "모든 값은 한국어 평서문. background/impact는 2~3문장, beneficiaries/drawbacks는 1~2문장, keyPoints는 한 줄짜리 핵심 3개.\n" +
+                '{"background":"발의 배경과 취지","beneficiaries":"이 법안으로 혜택을 보는 집단과 그 이유","drawbacks":"부담이 커지거나 불리해지는 집단과 그 이유","impact":"통과 시 사회·경제적으로 예상되는 영향","keyPoints":["핵심1","핵심2","핵심3"]}',
+              user: `법안명: ${billName}${ctx ? `\n${ctx}` : ""}`,
+              temperature: 0.4,
+              maxTokens: 900,
+              label: "bills/analyze",
+            },
+            fallback,
+          );
+        } finally {
+          billAnalysisActive--;
+        }
+      })();
+
+      billAnalysisInFlight.set(cacheKey, generatePromise);
+
+      try {
+        const analysis = await generatePromise;
+        // 폴백(생성 실패)은 캐시하지 않음 — 다음 요청에서 재시도 가능하도록.
+        if (analysis !== fallback) {
+          billAnalysisCache.set(cacheKey, analysis);
+        }
+        return res.json(analysis);
+      } finally {
+        billAnalysisInFlight.delete(cacheKey);
+      }
+    } catch (error: any) {
+      console.error("[bills/analyze] error:", error);
+      return res.status(500).json({ error: error?.message || "분석 실패" });
     }
   });
 
@@ -5623,6 +5830,7 @@ export async function registerRoutes(
       // 2. Verify Election ID & Type
       const sgId = "20260603"; // 2026 지방선거
       let sgTypecode = "3"; // 기본 시·도지사선거
+      if (electionType === "assembly" || electionType === "national-assembly") sgTypecode = "2";
       if (electionType === "mayor") sgTypecode = "3";
       if (electionType === "district-head" || electionType === "district") sgTypecode = "4";
       if (electionType === "metro-council") sgTypecode = "5";
@@ -5631,6 +5839,7 @@ export async function registerRoutes(
 
       // DB electionType 한글 라벨 매핑
       const ELECTION_TYPE_LABELS: Record<string, string> = {
+        "2": "국회의원",
         "3": "시도지사",
         "4": "구시군의장",
         "5": "시도의원",
@@ -5687,8 +5896,18 @@ export async function registerRoutes(
           career2: row.career2 || null,
           edu: row.edu || null,
           age: row.age || null,
+          gender: row.gender || null,
+          birthday: row.birthday || null,
           pledges: Array.isArray(row.pledges) ? row.pledges : [],
           promises: Array.isArray(row.pledges) ? row.pledges : [],
+          // 검증정보 (선관위 CSV import) — null이면 클라이언트에서 "정보 없음" 처리
+          propertyAmount: row.propertyAmount || null,
+          militaryService: row.militaryService || null,
+          taxPaid: row.taxPaid || null,
+          taxArrears: row.taxArrears || null,
+          candidacyHistory: row.candidacyHistory || null,
+          criminal: row.criminal || null,
+          criminalRecords: Array.isArray(row.criminalRecords) ? row.criminalRecords : [],
           supportCount: 0,
           myVote: false,
         }));
@@ -5818,6 +6037,16 @@ export async function registerRoutes(
           career2: dbRow?.career2 || item.career2 || null,
           edu: dbRow?.edu || item.edu || null,
           age: dbRow?.age || item.age || null,
+          gender: dbRow?.gender || item.gender || null,
+          birthday: dbRow?.birthday || item.birthday || null,
+          // 검증정보 (선관위 CSV import). 외부 NEC API 폴백에는 없으므로 DB row에서만 채워짐.
+          propertyAmount: dbRow?.propertyAmount || null,
+          militaryService: dbRow?.militaryService || null,
+          taxPaid: dbRow?.taxPaid || null,
+          taxArrears: dbRow?.taxArrears || null,
+          candidacyHistory: dbRow?.candidacyHistory || null,
+          criminal: dbRow?.criminal || null,
+          criminalRecords: Array.isArray(dbRow?.criminalRecords) ? dbRow.criminalRecords : [],
           pledges,
           promises: pledges,
           supportCount: 0,
