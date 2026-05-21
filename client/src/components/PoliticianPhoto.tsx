@@ -29,7 +29,10 @@ export function PoliticianPhoto({
     const assemblyPhoto = monaCd ? `/api/photo/assembly/${monaCd}` : null;
     const ctxParam = context ? `&context=${encodeURIComponent(context)}` : "";
     const dynamicFallback = `/api/politician-photo?name=${encodeURIComponent(name)}${monaCd ? `&monaCd=${monaCd}` : ""}${ctxParam}`;
-    return [hardcoded, assemblyPhoto, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
+    // 명시적으로 업로드한 공식 사진(/uploads/…, 예: 선관위 후보자명부 엑셀에서 추출)은
+    // 본인 확정 사진이므로 hardcoded·동명이인 검색보다 최우선으로 사용.
+    const uploaded = photo && photo.startsWith("/uploads/") ? photo : null;
+    return [uploaded, hardcoded, assemblyPhoto, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
   }, [photo, resolvedUrl, name, monaCd, context]);
 
   // sources[0]이 바뀌면 (새 URL이 추가되면) srcIndex 리셋 — 이전에 실패한 인덱스로 고정되는 버그 방지.
