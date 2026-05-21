@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame } from "lucide-react";
+import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { saveCandidateToSession } from "@/pages/candidate-detail";
@@ -486,6 +486,18 @@ function RegionView({
               </button>
             </Link>
           </div>
+        </div>
+
+        {/* 선거 종류 탭 — 지방선거 / 국회의원 재보궐 */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <span className="px-5 py-2.5 rounded-full text-[13px] font-black bg-indigo-600 text-white shadow-md">
+            지방선거
+          </span>
+          <Link href="/assembly-election">
+            <button className="px-5 py-2.5 rounded-full text-[13px] font-black bg-card border border-border/50 text-muted-foreground hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center gap-1.5">
+              <Landmark className="w-4 h-4" /> 국회의원 재보궐
+            </button>
+          </Link>
         </div>
 
         {/* Main Grid: Left (Main Content) + Right (Widgets) */}

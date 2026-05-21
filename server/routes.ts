@@ -5785,6 +5785,63 @@ export async function registerRoutes(
     }
   });
 
+  // 국회의원 재보궐선거 후보 전용 — 14개 선거구(전국). 선거구별 그룹핑은 클라이언트에서.
+  app.get("/api/election/assembly", async (_req, res) => {
+    try {
+      const rows = await db
+        .select()
+        .from(electionCandidates)
+        .where(eq(electionCandidates.electionType, "국회의원"));
+      const proxyPhoto = (raw: string | null | undefined) =>
+        raw && /^https?:\/\/info\.nec\.go\.kr\//.test(raw)
+          ? `/api/photo/nec?url=${encodeURIComponent(raw)}`
+          : raw || null;
+      const PARTY_ORDER = ["더불어민주당", "국민의힘", "조국혁신당", "개혁신당", "진보당"];
+      const partyRank = (p: string) => {
+        const i = PARTY_ORDER.findIndex((x) => (p || "").includes(x));
+        return i < 0 ? 99 : i;
+      };
+      const payload = rows
+        .filter((r) => !["등록무효", "사퇴", "사망", "등록거부"].includes(r.candidateStatus || ""))
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          party: r.party || "무소속",
+          candidateStatus: r.candidateStatus || r.status || "등록",
+          regionCode: r.sdName,
+          sdName: r.sdName,
+          // 국회의원은 sggName(예: 북구갑)이 정식 선거구명 — districtName(wiwName)보다 우선.
+          districtName: r.sggName || r.districtName,
+          electionType: "assembly",
+          photo: proxyPhoto(r.photo),
+          job: r.job || null,
+          career: r.career || null,
+          career1: r.career1 || null,
+          career2: r.career2 || null,
+          edu: r.edu || null,
+          age: r.age || null,
+          gender: r.gender || null,
+          birthday: r.birthday || null,
+          pledges: Array.isArray(r.pledges) ? r.pledges : [],
+          promises: Array.isArray(r.pledges) ? r.pledges : [],
+          propertyAmount: r.propertyAmount || null,
+          militaryService: r.militaryService || null,
+          taxPaid: r.taxPaid || null,
+          taxArrears: r.taxArrears || null,
+          candidacyHistory: r.candidacyHistory || null,
+          criminal: r.criminal || null,
+          criminalRecords: Array.isArray(r.criminalRecords) ? r.criminalRecords : [],
+        }))
+        .sort((a, b) => {
+          const d = (a.districtName || "").localeCompare(b.districtName || "");
+          return d !== 0 ? d : partyRank(a.party) - partyRank(b.party);
+        });
+      res.json(payload);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/election/districts", async (req, res) => {
     try {
       const { regionCode } = req.query as { regionCode: string };

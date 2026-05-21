@@ -323,20 +323,25 @@ function getElectionTypeLabel(code: string): string {
 }
 
 // ============================================================
-// 5대 공약(공약본문) Deep Fetch — getPrmmddcInfo 계열
-// API 응답 키: prmsOrd(순번), goalCont(목표), methCont(이행방법),
-//             distCont(이행기간), deptCont(재원조달방안), prmsRealmName(분야)
-// 엔드포인트가 사업자별로 약간 다를 수 있어 후보 URL을 순회 시도한다.
+// 5대 공약(공약본문) Deep Fetch — ElecPrmsInfoInqireService/getCnddtElecPrmsInfoInqire
+// 후보 1명당 1개 아이템에 공약 1~10개가 평탄화되어 들어온다:
+//   prmsCnt(총 공약수), prmsOrd{i}(순번), prmsRealmName{i}(분야),
+//   prmsTitle{i}(제목), prmmCont{i}(본문 — □목표/□이행방법/□이행기간/□재원조달 포함)
+// param: serviceKey, sgId, sgTypecode, cnddtId(=huboid).
+// ⚠️ 단체장·교육감(시도지사/구시군의장/교육감)만 공약 제공. 의원(국회의원/시도의원/
+//    구시군의원)은 매니페스토 미등록 → INFO-03(빈 결과) 정상.
 // ============================================================
 
 export interface PledgeDetail {
-  /** 공약 순번 (1~5 또는 기타) */
+  /** 공약 순번 (1~10) */
   order: number;
   /** 분야 (예: 교통, 복지, 교육 등) */
   realmName: string | null;
-  /** 공약 제목 (= goalCont 헤더 또는 별도 title 필드) */
+  /** 공약 제목 */
   title: string;
-  /** 목표 — 원문 그대로 */
+  /** 카드용 짧은 설명(목표 첫 문장) */
+  description: string | null;
+  /** 목표 — 본문에서 파싱 (구조화 안 되면 본문 전체) */
   goalCont: string | null;
   /** 이행 방법 */
   methCont: string | null;
@@ -346,17 +351,40 @@ export interface PledgeDetail {
   deptCont: string | null;
 }
 
-const PLEDGE_API_CANDIDATES: { base: string; path: string }[] = [
-  // 공식 카탈로그상 알려진 후보 엔드포인트(승인 필요). 응답 스키마는 동일하다고 가정.
-  { base: CANDIDATE_API_BASE, path: "getPrmmddcInfoInqire" },
-  { base: CANDIDATE_API_BASE, path: "getPrmmddcInfo" },
-  { base: "https://apis.data.go.kr/9760000/EvtCnddtPbprInfoInqireService", path: "getCnddtPbprInfoInqire" },
-];
+// 공약 본문(prmmCont)을 □ 섹션 단위로 파싱. 알 수 없는 섹션은 목표(goal)에 덧붙여 무손실 보존.
+function parsePrmmCont(raw: string | null): {
+  goal: string | null; method: string | null; duration: string | null; funding: string | null;
+} {
+  const text = (raw || "").trim();
+  const res = { goal: null as string | null, method: null as string | null, duration: null as string | null, funding: null as string | null };
+  if (!text) return res;
+  const parts = text.split(/[□■◇▣]/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) { res.goal = text; return res; }
+  const extra: string[] = [];
+  for (const part of parts) {
+    const sep = part.search(/[\n:]/);
+    const header = (sep < 0 ? part : part.slice(0, sep)).replace(/\s+/g, "");
+    const body = (sep < 0 ? part : part.slice(sep + 1)).trim() || part;
+    if (/목표|목적/.test(header) && !res.goal) res.goal = body;
+    else if (/이행방법|추진방법|추진계획|이행방안|방법/.test(header) && !res.method) res.method = body;
+    else if (/이행기간|추진기간|완료시기|이행시기|기간/.test(header) && !res.duration) res.duration = body;
+    else if (/재원|재정|소요예산|예산확보|예산|조달/.test(header) && !res.funding) res.funding = body;
+    else extra.push(`□ ${part}`);
+  }
+  if (!res.goal) res.goal = extra.length ? extra.join("\n\n") : text;
+  else if (extra.length) res.goal = `${res.goal}\n\n${extra.join("\n\n")}`;
+  return res;
+}
+
+const PLEDGE_API = {
+  base: "https://apis.data.go.kr/9760000/ElecPrmsInfoInqireService",
+  path: "getCnddtElecPrmsInfoInqire",
+};
 
 /**
- * 후보 한 명의 5대 공약 본문을 가져온다.
- * - 키 후보가 여러 개이므로 첫 성공 엔드포인트를 사용한다.
- * - API가 응답 없음/권한 오류면 빈 배열을 반환한다 (스킵 가능).
+ * 후보 한 명의 5대 공약 본문을 가져온다(ElecPrmsInfoInqireService).
+ * - 응답은 후보당 1개 아이템 + prmsTitle{i}/prmmCont{i} 평탄화 → 펼쳐서 반환.
+ * - 공약 미등록(INFO-03)·오류 시 빈 배열.
  */
 export async function fetchPledgesForCandidate(params: {
   sgId: string;
@@ -367,57 +395,52 @@ export async function fetchPledgesForCandidate(params: {
   const { sgId, sgTypecode, huboid } = params;
   if (!huboid) return [];
 
-  for (const ep of PLEDGE_API_CANDIDATES) {
-    try {
-      const resp = await axios.get(`${ep.base}/${ep.path}`, {
-        params: {
-          serviceKey: SERVICE_KEY,
-          sgId,
-          sgTypecode,
-          huboid,
-          numOfRows: "20",
-          pageNo: "1",
-          resultType: "json",
-        },
-        timeout: 15000,
+  try {
+    const resp = await axios.get(`${PLEDGE_API.base}/${PLEDGE_API.path}`, {
+      params: {
+        serviceKey: SERVICE_KEY,
+        sgId,
+        sgTypecode,
+        cnddtId: huboid,
+        numOfRows: "10",
+        pageNo: "1",
+        resultType: "json",
+      },
+      timeout: 15000,
+    });
+    const body = resp.data?.response?.body ?? {};
+    const raw = body?.items?.item ?? [];
+    const item: any = Array.isArray(raw) ? raw[0] : raw;
+    if (!item) return [];
+
+    const count = Number(item.prmsCnt ?? 0) || 0;
+    const max = count > 0 ? Math.min(count, 10) : 10;
+    const pledges: PledgeDetail[] = [];
+    for (let i = 1; i <= max; i++) {
+      const title = toNullable(item[`prmsTitle${i}`]);
+      const cont = toNullable(item[`prmmCont${i}`]);
+      if (!title && !cont) continue;
+      const order = Number(item[`prmsOrd${i}`] ?? i) || i;
+      const realmName = toNullable(item[`prmsRealmName${i}`]);
+      const sec = parsePrmmCont(cont);
+      const description = sec.goal
+        ? sec.goal.replace(/^[○\-\s]+/, "").split(/[\n.]/)[0].slice(0, 90)
+        : null;
+      pledges.push({
+        order,
+        realmName,
+        title: title ?? (description || `공약 ${order}`),
+        description,
+        goalCont: sec.goal,
+        methCont: sec.method,
+        distCont: sec.duration,
+        deptCont: sec.funding,
       });
-      const body = resp.data?.response?.body ?? {};
-      const raw = body?.items?.item ?? [];
-      const items: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
-      if (items.length === 0) continue;
-
-      return items.map((it, idx) => normalizePledgeItem(it, idx + 1));
-    } catch (err: any) {
-      // 권한/엔드포인트 미존재는 다음 후보로 시도
-      const code = err?.response?.status;
-      if (code === 404 || code === 400 || code === 403) continue;
-      // 그 외 일시적 오류면 즉시 빈 배열 (상위에서 폴백)
-      return [];
     }
+    return pledges;
+  } catch (err: any) {
+    return [];
   }
-  return [];
-}
-
-function normalizePledgeItem(it: any, fallbackOrder: number): PledgeDetail {
-  const order = Number(it?.prmsOrd ?? it?.prmsOrdr ?? it?.ord ?? fallbackOrder) || fallbackOrder;
-  const realmName =
-    toNullable(it?.prmsRealmName) ?? toNullable(it?.realmName) ?? toNullable(it?.prmsRlmName) ?? null;
-  // title은 별도 컬럼이 없으면 목표(goalCont)의 1-2문장을 활용
-  const goalCont = toNullable(it?.goalCont) ?? toNullable(it?.goal) ?? null;
-  const title =
-    toNullable(it?.prmsTitle) ??
-    toNullable(it?.title) ??
-    (goalCont ? goalCont.split(/[\n.]/)[0].slice(0, 80) : `공약 ${order}`);
-
-  return {
-    order,
-    realmName,
-    title,
-    goalCont,
-    methCont: toNullable(it?.methCont) ?? toNullable(it?.method) ?? null,
-    distCont: toNullable(it?.distCont) ?? toNullable(it?.duration) ?? toNullable(it?.dlivrCont) ?? null,
-    deptCont: toNullable(it?.deptCont) ?? toNullable(it?.fnafScamCont) ?? toNullable(it?.funding) ?? null,
-  };
 }
 
 /**

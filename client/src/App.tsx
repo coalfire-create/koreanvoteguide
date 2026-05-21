@@ -34,6 +34,7 @@ const Onboarding = lazy(() => import("@/pages/onboarding"));
 const CitySelect = lazy(() => import("@/pages/city-select"));
 const BillVote = lazy(() => import("@/pages/bill-vote"));
 const CandidateDetail = lazy(() => import("@/pages/candidate-detail"));
+const AssemblyElection = lazy(() => import("@/pages/assembly-election"));
 const IntroTour = lazy(() => import("@/pages/intro-tour"));
 
 function RouteSpinner() {
@@ -65,6 +66,7 @@ function Router() {
         <Route path="/members/:id" component={MemberDetail} />
         <Route path="/candidates" component={Candidates} />
         <Route path="/candidates/:id" component={CandidateDetail} />
+        <Route path="/assembly-election" component={AssemblyElection} />
         <Route path="/bills" component={BillSearch} />
         <Route path="/bills/:id/vote" component={BillVote} />
         <Route path="/evaluation" component={Evaluation} />
