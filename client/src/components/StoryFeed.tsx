@@ -52,10 +52,12 @@ function StoryViewer({
   stories,
   startIndex,
   onClose,
+  onViewStory,
 }: {
   stories: Story[];
   startIndex: number;
   onClose: () => void;
+  onViewStory?: (politicianId: string, newsLink: string) => void;
 }) {
   const [personIdx, setPersonIdx] = useState(startIndex);
   const [itemIdx, setItemIdx] = useState(0);
@@ -122,6 +124,15 @@ function StoryViewer({
     }, 50);
     return () => clearInterval(tick);
   }, [personIdx, itemIdx, paused, isAnalyzing, goNext]);
+
+  // 스토리 시청 완료 처리
+  useEffect(() => {
+    const person = stories[personIdx];
+    const latestNews = person.newsItems[0];
+    if (latestNews && onViewStory) {
+      onViewStory(person.id, latestNews.link);
+    }
+  }, [personIdx, stories, onViewStory]);
 
   // 키보드 (데스크탑) + 스크롤 잠금
   useEffect(() => {
@@ -325,7 +336,7 @@ function StoryViewer({
                   <div className="text-center pb-8">
                     <Newspaper className="w-12 h-12 text-white/40 mx-auto mb-4" />
                     <p className="text-[15px] text-white/80 mb-5">
-                      최근 24시간 내 관련 뉴스가 없습니다.
+                      최근 48시간 내 관련 뉴스가 없습니다.
                     </p>
                     <Link href={`/members/${person.id}`}>
                       <span
@@ -386,14 +397,22 @@ function StoryViewer({
   );
 }
 
-function StoryAvatar({ story, onTap }: { story: Story; onTap: () => void }) {
+function StoryAvatar({
+  story,
+  isViewed,
+  onTap,
+}: {
+  story: Story;
+  isViewed: boolean;
+  onTap: () => void;
+}) {
   return (
     <button
       onClick={onTap}
       className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group"
     >
       <div className="relative">
-        <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.45)]">
+        <div className={`p-[2.5px] rounded-full ${isViewed ? "bg-zinc-200 dark:bg-zinc-800" : "bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.45)]"}`}>
           <div className="p-[2px] rounded-full bg-card">
             <div className="w-[68px] h-[68px] rounded-full overflow-hidden bg-muted transition-transform group-hover:scale-[1.04]">
               <PoliticianPhoto
@@ -406,7 +425,7 @@ function StoryAvatar({ story, onTap }: { story: Story; onTap: () => void }) {
             </div>
           </div>
         </div>
-        <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-background" />
+        {!isViewed && <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 ring-[3px] ring-background" />}
       </div>
       <span className="text-[11px] font-semibold text-foreground tracking-tight max-w-[72px] truncate">
         {story.name}
@@ -444,6 +463,31 @@ function SkeletonTile() {
 export function StoryFeed({ className = "" }: { className?: string }) {
   const { user } = useAuth();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [viewedStories, setViewedStories] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("viewed_stories");
+      if (saved) {
+        setViewedStories(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const markStoryAsViewed = useCallback((politicianId: string, newsLink: string) => {
+    setViewedStories((prev) => {
+      if (prev[politicianId] === newsLink) return prev;
+      const updated = { ...prev, [politicianId]: newsLink };
+      try {
+        localStorage.setItem("viewed_stories", JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  }, []);
 
   const { data, isLoading } = useQuery<StoriesResponse>({
     queryKey: ["/api/feed/stories"],
@@ -498,7 +542,7 @@ export function StoryFeed({ className = "" }: { className?: string }) {
               <div className="flex-1 min-w-0 self-center">
                 {followedCount > 0 ? (
                   <p className="text-[12px] text-muted-foreground leading-snug">
-                    최근 24시간 내 관심 의원의<br />공개 활동이 없어요.
+                    최근 48시간 내 관심 의원의<br />공개 활동이 없어요.
                   </p>
                 ) : (
                   <p className="text-[12px] text-muted-foreground leading-snug">
@@ -509,9 +553,18 @@ export function StoryFeed({ className = "" }: { className?: string }) {
             </>
           ) : (
             <>
-              {stories.map((s, i) => (
-                <StoryAvatar key={s.id} story={s} onTap={() => setViewerIndex(i)} />
-              ))}
+              {stories.map((s, i) => {
+                const latestNews = s.newsItems[0];
+                const isViewed = latestNews ? viewedStories[s.id] === latestNews.link : false;
+                return (
+                  <StoryAvatar
+                    key={s.id}
+                    story={s}
+                    isViewed={isViewed}
+                    onTap={() => setViewerIndex(i)}
+                  />
+                );
+              })}
               <AddTile />
             </>
           )}
@@ -524,6 +577,7 @@ export function StoryFeed({ className = "" }: { className?: string }) {
             stories={stories}
             startIndex={viewerIndex}
             onClose={() => setViewerIndex(null)}
+            onViewStory={markStoryAsViewed}
           />
         )}
       </AnimatePresence>

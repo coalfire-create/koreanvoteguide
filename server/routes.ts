@@ -4183,10 +4183,10 @@ export async function registerRoutes(
         const result = await fetchKoreanPoliticsNews();
         newsCache = { ...result, cachedAt: Date.now() };
       }
-      const now24h = Date.now() - 24 * 60 * 60 * 1000;
+      const now48h = Date.now() - 48 * 60 * 60 * 1000;
       const recentNews = (newsCache?.items ?? []).filter((item) => {
         const t = new Date(item.pubDate).getTime();
-        return !isNaN(t) && t >= now24h;
+        return !isNaN(t) && t >= now48h;
       });
 
       const allStories = followed.map((f) => {
@@ -4213,7 +4213,7 @@ export async function registerRoutes(
         };
       });
 
-      // 24시간 내 공개활동(뉴스)이 있는 의원만 표시, 최신순 정렬
+      // 48시간 내 공개활동(뉴스)이 있는 의원만 표시, 최신순 정렬
       const stories = allStories
         .filter((s) => s.hasNews)
         .sort((a, b) => {
