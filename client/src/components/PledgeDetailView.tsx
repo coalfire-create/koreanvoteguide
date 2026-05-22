@@ -22,6 +22,40 @@ function formatTime(pubDate: string): string {
   }
 }
 
+// ─── 공약 텍스트 가독성 향상 포매터 (목표, 이행 방법 등) ─────────
+function FormattedText({ text, size = "sm" }: { text: string; size?: "sm" | "base" }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  
+  const textClass = size === "sm" ? "text-[12px] text-gray-600" : "text-[15px] text-gray-800 font-medium";
+  const spacingClass = size === "sm" ? "mb-1.5" : "mb-2.5";
+  const lineHClass = size === "sm" ? "leading-relaxed" : "leading-[1.8]";
+
+  return (
+    <div className={`space-y-0.5 ${textClass} ${lineHClass} break-keep`}>
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className={size === "sm" ? "h-1" : "h-1.5"} />;
+        
+        // 글머리 기호 감지 (○, □, -, *, ①, ②, 1., 2. 등)
+        const match = trimmed.match(/^([○□\-\*①②③④⑤⑥⑦⑧⑨⑩]|\d+\.)\s*(.*)/);
+        
+        if (match) {
+          const [, bullet, content] = match;
+          return (
+            <div key={i} className={`flex items-start gap-1.5 ${spacingClass}`}>
+              <span className={`shrink-0 opacity-80 ${size === "sm" ? "mt-[2px]" : "mt-[3px]"}`}>{bullet}</span>
+              <span className="flex-1">{content}</span>
+            </div>
+          );
+        }
+        
+        return <p key={i} className={spacingClass}>{trimmed}</p>;
+      })}
+    </div>
+  );
+}
+
 // ─── 단독 공약 실현가능성 초기 추정 (로딩 중 표시용 키워드 기반) ─────────
 export function analyzeFeasibility(title: string, description: string): {
   score: number; label: string; color: string; bg: string; reasons: string[]; concerns: string[];
@@ -345,29 +379,29 @@ function ComparisonView({
               <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
             )}
             {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                 {candidateA.pledge.content && (
                   <div>
-                    <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.content}</p>
+                    <span className="text-[10.5px] font-black text-indigo-600 block mb-1.5">목표</span>
+                    <FormattedText text={candidateA.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.method && (
                   <div>
-                    <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.method}</p>
+                    <span className="text-[10.5px] font-black text-emerald-600 block mb-1.5">이행 방법</span>
+                    <FormattedText text={candidateA.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.funding && (
                   <div>
-                    <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.funding}</p>
+                    <span className="text-[10.5px] font-black text-amber-600 block mb-1.5">재원 조달 방안</span>
+                    <FormattedText text={candidateA.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.duration && (
                   <div>
-                    <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.duration}</p>
+                    <span className="text-[10.5px] font-black text-sky-600 block mb-1.5">이행 기간</span>
+                    <FormattedText text={candidateA.pledge.duration} size="sm" />
                   </div>
                 )}
               </div>
@@ -393,29 +427,29 @@ function ComparisonView({
               <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateB.pledge.description}</p>
             )}
             {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                 {candidateB.pledge.content && (
                   <div>
-                    <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.content}</p>
+                    <span className="text-[10.5px] font-black text-indigo-600 block mb-1.5">목표</span>
+                    <FormattedText text={candidateB.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.method && (
                   <div>
-                    <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.method}</p>
+                    <span className="text-[10.5px] font-black text-emerald-600 block mb-1.5">이행 방법</span>
+                    <FormattedText text={candidateB.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.funding && (
                   <div>
-                    <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.funding}</p>
+                    <span className="text-[10.5px] font-black text-amber-600 block mb-1.5">재원 조달 방안</span>
+                    <FormattedText text={candidateB.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.duration && (
                   <div>
-                    <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
-                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.duration}</p>
+                    <span className="text-[10.5px] font-black text-sky-600 block mb-1.5">이행 기간</span>
+                    <FormattedText text={candidateB.pledge.duration} size="sm" />
                   </div>
                 )}
               </div>
@@ -670,9 +704,21 @@ function SinglePledgeView({
     retry: 1,
   });
 
-  // 외부 카드와 동일한 결과를 보여주기 위해 항상 fallback 점수/라벨 사용
-  const score = fallback.score;
-  const label = fallback.label;
+  // 종합 점수: AI 응답(공약별로 다른 LLM 채점)을 우선, 로딩/실패 시에만 키워드 fallback.
+  // detailedAxes가 있으면 5축 평균(×20)으로 보정해 헤드라인과 차트가 항상 일치하도록 한다.
+  const axesAvgScore = (() => {
+    const axes = ai?.detailedAxes;
+    if (!axes) return null;
+    const vals = Object.values(axes)
+      .map((a) => a?.score)
+      .filter((s): s is number => typeof s === "number" && Number.isFinite(s));
+    if (vals.length === 0) return null;
+    return Math.round((vals.reduce((sum, s) => sum + s, 0) / vals.length) * 20);
+  })();
+  const score = axesAvgScore ?? ai?.feasibilityScore ?? fallback.score;
+  const label =
+    ai?.feasibilityLabel ??
+    (score >= 75 ? "높음" : score >= 55 ? "중간" : score >= 35 ? "보통" : "낮음");
   const scoreColor =
     score >= 75 ? "text-emerald-600" :
     score >= 55 ? "text-blue-600" :
@@ -705,46 +751,46 @@ function SinglePledgeView({
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
             {promise.content && (
               <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm sm:col-span-2">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
                     <CheckCircle2 className="w-4 h-4 text-indigo-600" />
                   </div>
-                  <span className="text-[13px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
+                  <span className="text-[14px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
                 </div>
-                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.content}</p>
+                <FormattedText text={promise.content} size="base" />
               </div>
             )}
             {promise.method && (
               <div className="bg-emerald-50/40 rounded-[20px] p-6 border border-emerald-100">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
-                    <span className="text-[13px]">📋</span>
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                    <span className="text-[14px]">📋</span>
                   </div>
-                  <span className="text-[13px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                  <span className="text-[14px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
                 </div>
-                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.method}</p>
+                <FormattedText text={promise.method} size="base" />
               </div>
             )}
             {promise.funding && (
               <div className="bg-amber-50/40 rounded-[20px] p-6 border border-amber-100">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
-                    <span className="text-[13px]">💰</span>
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                    <span className="text-[14px]">💰</span>
                   </div>
-                  <span className="text-[13px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                  <span className="text-[14px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
                 </div>
-                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.funding}</p>
+                <FormattedText text={promise.funding} size="base" />
               </div>
             )}
             {promise.duration && (
               <div className="bg-sky-50/40 rounded-[20px] p-6 border border-sky-100">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
-                    <span className="text-[13px]">⏱️</span>
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                    <span className="text-[14px]">⏱️</span>
                   </div>
-                  <span className="text-[13px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                  <span className="text-[14px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
                 </div>
-                <p className="text-[15px] text-gray-800 leading-[1.8] whitespace-pre-line font-medium break-keep">{promise.duration}</p>
+                <FormattedText text={promise.duration} size="base" />
               </div>
             )}
           </div>

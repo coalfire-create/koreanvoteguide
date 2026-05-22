@@ -92,7 +92,7 @@ export default function BillVote() {
   const [commentText, setCommentText] = useState("");
 
   // 법안 데이터 (bills API에서 가져오기)
-  const { data: billsData } = useQuery<{ source: string; data: any[] }>({
+  const { data: billsData } = useQuery<any[]>({
     queryKey: ["/api/bills"],
     staleTime: 5 * 60 * 1000,
   });
@@ -104,12 +104,21 @@ export default function BillVote() {
     queryFn: () => fetch("/api/bills/hot").then(r => r.json()),
   });
 
+  // 법안 상세 (직접 API 호출로 특정 법안 데이터 가져오기)
+  const { data: specificBill } = useQuery<BillDetail>({
+    queryKey: ["/api/db/bills", billId],
+    queryFn: () => fetch(`/api/db/bills/${billId}`).then(r => r.json()),
+    enabled: !!billId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // 법안 상세 찾기
   const bill: BillDetail | null = (() => {
+    if (specificBill && !('error' in specificBill)) return specificBill;
     if (!billId) return null;
     const fromHot = hotBills?.find(b => b.billId === billId);
     if (fromHot) return fromHot;
-    const allBills = billsData?.data ?? [];
+    const allBills = Array.isArray(billsData) ? billsData : [];
     return allBills.find(b => b.billId === billId) ?? null;
   })();
 
