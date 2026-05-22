@@ -16,9 +16,8 @@ import OpenAI from "openai";
 // ─────────────────────────────────────────────
 // 환경 / 상수
 // ─────────────────────────────────────────────
-// llama3-70b-8192는 Groq에서 decommissioned됨 (2025). 후속 모델로 대체.
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const MAX_RETRIES = 3;            // 1차 + 재시도 3 = 총 4회
 const BACKOFF_BASE_MS = 1000;     // 1s → 2s → 4s
 
@@ -28,19 +27,36 @@ const TRANSIENT_4XX = new Set<number>([408, 425, 429]);
 // ─────────────────────────────────────────────
 // 클라이언트 캐싱 — 매 호출마다 new OpenAI() 하지 않도록
 // ─────────────────────────────────────────────
-let cachedClient: OpenAI | null = null;
+let cachedGroqClient: OpenAI | null = null;
+let cachedOpenAIClient: OpenAI | null = null;
 
-function getClient(): OpenAI {
-  if (cachedClient) return cachedClient;
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    throw new LLMConfigError("GROQ_API_KEY 환경변수가 설정되지 않았습니다.");
+function getClient(provider: 'openai' | 'groq'): OpenAI {
+  if (provider === 'openai') {
+    if (cachedOpenAIClient) return cachedOpenAIClient;
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      // Fallback to Groq if OpenAI key is not provided yet
+      const groqKey = process.env.GROQ_API_KEY;
+      if (groqKey) {
+        process.stderr.write("  ⚠ [llm-wrapper] OPENAI_API_KEY가 없어 GROQ로 폴백합니다.\n");
+        return getClient('groq');
+      }
+      throw new LLMConfigError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.");
+    }
+    cachedOpenAIClient = new OpenAI({ apiKey });
+    return cachedOpenAIClient;
+  } else {
+    if (cachedGroqClient) return cachedGroqClient;
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new LLMConfigError("GROQ_API_KEY 환경변수가 설정되지 않았습니다.");
+    }
+    cachedGroqClient = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+    return cachedGroqClient;
   }
-  cachedClient = new OpenAI({ apiKey, baseURL: DEFAULT_BASE_URL });
-  return cachedClient;
 }
 
-/** GROQ_API_KEY 미설정 등 호출 자체가 불가능한 경우 */
+/** API_KEY 미설정 등 호출 자체가 불가능한 경우 */
 export class LLMConfigError extends Error {
   constructor(msg: string) {
     super(msg);
@@ -72,7 +88,7 @@ export interface LLMCallOptions {
   system: string;
   /** user content — 실제 분석 대상 */
   user: string;
-  /** 모델 ID (기본: llama3-70b-8192) */
+  /** 모델 ID */
   model?: string;
   /** 0.0 (확정) ~ 1.0 (창의) */
   temperature?: number;
@@ -80,6 +96,8 @@ export interface LLMCallOptions {
   maxTokens?: number;
   /** 디버그 로그용 호출 라벨 (예: "bills/describe") */
   label?: string;
+  /** 사용할 LLM 서비스 프로바이더 ('groq' | 'openai') */
+  provider?: 'openai' | 'groq';
 }
 
 // ─────────────────────────────────────────────
@@ -169,9 +187,19 @@ interface InternalCallParams extends LLMCallOptions {
 }
 
 async function callOnce(params: InternalCallParams): Promise<string> {
-  const client = getClient();
+  const provider = params.provider ?? 'groq';
+  const client = getClient(provider);
+  
+  // If fallback occurred inside getClient (due to missing OPENAI_API_KEY)
+  let activeProvider = provider;
+  if (provider === 'openai' && !process.env.OPENAI_API_KEY && process.env.GROQ_API_KEY) {
+    activeProvider = 'groq';
+  }
+  
+  const defaultModel = activeProvider === 'openai' ? DEFAULT_OPENAI_MODEL : DEFAULT_GROQ_MODEL;
+  
   const completion = await client.chat.completions.create({
-    model: params.model ?? DEFAULT_MODEL,
+    model: params.model ?? defaultModel,
     ...(params.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
     messages: [
       { role: "system", content: params.system },
@@ -225,14 +253,6 @@ async function callWithRetry(params: InternalCallParams): Promise<string> {
 
 /**
  * 일반 텍스트 응답 호출 — JSON이 필요 없는 경우 (예: 한 문장 요약).
- *
- * @example
- *   const desc = await callLLMText({
- *     system: "당신은 법안 설명 전문가...",
- *     user: "법안명: 중대재해처벌법",
- *     maxTokens: 200,
- *     label: "bills/describe",
- *   });
  */
 export async function callLLMText(options: LLMCallOptions): Promise<string> {
   const raw = await callWithRetry({ ...options, jsonMode: false });
@@ -241,21 +261,6 @@ export async function callLLMText(options: LLMCallOptions): Promise<string> {
 
 /**
  * JSON 응답 호출 + 타입 안전 파싱.
- *
- * 흐름:
- *   1. response_format=json_object 강제
- *   2. 응답 받으면 stripMarkdownJson으로 펜스/노이즈 제거
- *   3. JSON.parse 시도 — 실패 시 raw 문자열 보존한 LLMParseError throw
- *   4. 제네릭 T로 호출자가 기대하는 타입 부여 (런타임 검증은 호출자 책임)
- *
- * @example
- *   interface Result { summary: string; score: number }
- *   const r = await callLLMJson<Result>({
- *     system: "JSON 스키마: { summary: string, score: number }",
- *     user: "분석 대상 ...",
- *     label: "candidates/analyze-pledge",
- *   });
- *   // r.summary, r.score 타입 추론됨
  */
 export async function callLLMJson<T = unknown>(options: LLMCallOptions): Promise<T> {
   const raw = await callWithRetry({ ...options, jsonMode: true });
@@ -277,12 +282,6 @@ export async function callLLMJson<T = unknown>(options: LLMCallOptions): Promise
 /**
  * JSON 호출 + 폴백 — 파싱 실패해도 호출자가 지정한 fallback 객체를 반환.
  * 사용자에게 보여줄 화면이 무조건 채워져야 하는 경우에 유용.
- *
- * @example
- *   const r = await callLLMJsonOrFallback<MyResult>(
- *     { system, user, label: "compare-pledges" },
- *     { coreContrast: "분석 실패", candidateAHighlights: [], ... }
- *   );
  */
 export async function callLLMJsonOrFallback<T>(
   options: LLMCallOptions,
@@ -301,5 +300,6 @@ export async function callLLMJsonOrFallback<T>(
 
 /** 테스트/리셋용 — 캐시된 클라이언트 폐기 */
 export function resetLLMClient(): void {
-  cachedClient = null;
+  cachedGroqClient = null;
+  cachedOpenAIClient = null;
 }

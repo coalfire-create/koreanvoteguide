@@ -332,6 +332,7 @@ export async function generateCandidateReport(
     temperature: 0.1,
     maxTokens: 1800,
     label: "candidates/evaluation-report",
+    provider: "openai",
   });
 
   // 키워드 정확히 3개 보정 (모델이 초과/미만 반환 시 방어)

@@ -390,6 +390,7 @@ export async function analyzePolicyStance(
     temperature: 0.2,
     maxTokens: 900,
     label: `stance-analyst/${dimension}`,
+    provider: "openai",
   });
 
   const norm = normalizeLLMResult(result, decisive);

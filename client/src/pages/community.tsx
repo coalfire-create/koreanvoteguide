@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import type { CommunityPost } from "@shared/schema";
 import { PostDetailDialog } from "@/components/post-detail-dialog";
+import { InlineComments } from "@/components/InlineComments";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,7 +80,7 @@ export default function Community() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
-  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const { data: trending = [] } = useQuery<{ memberId: string; name: string; count: number }[]>({
@@ -152,20 +153,7 @@ export default function Community() {
     },
   });
 
-  const inlineCommentMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
-      const res = await apiRequest("POST", `/api/community/posts/${postId}/comments`, { content });
-      if (!res.ok) throw new Error((await res.json()).error || "댓글 작성 실패");
-      return res.json();
-    },
-    onSuccess: (_data, { postId }) => {
-      setCommentDrafts(prev => ({ ...prev, [postId]: "" }));
-      setOpenCommentPostId(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/community/posts`] });
-      toast({ title: "댓글이 작성되었습니다" });
-    },
-    onError: (err: Error) => toast({ title: "오류", description: err.message, variant: "destructive" }),
-  });
+
 
   function switchBoard(b: BoardId) { navigate(`/community?board=${b}`); }
 
@@ -388,31 +376,7 @@ export default function Community() {
                         className="overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="pt-3 flex gap-2">
-                          <input
-                            className="flex-1 h-10 bg-muted rounded-[12px] px-3 text-[13px] font-medium border border-border/30 focus:border-primary/40 focus:outline-none placeholder:text-muted-foreground"
-                            placeholder="댓글을 입력하세요..."
-                            value={commentDrafts[post.id] || ""}
-                            onChange={(e) => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                const text = (commentDrafts[post.id] || "").trim();
-                                if (text) { e.preventDefault(); inlineCommentMutation.mutate({ postId: post.id, content: text }); }
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => {
-                              const text = (commentDrafts[post.id] || "").trim();
-                              if (text) inlineCommentMutation.mutate({ postId: post.id, content: text });
-                            }}
-                            disabled={!(commentDrafts[post.id] || "").trim() || inlineCommentMutation.isPending}
-                            className="h-10 px-4 bg-primary text-primary-foreground rounded-[12px] text-[13px] font-bold disabled:opacity-40 transition-opacity shrink-0"
-                          >
-                            {inlineCommentMutation.isPending ? "..." : "등록"}
-                          </button>
-                        </div>
+                        <InlineComments postId={post.id} />
                       </motion.div>
                     )}
                   </AnimatePresence>

@@ -4871,6 +4871,7 @@ export async function registerRoutes(
               temperature: 0.4,
               maxTokens: 900,
               label: "bills/analyze",
+              provider: "openai",
             },
             fallback,
           );
@@ -4977,6 +4978,14 @@ export async function registerRoutes(
         feasibility_critique:
           "이행방법·재원조달방안·이행기간이 모두 '기재 안 됨' 상태로, 예산 확보 경로와 권한 범위를 확인할 수 없어 실현가능성이 불투명함.",
         voterTip: "후보 측에 (1) 어떤 권한으로 (2) 얼마의 세입으로 (3) 언제까지 실행할지 직접 확인하세요.",
+        detailedAxes: {
+          internalConsistency: { score: 1, analysis: "AI 분석 서버 연결 지연으로 정합성을 검증할 수 없습니다." },
+          planSpecificity: { score: 1, analysis: "구체적 이행계획을 파악하기 어렵습니다." },
+          financialFeasibility: { score: 1, analysis: "재원 규모와 조달 방안 검증이 누락되었습니다." },
+          economicViability: { score: 1, analysis: "경제적 파급효과와 타당성을 확인할 수 없습니다." },
+          precedentVerification: { score: 1, analysis: "유사 선례에 대한 데이터가 확보되지 않았습니다." }
+        },
+        keyVulnerability: "AI 분석 서버 응답 지연으로 심층 평가가 제한되었습니다."
       };
 
       // 미기재(빈/null/"정보 없음")는 LLM에게 "기재 안 됨"으로 명시 전달
@@ -5049,6 +5058,7 @@ export async function registerRoutes(
           temperature: 0.2,
           maxTokens: 1500,
           label: "candidates/analyze-pledge",
+          provider: "openai",
         },
         fallback,
       );
@@ -5062,7 +5072,8 @@ export async function registerRoutes(
         feasibilityCritique: critique,
       };
 
-      pledgeAnalyzeCache.set(cacheKey, result);
+      // 폴백(LLM 실패)은 캐시하지 않음 — 다음 요청에서 LLM 재시도 가능하도록
+      if (rawResult !== fallback) pledgeAnalyzeCache.set(cacheKey, result);
       res.json(result);
     } catch (error: any) {
       console.error("[analyze-pledge] error:", error);
@@ -5077,9 +5088,15 @@ export async function registerRoutes(
         concerns: ["분석 결과를 검증할 수 없어 보수적으로 낮음 처리"],
         feasibility_critique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
         feasibilityCritique: "외부 분석기 응답 실패 — 후보 공약의 구체성을 직접 확인하세요.",
-        voterTip: "잠시 후 다시 시도해 주세요.",
+        voterTip: "",
         keyVulnerability: "AI 분석 서비스에 접근할 수 없어 공약의 구조적 약점을 평가할 수 없습니다.",
-        detailedAxes: null,
+        detailedAxes: {
+          internalConsistency: { score: 1, analysis: "AI 분석 서버 연결 지연으로 정합성을 검증할 수 없습니다." },
+          planSpecificity: { score: 1, analysis: "구체적 이행계획을 파악하기 어렵습니다." },
+          financialFeasibility: { score: 1, analysis: "재원 규모와 조달 방안 검증이 누락되었습니다." },
+          economicViability: { score: 1, analysis: "경제적 파급효과와 타당성을 확인할 수 없습니다." },
+          precedentVerification: { score: 1, analysis: "유사 선례에 대한 데이터가 확보되지 않았습니다." }
+        },
       });
     }
   });
@@ -5125,7 +5142,7 @@ export async function registerRoutes(
         coreContrast: `${candidateA.name}와 ${candidateB.name}는 서로 다른 방향의 정책을 제시하고 있습니다. 두 후보의 공약을 꼼꼼히 비교해보세요.`,
         candidateAHighlights: candidateA.pledge !== "정보 없음" ? [candidateA.pledge] : [],
         candidateBHighlights: candidateB.pledge !== "정보 없음" ? [candidateB.pledge] : [],
-        voterGuide: "AI 분석 결과를 일시적으로 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        voterGuide: "",
       };
 
       const result = await callLLMJsonOrFallback<object>(
@@ -5142,11 +5159,13 @@ export async function registerRoutes(
           temperature: 0.3,
           maxTokens: 700,
           label: "candidates/compare-pledges",
+          provider: "openai",
         },
         fallback,
       );
 
-      pledgeCompareCache.set(cacheKey, result);
+      // 폴백(LLM 실패)은 캐시하지 않음 — 다음 요청에서 LLM을 다시 시도할 수 있도록
+      if (result !== fallback) pledgeCompareCache.set(cacheKey, result);
       res.json(result);
     } catch (error: any) {
       console.error("[compare-pledges] error:", error);
@@ -5155,7 +5174,7 @@ export async function registerRoutes(
         coreContrast: `${candidateA?.name ?? "A후보"}와 ${candidateB?.name ?? "B후보"}의 공약 차이를 AI가 분석하지 못했습니다.`,
         candidateAHighlights: candidateA?.pledge ? [candidateA.pledge] : [],
         candidateBHighlights: candidateB?.pledge ? [candidateB.pledge] : [],
-        voterGuide: "AI 분석 서비스에 일시적으로 접근할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+        voterGuide: "",
       });
     }
   });
@@ -5228,6 +5247,7 @@ export async function registerRoutes(
           temperature: 0.3,
           maxTokens: 1000,
           label: "candidates/analyze-topic",
+          provider: "openai",
         },
         fallback,
       );
@@ -5334,6 +5354,7 @@ export async function registerRoutes(
           temperature: 0.2,
           maxTokens: 700,
           label: "members/analyze-profile",
+          provider: "openai",
         });
         memberProfileCache.set(monaCd, result);
         res.json(result);
@@ -5481,6 +5502,7 @@ export async function registerRoutes(
           temperature: 0.1,
           maxTokens: 1200,
           label: "ai/evaluate",
+          provider: "openai",
         });
 
         return res.json({
