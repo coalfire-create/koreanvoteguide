@@ -230,7 +230,7 @@ export default function CandidateDetail() {
         photo: sessionCandidate.photo ?? "",
         electionType: "local" as const,
         background: sessionCandidate.background ?? "후보 정보를 불러오는 중입니다.",
-        promises: ((sessionCandidate.pledges ?? []) as (string | { title?: string; description?: string; goalCont?: string; methCont?: string; distCont?: string; deptCont?: string; realmName?: string })[]).map((p, i) => ({
+        promises: ((sessionCandidate.pledges ?? []) as (string | { title?: string; description?: string; goalCont?: string; methCont?: string; distCont?: string; deptCont?: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string })[]).map((p, i) => ({
           id: `p${i}`,
           title: typeof p === "string" ? p : (p.title ?? String(p)),
           description: typeof p === "string" ? "" : (p.description ?? p.goalCont ?? ""),

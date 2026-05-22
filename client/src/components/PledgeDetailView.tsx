@@ -134,6 +134,148 @@ interface CompareResult {
   voterGuide: string;
 }
 
+// ─── 공약 개별 실현가능성 평가 섹션 (비교 뷰 내 삽입용) ───────────────────
+function PledgeFeasibilitySection({
+  promise,
+  candidateName = "",
+  candidateParty = "",
+  candidateJob = "",
+  candidateCareer1 = "",
+}: {
+  promise: Pledge;
+  candidateName?: string;
+  candidateParty?: string;
+  candidateJob?: string;
+  candidateCareer1?: string;
+}) {
+  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+  const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
+
+  const { data: ai, isLoading, isError } = useQuery<PledgeAnalysisResult>({
+    queryKey: ["pledge-analyze", promise.id, promise.title, promise.method, promise.funding, promise.duration],
+    queryFn: async () => {
+      const res = await fetch("/api/candidates/analyze-pledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: candidateName,
+          party: candidateParty,
+          job: candidateJob,
+          career1: candidateCareer1,
+          pledge: pledgeText,
+          title: promise.title,
+          realmName: promise.realmName,
+          content: promise.content ?? promise.description,
+          method: promise.method,
+          funding: promise.funding,
+          duration: promise.duration,
+        }),
+      });
+      if (!res.ok) throw new Error("분석 실패");
+      const json = await res.json();
+      return {
+        feasibilityScore: typeof json?.feasibilityScore === "number" ? json.feasibilityScore : fallback.score,
+        feasibilityLabel: json?.feasibilityLabel ?? fallback.label,
+        authorityScore: typeof json?.authorityScore === "number" ? json.authorityScore : undefined,
+        fundingScore: typeof json?.fundingScore === "number" ? json.fundingScore : undefined,
+        timelineScore: typeof json?.timelineScore === "number" ? json.timelineScore : undefined,
+        summary: json?.summary ?? "",
+        strengths: Array.isArray(json?.strengths) ? json.strengths : [],
+        concerns: Array.isArray(json?.concerns) ? json.concerns : [],
+        feasibilityCritique:
+          typeof json?.feasibilityCritique === "string"
+            ? json.feasibilityCritique
+            : typeof json?.feasibility_critique === "string"
+            ? json.feasibility_critique
+            : undefined,
+        voterTip: json?.voterTip ?? "",
+        detailedAxes: json?.detailedAxes ?? null,
+        keyVulnerability: json?.keyVulnerability ?? null,
+      } as PledgeAnalysisResult;
+    },
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+  });
+
+  const score = ai?.feasibilityScore ?? fallback.score;
+  const label = ai?.feasibilityLabel ?? fallback.label;
+  const scoreColor =
+    score >= 75 ? "text-emerald-600" :
+    score >= 55 ? "text-blue-600" :
+    score >= 40 ? "text-amber-600" : "text-red-500";
+  const scoreBg =
+    score >= 75 ? "bg-emerald-50" :
+    score >= 55 ? "bg-blue-50" :
+    score >= 40 ? "bg-amber-50" : "bg-red-50";
+  const barColor =
+    score >= 75 ? "#10b981" : score >= 55 ? "#3b82f6" : "#f59e0b";
+
+  return (
+    <div className="mt-6 pt-6 border-t border-gray-100 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          <span className="text-[12px] font-black text-gray-800">AI 실현가능성 평가</span>
+        </div>
+        {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
+      </div>
+
+      {isError && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-[11px] text-red-600">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          AI 평가 로드 실패
+        </div>
+      )}
+
+      {/* 종합 점수 카드 */}
+      <div className={`rounded-xl p-4 ${scoreBg}`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[12px] font-bold text-gray-700">종합 평가</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[13px] font-black ${scoreColor}`}>{label}</span>
+            <div className="text-[11px] font-bold text-white px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: barColor }}>
+              {score}점
+            </div>
+          </div>
+        </div>
+
+        <div className="h-2 bg-white/60 rounded-full overflow-hidden mb-1 shadow-inner">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${score}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="h-full rounded-full"
+            style={{ backgroundColor: barColor }}
+          />
+        </div>
+      </div>
+
+      {/* 5축 차트 */}
+      {ai?.detailedAxes && (
+        <div className="mt-4">
+          <DetailedAxesChart axes={ai.detailedAxes} />
+        </div>
+      )}
+
+      {/* 핵심 취약점 */}
+      {ai?.keyVulnerability && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-100 rounded-xl p-3 text-[12px] text-red-700 leading-relaxed break-keep"
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            <Shield className="w-3.5 h-3.5 text-red-600 shrink-0" />
+            <span className="font-black">핵심 취약점</span>
+          </div>
+          <p>{ai.keyVulnerability}</p>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 
 // ============================================================
 // 비교 모드 뷰
@@ -192,81 +334,101 @@ function ComparisonView({
     <div>
       {/* 두 후보 공약 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-100 p-4">
-        <div className="p-5 border border-gray-100 rounded-2xl" style={{ borderTop: `4px solid ${colorA}` }}>
-          <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorA }}>
-            {candidateA.party}
-          </div>
-          <div className="text-[15px] font-black text-gray-900 mb-1">{candidateA.name}</div>
-          <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateA.pledge.title}</p>
-          {candidateA.pledge.description && (
-            <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
-          )}
-          {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-              {candidateA.pledge.content && (
-                <div>
-                  <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.content}</p>
-                </div>
-              )}
-              {candidateA.pledge.method && (
-                <div>
-                  <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.method}</p>
-                </div>
-              )}
-              {candidateA.pledge.funding && (
-                <div>
-                  <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.funding}</p>
-                </div>
-              )}
-              {candidateA.pledge.duration && (
-                <div>
-                  <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.duration}</p>
-                </div>
-              )}
+        <div className="p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorA}` }}>
+          <div>
+            <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorA }}>
+              {candidateA.party}
             </div>
-          )}
+            <div className="text-[15px] font-black text-gray-900 mb-1">{candidateA.name}</div>
+            <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateA.pledge.title}</p>
+            {candidateA.pledge.description && (
+              <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
+            )}
+            {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                {candidateA.pledge.content && (
+                  <div>
+                    <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.content}</p>
+                  </div>
+                )}
+                {candidateA.pledge.method && (
+                  <div>
+                    <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.method}</p>
+                  </div>
+                )}
+                {candidateA.pledge.funding && (
+                  <div>
+                    <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.funding}</p>
+                  </div>
+                )}
+                {candidateA.pledge.duration && (
+                  <div>
+                    <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateA.pledge.duration}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* AI 실현가능성 점수 & 5축 평가 */}
+          <PledgeFeasibilitySection
+            promise={candidateA.pledge}
+            candidateName={candidateA.name}
+            candidateParty={candidateA.party}
+            candidateJob={candidateA.job}
+            candidateCareer1={candidateA.career1}
+          />
         </div>
-        <div className="p-5 border border-gray-100 rounded-2xl" style={{ borderTop: `4px solid ${colorB}` }}>
-          <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorB }}>
-            {candidateB.party}
-          </div>
-          <div className="text-[15px] font-black text-gray-900 mb-1">{candidateB.name}</div>
-          <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateB.pledge.title}</p>
-          {candidateB.pledge.description && (
-            <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateB.pledge.description}</p>
-          )}
-          {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-              {candidateB.pledge.content && (
-                <div>
-                  <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.content}</p>
-                </div>
-              )}
-              {candidateB.pledge.method && (
-                <div>
-                  <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.method}</p>
-                </div>
-              )}
-              {candidateB.pledge.funding && (
-                <div>
-                  <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.funding}</p>
-                </div>
-              )}
-              {candidateB.pledge.duration && (
-                <div>
-                  <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
-                  <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.duration}</p>
-                </div>
-              )}
+        <div className="p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorB}` }}>
+          <div>
+            <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorB }}>
+              {candidateB.party}
             </div>
-          )}
+            <div className="text-[15px] font-black text-gray-900 mb-1">{candidateB.name}</div>
+            <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateB.pledge.title}</p>
+            {candidateB.pledge.description && (
+              <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateB.pledge.description}</p>
+            )}
+            {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                {candidateB.pledge.content && (
+                  <div>
+                    <span className="text-[10px] font-black text-indigo-600 block mb-1">목표</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.content}</p>
+                  </div>
+                )}
+                {candidateB.pledge.method && (
+                  <div>
+                    <span className="text-[10px] font-black text-emerald-600 block mb-1">이행 방법</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.method}</p>
+                  </div>
+                )}
+                {candidateB.pledge.funding && (
+                  <div>
+                    <span className="text-[10px] font-black text-amber-600 block mb-1">재원 조달 방안</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.funding}</p>
+                  </div>
+                )}
+                {candidateB.pledge.duration && (
+                  <div>
+                    <span className="text-[10px] font-black text-sky-600 block mb-1">이행 기간</span>
+                    <p className="text-[12px] text-gray-600 whitespace-pre-line">{candidateB.pledge.duration}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* AI 실현가능성 점수 & 5축 평가 */}
+          <PledgeFeasibilitySection
+            promise={candidateB.pledge}
+            candidateName={candidateB.name}
+            candidateParty={candidateB.party}
+            candidateJob={candidateB.job}
+            candidateCareer1={candidateB.career1}
+          />
         </div>
       </div>
 
@@ -500,6 +662,8 @@ function SinglePledgeView({
             ? json.feasibility_critique
             : undefined,
         voterTip: json?.voterTip ?? "",
+        detailedAxes: json?.detailedAxes ?? null,
+        keyVulnerability: json?.keyVulnerability ?? null,
       } as PledgeAnalysisResult;
     },
     staleTime: 60 * 60 * 1000,

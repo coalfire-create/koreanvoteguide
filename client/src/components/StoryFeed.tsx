@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, ExternalLink, Newspaper, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ExternalLink, Newspaper, X, ChevronLeft, ChevronRight, BrainCircuit, Lightbulb, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { apiRequest } from "@/lib/queryClient";
 
 interface StoryNewsItem {
   title: string;
@@ -26,6 +27,13 @@ interface Story {
 interface StoriesResponse {
   stories: Story[];
   followedCount: number;
+}
+
+interface AnalysisData {
+  summary: string;
+  background: string;
+  relatedTopics: string[];
+  otherPerspectives: string;
 }
 
 const SLIDE_MS = 6000; // 슬라이드당 자동 재생 시간
@@ -60,6 +68,24 @@ function StoryViewer({
   const slides = person.newsItems.length > 0 ? person.newsItems : [null];
   const current = slides[itemIdx] ?? null;
 
+  // AI 뉴스 분석 쿼리 호출 (동적 라이브 요약)
+  const { data: analysisRes, isLoading: isAnalyzing, error: analysisError } = useQuery<{ success: boolean; data: AnalysisData }>({
+    queryKey: ["/api/news/analyze", current?.link],
+    queryFn: async () => {
+      if (!current?.link) throw new Error("No URL provided");
+      const res = await apiRequest("POST", "/api/news/analyze", {
+        url: current.link,
+        title: current.title,
+        source: current.source,
+      });
+      return res.json();
+    },
+    enabled: !!current?.link,
+    staleTime: Infinity,
+  });
+
+  const analysis = analysisRes?.data;
+
   const goNext = useCallback(() => {
     if (itemIdx + 1 < slides.length) {
       setItemIdx(itemIdx + 1);
@@ -87,7 +113,7 @@ function StoryViewer({
   useEffect(() => {
     startRef.current = Date.now();
     setProgress(0);
-    if (paused) return;
+    if (paused || isAnalyzing) return;
     const tick = setInterval(() => {
       const elapsed = Date.now() - startRef.current;
       const pct = Math.min(1, elapsed / SLIDE_MS);
@@ -95,7 +121,7 @@ function StoryViewer({
       if (pct >= 1) goNext();
     }, 50);
     return () => clearInterval(tick);
-  }, [personIdx, itemIdx, paused, goNext]);
+  }, [personIdx, itemIdx, paused, isAnalyzing, goNext]);
 
   // 키보드 (데스크탑) + 스크롤 잠금
   useEffect(() => {
@@ -136,7 +162,7 @@ function StoryViewer({
       </div>
 
       {/* 스토리 카드 (모바일 9:16, 데스크탑 중앙 고정폭) */}
-      <div className="relative w-full h-full max-w-[460px] sm:h-[92vh] sm:rounded-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full h-full max-w-[460px] sm:h-[92vh] sm:rounded-2xl overflow-hidden flex flex-col bg-zinc-950">
         {/* 진행바 */}
         <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 px-3 pt-3">
           {slides.map((_, i) => (
@@ -179,7 +205,7 @@ function StoryViewer({
           </button>
         </div>
 
-        {/* 좌/우 탭 영역 */}
+        {/* 좌/우 탭 영역 (z-10) */}
         <button
           aria-label="이전"
           onClick={goPrev}
@@ -195,58 +221,149 @@ function StoryViewer({
           className="absolute right-0 top-0 bottom-0 w-[68%] z-10"
         />
 
-        {/* 본문 */}
-        <div className="relative z-[5] flex-1 flex flex-col justify-end px-6 pb-12">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${personIdx}-${itemIdx}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              {current ? (
-                <>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-2.5 py-1 rounded-full mb-4">
-                    <Newspaper className="w-3 h-3" />
-                    {current.source}
-                  </span>
-                  <h2 className="text-[22px] font-extrabold text-white leading-snug mb-3 [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
-                    {current.title}
-                  </h2>
-                  {current.summary && (
-                    <p className="text-[14px] text-white/85 leading-relaxed mb-6 line-clamp-5 [text-shadow:0_1px_4px_rgba(0,0,0,0.5)]">
-                      {current.summary}
-                    </p>
-                  )}
-                  <a
-                    href={current.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-[13px] font-bold text-black bg-white px-4 py-2.5 rounded-full active:scale-95 transition-transform w-fit"
-                  >
-                    기사 전체 보기
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </>
-              ) : (
-                <div className="text-center pb-8">
-                  <Newspaper className="w-12 h-12 text-white/40 mx-auto mb-4" />
-                  <p className="text-[15px] text-white/80 mb-5">
-                    최근 24시간 내 관련 뉴스가 없습니다.
-                  </p>
-                  <Link href={`/members/${person.id}`}>
-                    <span
-                      onClick={onClose}
-                      className="inline-block text-[13px] font-bold text-black bg-white px-4 py-2.5 rounded-full cursor-pointer"
+        {/* 본문 (z-20) */}
+        <div className="relative z-20 flex-1 flex flex-col justify-between pt-20 px-6 pb-8 h-full">
+          {/* 중간 영역: scrollable AI 뉴스 요약 (z-20) */}
+          <div className="flex-1 flex flex-col justify-center my-4 overflow-y-auto no-scrollbar max-h-[55vh]">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${personIdx}-${itemIdx}`}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.35 }}
+                className="w-full flex flex-col gap-3"
+              >
+                {current ? (
+                  isAnalyzing ? (
+                    // AI 분석 중 스켈레톤 로더
+                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4 animate-pulse">
+                      <div className="flex items-center gap-2">
+                        <BrainCircuit className="w-4 h-4 text-blue-400 animate-pulse" />
+                        <span className="text-xs font-bold text-white/80">AI가 뉴스를 요약하는 중...</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3.5 bg-white/10 rounded w-full" />
+                        <div className="h-3.5 bg-white/10 rounded w-[92%]" />
+                        <div className="h-3.5 bg-white/10 rounded w-[85%]" />
+                      </div>
+                      <div className="pt-2 border-t border-white/5 space-y-2">
+                        <div className="h-3 bg-white/5 rounded w-16" />
+                        <div className="h-3 bg-white/5 rounded w-[70%]" />
+                      </div>
+                    </div>
+                  ) : analysisError || !analysis ? (
+                    // 에러 발생 혹은 요약 없음 폴백
+                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Newspaper className="w-4 h-4 text-zinc-400" />
+                        <span className="text-xs font-bold text-white/80">뉴스 요약</span>
+                      </div>
+                      <p className="text-[14px] text-zinc-300 leading-relaxed">
+                        {current.summary || "뉴스 본문 및 요약을 불러오지 못했습니다. 아래 기사 전체 보기 버튼을 눌러 원본 기사를 확인해주세요."}
+                      </p>
+                    </div>
+                  ) : (
+                    // AI 뉴스 분석 결과 렌더링
+                    <div 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md overflow-y-auto max-h-[48vh] no-scrollbar space-y-4"
+                      onMouseEnter={() => setPaused(true)}
+                      onMouseLeave={() => setPaused(false)}
+                      onTouchStart={() => setPaused(true)}
+                      onTouchEnd={() => setPaused(false)}
                     >
-                      의원 상세 보기
-                    </span>
-                  </Link>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+                      {/* 핵심 요약 */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2 text-blue-400">
+                          <BrainCircuit className="w-4 h-4" />
+                          <span className="text-xs font-bold tracking-tight">AI 핵심 요약</span>
+                        </div>
+                        <p className="text-[14px] text-white/90 font-medium leading-relaxed">
+                          {analysis.summary}
+                        </p>
+                      </div>
+
+                      {/* 배경 지식 */}
+                      {analysis.background && (
+                        <div className="pt-3 border-t border-white/5">
+                          <div className="flex items-center gap-2 mb-1.5 text-amber-400">
+                            <Lightbulb className="w-4 h-4" />
+                            <span className="text-xs font-bold tracking-tight">배경 및 맥락</span>
+                          </div>
+                          <p className="text-[12.5px] text-zinc-300 leading-relaxed">
+                            {analysis.background}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 다양한 관점 */}
+                      {analysis.otherPerspectives && (
+                        <div className="pt-3 border-t border-white/5">
+                          <div className="flex items-center gap-2 mb-1.5 text-purple-400">
+                            <Users className="w-4 h-4" />
+                            <span className="text-xs font-bold tracking-tight">다양한 관점</span>
+                          </div>
+                          <p className="text-[12.5px] text-zinc-400 leading-relaxed">
+                            {analysis.otherPerspectives}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 연관 키워드 */}
+                      {analysis.relatedTopics && analysis.relatedTopics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {analysis.relatedTopics.map((topic, idx) => (
+                            <span key={idx} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/5">
+                              #{topic}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center pb-8">
+                    <Newspaper className="w-12 h-12 text-white/40 mx-auto mb-4" />
+                    <p className="text-[15px] text-white/80 mb-5">
+                      최근 24시간 내 관련 뉴스가 없습니다.
+                    </p>
+                    <Link href={`/members/${person.id}`}>
+                      <span
+                        onClick={onClose}
+                        className="inline-block text-[13px] font-bold text-black bg-white px-4 py-2.5 rounded-full cursor-pointer"
+                      >
+                        의원 상세 보기
+                      </span>
+                    </Link>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* 하단 영역: 기사 제목 및 원본 링크 (z-20) */}
+          {current && (
+            <div className="w-full space-y-3">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-2.5 py-1 rounded-full mb-2">
+                  <Newspaper className="w-3 h-3" />
+                  {current.source}
+                </span>
+                <h2 className="text-[17px] sm:text-[19px] font-extrabold text-white leading-snug [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
+                  {current.title}
+                </h2>
+              </div>
+              <a
+                href={current.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 text-[13px] font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all w-full sm:w-fit"
+              >
+                기사 전체 보기
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* 데스크탑 좌우 화살표 */}
