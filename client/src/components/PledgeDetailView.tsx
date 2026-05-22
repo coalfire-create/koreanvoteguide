@@ -381,26 +381,46 @@ function ComparisonView({
             {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
               <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                 {candidateA.pledge.content && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-indigo-600 block mb-1.5">목표</span>
+                  <div className="bg-indigo-50/40 rounded-2xl p-4 border border-indigo-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                      </div>
+                      <span className="text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
+                    </div>
                     <FormattedText text={candidateA.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.method && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-emerald-600 block mb-1.5">이행 방법</span>
+                  <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                        <span className="text-[12px]">📋</span>
+                      </div>
+                      <span className="text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                    </div>
                     <FormattedText text={candidateA.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.funding && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-amber-600 block mb-1.5">재원 조달 방안</span>
+                  <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                        <span className="text-[12px]">💰</span>
+                      </div>
+                      <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                    </div>
                     <FormattedText text={candidateA.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.duration && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-sky-600 block mb-1.5">이행 기간</span>
+                  <div className="bg-sky-50/40 rounded-2xl p-4 border border-sky-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                        <span className="text-[12px]">⏱️</span>
+                      </div>
+                      <span className="text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                    </div>
                     <FormattedText text={candidateA.pledge.duration} size="sm" />
                   </div>
                 )}
@@ -429,26 +449,46 @@ function ComparisonView({
             {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
               <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                 {candidateB.pledge.content && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-indigo-600 block mb-1.5">목표</span>
+                  <div className="bg-indigo-50/40 rounded-2xl p-4 border border-indigo-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                      </div>
+                      <span className="text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
+                    </div>
                     <FormattedText text={candidateB.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.method && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-emerald-600 block mb-1.5">이행 방법</span>
+                  <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                        <span className="text-[12px]">📋</span>
+                      </div>
+                      <span className="text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                    </div>
                     <FormattedText text={candidateB.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.funding && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-amber-600 block mb-1.5">재원 조달 방안</span>
+                  <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                        <span className="text-[12px]">💰</span>
+                      </div>
+                      <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                    </div>
                     <FormattedText text={candidateB.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.duration && (
-                  <div>
-                    <span className="text-[10.5px] font-black text-sky-600 block mb-1.5">이행 기간</span>
+                  <div className="bg-sky-50/40 rounded-2xl p-4 border border-sky-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                        <span className="text-[12px]">⏱️</span>
+                      </div>
+                      <span className="text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                    </div>
                     <FormattedText text={candidateB.pledge.duration} size="sm" />
                   </div>
                 )}

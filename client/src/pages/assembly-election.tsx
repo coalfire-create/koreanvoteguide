@@ -3,10 +3,13 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, Landmark, Users, MapPin, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowLeft, Landmark, Users, MapPin, Sparkles, TrendingUp, ChevronRight } from "lucide-react";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { getPartyColor, getPartyRank } from "@/lib/mock-data";
 import { saveCandidateToSession } from "@/pages/candidate-detail";
+import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailView";
+
+type NormalizedPledge = { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string };
 
 interface AssemblyCandidate {
   id: string;
@@ -45,6 +48,16 @@ function normalizePledges(raw: any[]): { id: string; title: string; description:
 
 export default function AssemblyElection() {
   const [, setLocation] = useLocation();
+
+  // 공약 상세 비교 모달 상태 (시장 선거 election-home과 동일)
+  const [selectedPledge, setSelectedPledge] = useState<NormalizedPledge | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string>("");
+  const [selectedCandidateParty, setSelectedCandidateParty] = useState<string>("");
+  const [selectedCandidateJob, setSelectedCandidateJob] = useState<string>("");
+  const [selectedCandidateCareer1, setSelectedCandidateCareer1] = useState<string>("");
+  const [selectedCompareWith, setSelectedCompareWith] = useState<CompareWith | null>(null);
+
   const { data: candidates = [], isLoading } = useQuery<AssemblyCandidate[]>({
     queryKey: ["/api/election/assembly"],
     queryFn: async () => {
@@ -263,12 +276,47 @@ export default function AssemblyElection() {
                               </div>
                               {pledges.length === 0 ? (
                                 <div className="bg-muted rounded-2xl p-6 text-center text-[12px] text-muted-foreground">등록된 공약이 없습니다.</div>
-                              ) : pledges.map((p) => (
-                                <div key={p.id} className="bg-card p-5 rounded-2xl shadow-sm border border-border/30">
-                                  {p.realmName && <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase">{p.realmName}</span>}
-                                  <h5 className="text-[14px] font-bold mb-1.5 leading-snug">{p.title}</h5>
-                                  {p.description && <p className="text-[12px] text-muted-foreground line-clamp-2">{p.description}</p>}
-                                </div>
+                              ) : pledges.map((p, pIdx) => (
+                                <motion.div
+                                  key={p.id}
+                                  whileHover={{ y: -3 }}
+                                  className="bg-card p-5 rounded-2xl shadow-sm border border-border/30 hover:border-primary/20 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
+                                  onClick={() => {
+                                    setSelectedCandidateId(String(c.id));
+                                    setSelectedCandidateName(c.name);
+                                    setSelectedCandidateParty(c.party);
+                                    setSelectedCandidateJob(c.job ?? "");
+                                    setSelectedCandidateCareer1(c.career1 ?? c.career ?? "");
+                                    setSelectedPledge(p);
+                                    const firstOther = vs.find((o) => o.id !== c.id);
+                                    if (firstOther) {
+                                      const otherPledges = normalizePledges(firstOther.pledges ?? firstOther.promises ?? []);
+                                      const otherP = otherPledges[pIdx];
+                                      setSelectedCompareWith(otherP ? {
+                                        candidateId: String(firstOther.id),
+                                        name: firstOther.name,
+                                        party: firstOther.party,
+                                        job: firstOther.job ?? "",
+                                        career1: firstOther.career1 ?? firstOther.career ?? "",
+                                        pledge: otherP,
+                                      } : null);
+                                    } else {
+                                      setSelectedCompareWith(null);
+                                    }
+                                  }}
+                                >
+                                  <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
+                                  <div className="flex items-start gap-3 pl-3">
+                                    <div className="flex-1 min-w-0">
+                                      {p.realmName && <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase">{p.realmName}</span>}
+                                      <h5 className="text-[14px] font-bold mb-1.5 leading-snug group-hover:text-primary transition-colors">{p.title}</h5>
+                                      {p.description && <p className="text-[12px] text-muted-foreground line-clamp-2">{p.description}</p>}
+                                    </div>
+                                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors shrink-0 mt-0.5">
+                                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary" />
+                                    </div>
+                                  </div>
+                                </motion.div>
                               ))}
                             </div>
                           );
@@ -282,6 +330,18 @@ export default function AssemblyElection() {
           </>
         )}
       </div>
+
+      <PledgeDetailView
+        candidateId={selectedCandidateId || ""}
+        candidateName={selectedCandidateName}
+        candidateParty={selectedCandidateParty}
+        candidateJob={selectedCandidateJob}
+        candidateCareer1={selectedCandidateCareer1}
+        promise={selectedPledge}
+        open={!!selectedPledge}
+        onClose={() => { setSelectedPledge(null); setSelectedCompareWith(null); }}
+        compareWith={selectedCompareWith}
+      />
     </div>
   );
 }
