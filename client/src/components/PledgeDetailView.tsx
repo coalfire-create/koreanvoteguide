@@ -379,9 +379,25 @@ function CandidatePledgeAxes({
     retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000),
   });
 
+  const axesAvgScore = (() => {
+    const axes = ai?.detailedAxes;
+    if (!axes) return null;
+    const vals = Object.values(axes)
+      .map((a) => a?.score)
+      .filter((s): s is number => typeof s === "number" && Number.isFinite(s));
+    if (vals.length === 0) return null;
+    return Math.round((vals.reduce((sum, s) => sum + s, 0) / vals.length) * 20);
+  })();
+  const score = axesAvgScore ?? ai?.feasibilityScore ?? fallback.score;
+  const label = score >= 75 ? "높음" : score >= 55 ? "중간" : score >= 35 ? "보통" : "낮음";
+  const scoreColor = score >= 75 ? "text-emerald-600" : score >= 55 ? "text-blue-600" : score >= 40 ? "text-amber-600" : "text-red-500";
+  const scoreBg = score >= 75 ? "bg-emerald-50" : score >= 55 ? "bg-blue-50" : score >= 40 ? "bg-amber-50" : "bg-red-50";
+  const barColor = score >= 75 ? "#10b981" : score >= 55 ? "#3b82f6" : "#f59e0b";
+
   if (isLoading) {
     return (
       <div className="space-y-2.5">
+        <div className="animate-pulse h-10 bg-gray-100 rounded-xl" />
         {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="animate-pulse flex items-center gap-3">
             <div className="h-3 bg-gray-100 rounded-full flex-1" style={{ maxWidth: `${90 - i * 6}%` }} />
@@ -391,8 +407,34 @@ function CandidatePledgeAxes({
     );
   }
 
-  if (!ai?.detailedAxes) return null;
-  return <DetailedAxesChart axes={ai.detailedAxes} />;
+  return (
+    <div className="space-y-4">
+      {/* 종합 평가 */}
+      <div className={`rounded-xl p-3 ${scoreBg}`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold text-gray-700">종합 평가</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[12px] font-black ${scoreColor}`}>{label}</span>
+            <span className="text-[11px] font-bold text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: barColor }}>
+              {score}점
+            </span>
+          </div>
+        </div>
+        <div className="h-1.5 bg-white/60 rounded-full overflow-hidden shadow-inner">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${score}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="h-full rounded-full"
+            style={{ backgroundColor: barColor }}
+          />
+        </div>
+      </div>
+
+      {/* 5축 차트 */}
+      {ai?.detailedAxes && <DetailedAxesChart axes={ai.detailedAxes} />}
+    </div>
+  );
 }
 
 // ============================================================
