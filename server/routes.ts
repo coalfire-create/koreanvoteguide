@@ -26,6 +26,7 @@ import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
 import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
 import { callLLMText, callLLMJson, callLLMJsonOrFallback, LLMConfigError, LLMTransientError, LLMParseError } from "./utils/llm-wrapper";
+import { getAiCache, setAiCache } from "./utils/ai-cache";
 import { fetchRecentNews, stripHtml, type RecentNewsItem } from "./utils/news";
 import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
 import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
@@ -38,15 +39,6 @@ import {
   mapKakaoGender,
   mapKakaoBirthYear,
 } from "./utils/kakao-oauth";
-import {
-  loadNaverConfig,
-  buildAuthorizeUrl as buildNaverAuthorizeUrl,
-  exchangeCodeForToken as exchangeNaverCodeForToken,
-  fetchNaverProfile,
-  mapNaverAge,
-  mapNaverGender,
-  mapNaverBirthYear,
-} from "./utils/naver-oauth";
 import {
   loadGoogleConfig,
   buildAuthorizeUrl as buildGoogleAuthorizeUrl,
@@ -1391,123 +1383,6 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
-    }
-  });
-
-  // ===== Naver OAuth (보조 로그인 경로) — Kakao와 동일 흐름 =====
-  //   1) FE /api/auth/naver → CSRF state 생성·세션 저장 → 네이버 인증창 redirect
-  //   2) 동의 후 네이버가 /api/auth/naver/callback?code=...&state=... 로 redirect
-  //   3) state 검증 → code↔access_token 교환 → /v1/nid/me 프로필 조회
-  //   4) naverId로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
-  //   5) req.session.userId 세팅 → 홈으로 redirect
-  app.get("/api/auth/naver", authLimiter, (req, res) => {
-    const config = loadNaverConfig();
-    if (!config) {
-      return res.status(503).json({
-        error: "Naver 로그인이 설정되지 않았습니다. (NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_REDIRECT_URI 환경변수 필요)",
-      });
-    }
-    const state = randomBytes(16).toString("hex");
-    req.session.naverOAuthState = state;
-    req.session.oauthNext = safeNextUrl(req.query.next);
-    req.session.save((err) => {
-      if (err) {
-        console.error("[naver] session save failed:", err);
-        return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
-      }
-      res.redirect(buildNaverAuthorizeUrl(config, state));
-    });
-  });
-
-  app.get("/api/auth/naver/callback", authLimiter, async (req, res) => {
-    const config = loadNaverConfig();
-    if (!config) {
-      return res.status(503).send("Naver 로그인이 설정되지 않았습니다.");
-    }
-
-    const { code, state, error: naverError } = req.query as Record<string, string | undefined>;
-    if (naverError) {
-      console.warn(`[naver] callback error: ${naverError}`);
-      return res.redirect(`/login?error=${encodeURIComponent(naverError)}`);
-    }
-    if (!code || typeof code !== "string") {
-      return res.status(400).send("Naver 인증 코드가 누락되었습니다.");
-    }
-    const expectedState = req.session.naverOAuthState;
-    if (!expectedState || expectedState !== state) {
-      return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
-    }
-    req.session.naverOAuthState = undefined;
-
-    try {
-      const tokenRes = await exchangeNaverCodeForToken(config, code, state as string);
-      const profile = await fetchNaverProfile(tokenRes.access_token);
-      const p = profile.response;
-
-      const naverIdStr = String(p.id);
-      const profileNickname = p.nickname ?? p.name ?? `naver_${naverIdStr.slice(-6)}`;
-      const profileImage = p.profile_image ?? null;
-      const email = p.email ?? null;
-      const ageGroup = mapNaverAge(p.age);
-      const gender = mapNaverGender(p.gender);
-      const birthYear = mapNaverBirthYear(p.birthyear);
-
-      const [existing] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.naverId, naverIdStr))
-        .limit(1);
-
-      let userId: string;
-      if (existing) {
-        userId = existing.id;
-        await db
-          .update(users)
-          .set({
-            name: profileNickname,
-            email,
-            profileImageUrl: profileImage,
-            ageGroup: ageGroup ?? undefined,
-            gender: gender ?? undefined,
-            birthYear: birthYear ?? undefined,
-            realNameVerified: true,
-            realNameProvider: "naver",
-          })
-          .where(eq(users.id, existing.id));
-      } else {
-        const username = `naver_${naverIdStr}`;
-        const [created] = await db
-          .insert(users)
-          .values({
-            username,
-            password: "",
-            phone: "",
-            phoneHash: null,
-            name: profileNickname,
-            email,
-            profileImageUrl: profileImage,
-            naverId: naverIdStr,
-            ageGroup: ageGroup ?? undefined,
-            gender: gender ?? undefined,
-            birthYear: birthYear ?? undefined,
-            realNameVerified: true,
-            realNameProvider: "naver",
-            phoneVerified: false,
-            tosAcceptedAt: new Date(),
-            privacyAcceptedAt: new Date(),
-          })
-          .returning({ id: users.id });
-        userId = created.id;
-      }
-
-      req.session.userId = userId;
-      const next = safeNextUrl(req.session.oauthNext);
-      req.session.oauthNext = undefined;
-      console.log(`[naver] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-      redirectWithLoginSuccess(res, next);
-    } catch (error: any) {
-      console.error("[naver] callback failed:", error?.response?.data ?? error?.message ?? error);
-      res.redirect(`/login?error=${encodeURIComponent("네이버 로그인 처리 중 오류가 발생했습니다.")}`);
     }
   });
 
@@ -3069,9 +2944,13 @@ export async function registerRoutes(
       }
       const dimension: PolicyDimension = dimRaw;
 
-      const cacheKey = `${id}:${dimension}`;
-      const cached = stanceAnalystCache.get(cacheKey);
-      if (cached) return res.json(cached);
+      const cacheKey = `stance-analyst::${id}::${dimension}`;
+      const l1 = stanceAnalystCache.get(cacheKey);
+      if (l1) return res.json(l1);
+
+      // L2: DB 영속 캐시
+      const l2 = await getAiCache<StanceAnalystReport>(cacheKey);
+      if (l2) { stanceAnalystCache.set(cacheKey, l2); return res.json(l2); }
 
       if (!process.env.GROQ_API_KEY) {
         return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
@@ -3093,6 +2972,9 @@ export async function registerRoutes(
 
       // 데이터 부족 결과도 캐시하여 반복 요청·LLM 비용을 절감한다.
       stanceAnalystCache.set(cacheKey, report);
+      setAiCache(cacheKey, "stance-analyst", report).catch((e: unknown) =>
+        console.error("[stance-analyst] DB 캐시 저장 실패:", (e as Error).message),
+      );
       res.json(report);
     } catch (error: any) {
       if (error instanceof LLMConfigError) {
@@ -4959,8 +4841,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "공약 내용이 필요합니다" });
       }
 
-      const cacheKey = [name, pledgeTitle, method, funding, duration].join("||");
+      const cacheKey = `analyze-pledge::${[name, pledgeTitle, method, funding, duration].join("||")}`;
       if (pledgeAnalyzeCache.has(cacheKey)) return res.json(pledgeAnalyzeCache.get(cacheKey));
+      // L2: DB 영속 캐시
+      const pledgeL2 = await getAiCache<object>(cacheKey);
+      if (pledgeL2) { pledgeAnalyzeCache.set(cacheKey, pledgeL2); return res.json(pledgeL2); }
 
       if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 
@@ -5073,7 +4958,12 @@ export async function registerRoutes(
       };
 
       // 폴백(LLM 실패)은 캐시하지 않음 — 다음 요청에서 LLM 재시도 가능하도록
-      if (rawResult !== fallback) pledgeAnalyzeCache.set(cacheKey, result);
+      if (rawResult !== fallback) {
+        pledgeAnalyzeCache.set(cacheKey, result);
+        setAiCache(cacheKey, "analyze-pledge", result).catch((e: unknown) =>
+          console.error("[analyze-pledge] DB 캐시 저장 실패:", (e as Error).message),
+        );
+      }
       res.json(result);
     } catch (error: any) {
       console.error("[analyze-pledge] error:", error);
@@ -5273,6 +5163,10 @@ export async function registerRoutes(
       if (!monaCd) return res.status(400).json({ error: "monaCd 필요" });
 
       if (memberProfileCache.has(monaCd)) return res.json(memberProfileCache.get(monaCd));
+      // L2: DB 영속 캐시
+      const profileCacheKey = `analyze-profile::${monaCd}`;
+      const profileL2 = await getAiCache<object>(profileCacheKey);
+      if (profileL2) { memberProfileCache.set(monaCd, profileL2); return res.json(profileL2); }
 
       if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 
@@ -5357,6 +5251,9 @@ export async function registerRoutes(
           provider: "openai",
         });
         memberProfileCache.set(monaCd, result);
+        setAiCache(profileCacheKey, "analyze-profile", result).catch((e: unknown) =>
+          console.error("[analyze-profile] DB 캐시 저장 실패:", (e as Error).message),
+        );
         res.json(result);
       } catch (err) {
         if (err instanceof LLMParseError) return res.status(500).json({ error: "분석 결과 파싱 실패" });
@@ -5438,28 +5335,24 @@ export async function registerRoutes(
         summary: (b.aiDescription ?? "").slice(0, 200),
       }));
 
-      // ── 3. 데이터 소스 #2 : 본회의 표결 기록 (최근 30건) ──
+      // ── 3. 데이터 소스 #2 : 본회의 표결 기록 (최근 20건, 핵심 필드만) ──
       const voteRowsForEval = monaCd
         ? await db
             .select({
               billName: assemblyBills.billName,
-              committee: assemblyBills.committee,
               voteResult: assemblyVotes.voteResult,
-              proposeDate: assemblyBills.proposeDate,
             })
             .from(assemblyVotes)
             .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
             .where(eq(assemblyVotes.legislatorId, monaCd))
             .orderBy(desc(assemblyBills.proposeDate))
-            .limit(30)
+            .limit(20)
         : [];
 
       const votingRecords = voteRowsForEval
         .filter((v) => v.billName && (v.voteResult === "찬성" || v.voteResult === "반대"))
         .map((v) => ({
           bill_title: v.billName as string,
-          committee: v.committee ?? "",
-          date: v.proposeDate ?? "",
           vote_result: v.voteResult,
         }));
 
@@ -5470,7 +5363,7 @@ export async function registerRoutes(
 
       const recentNews = newsItems.map((n) => ({
         title: n.title,
-        description: n.description,
+        description: (n.description ?? "").slice(0, 150),
         date: n.pubDate,
       }));
 

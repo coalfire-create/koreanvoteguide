@@ -25,6 +25,7 @@ import {
 import { eq, ilike, sql, desc, inArray } from "drizzle-orm";
 import { analyzeLegislator } from "./legislator-analysis.js";
 import { callLLMJson, LLMParseError } from "./utils/llm-wrapper.js";
+import { getAiCache, setAiCache } from "./utils/ai-cache.js";
 
 export interface CandidateReport {
   candidateName: string;
@@ -302,9 +303,13 @@ export async function generateCandidateReport(
   const name = rawName.trim();
   if (!name) throw new CandidateNotFoundError("후보명이 비어 있습니다.");
 
-  const cacheKey = `${name.toLowerCase()}::${(partyHint ?? "").toLowerCase()}`;
-  const cached = reportCache.get(cacheKey);
-  if (cached) return cached;
+  const cacheKey = `candidate-report::${name.toLowerCase()}::${(partyHint ?? "").toLowerCase()}`;
+  const l1 = reportCache.get(cacheKey);
+  if (l1) return l1;
+
+  // L2: DB 영속 캐시
+  const l2 = await getAiCache<CandidateReportEnvelope>(cacheKey);
+  if (l2) { reportCache.set(cacheKey, l2); return l2; }
 
   const facts = await gatherFacts(name, partyHint);
 
@@ -346,5 +351,9 @@ export async function generateCandidateReport(
     generatedAt: new Date().toISOString(),
   };
   reportCache.set(cacheKey, envelope);
+  // L2: DB 영속 저장 (백그라운드)
+  setAiCache(cacheKey, "candidate-report", envelope).catch((e: unknown) =>
+    console.error("[candidate-report] DB 캐시 저장 실패:", (e as Error).message),
+  );
   return envelope;
 }

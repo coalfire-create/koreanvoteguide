@@ -451,7 +451,7 @@ function RegionView({
         onSelectRegion={onSelectRegion} 
       />
       
-      <div className="px-8 pt-6 w-full max-w-[1400px] mx-auto">
+      <div className="px-4 sm:px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
 
         {/* Region Selector removed from here and moved to TopHeader */}
@@ -487,7 +487,7 @@ function RegionView({
             {/* Election Header & Poll Support Rating Summary */}
             <div className="flex flex-col gap-4">
               <div className="relative flex flex-col items-center justify-center py-4">
-                <h1 className="text-4xl font-black text-foreground tracking-tight text-center">
+                <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight text-center">
                   {`${MAYOR_RACES.find(r => r.regionCode === region.code)?.positionLabel || `${region.name}시장`} 선거`}
                 </h1>
                 <p className="text-muted-foreground text-sm font-medium mt-2 text-center">제9회 전국동시지방선거 · 2026년 6월 3일</p>
@@ -514,10 +514,10 @@ function RegionView({
               <EmptyState regionName={region.name} />
             ) : (
             <div className={`transition-opacity duration-300 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
-              <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden">
-                <div className="px-8 pt-8 pb-8">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+              <div className="bg-card rounded-2xl sm:rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden">
+                <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8">
+                <div className="flex items-center justify-between mb-6 sm:mb-8">
+                  <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
                     주요 정당 핵심 정책 대결
                   </h3>
                   <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
@@ -639,20 +639,20 @@ function RegionView({
               </div>
 
               {/* Divider */}
-              <div className="mx-8 border-t border-border/30" />
+              <div className="mx-4 sm:mx-8 border-t border-border/30" />
 
               {/* Pledge Comparison Grid — 실 공약 데이터 기반 렌더링 */}
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex flex-col gap-1">
-                    <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+              <div className="p-4 sm:p-8">
+                <div className="flex items-center justify-between gap-2 mb-6 sm:mb-8">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
                       핵심 공약 비교 분석
                     </h3>
-                    <p className="text-xs text-muted-foreground font-medium ml-7">후보자별 공약을 비교하고 AI 분석을 확인하세요</p>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground font-medium sm:ml-7">후보자별 공약을 비교하고 AI 분석을 확인하세요</p>
                   </div>
-                  <div className="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-2xl border border-primary/20">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span className="text-[11px] font-black text-primary">AI 심층 비교 가능</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-primary/20 shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                    <span className="text-[10px] sm:text-[11px] font-black text-primary whitespace-nowrap">AI 비교</span>
                   </div>
                 </div>
 
@@ -676,9 +676,9 @@ function RegionView({
                   }
 
                   return (
-                    <div className="flex flex-col gap-12">
-                      {/* 주요 후보 (VS) 공약 비교 — 인덱스 기반이 아닌 실 데이터 기반 */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-8 sm:gap-12">
+                      {/* 주요 후보 (VS) 공약 비교 — 폰에서도 좌우 2열 유지(웹과 동일 구성) */}
+                      <div className="grid grid-cols-2 gap-3 sm:gap-8">
                         {vsCandidates.map((candidate) => {
                           const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
                           const color = getPartyColor(candidate.party);
@@ -686,12 +686,11 @@ function RegionView({
                           return (
                             <div key={candidate.id} className="flex flex-col gap-4">
                               {/* 후보자 헤더 */}
-                              <div className="flex items-center gap-2 pb-2 border-b border-border/30">
-                                <div className={`w-2 h-2 rounded-full ${color}`} />
-                                <span className={`text-[12px] font-black ${color.replace('bg-', 'text-')}`}>기호 {getPartyRank(candidate.party)}</span>
-                                <span className="text-[12px] font-black text-muted-foreground">·</span>
-                                <span className="text-[14px] font-black text-foreground">{candidate.name}</span>
-                                <span className="text-[11px] text-muted-foreground ml-auto">{pledges.length}개 공약</span>
+                              <div className="flex items-center gap-1.5 sm:gap-2 pb-2 border-b border-border/30 min-w-0">
+                                <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                                <span className={`text-[11px] sm:text-[12px] font-black ${color.replace('bg-', 'text-')} shrink-0`}>기호 {getPartyRank(candidate.party)}</span>
+                                <span className="text-[13px] sm:text-[14px] font-black text-foreground truncate">{candidate.name}</span>
+                                <span className="text-[10px] sm:text-[11px] text-muted-foreground ml-auto shrink-0">{pledges.length}개</span>
                               </div>
 
                               {pledges.length === 0 ? (
@@ -704,7 +703,7 @@ function RegionView({
                                   <motion.div
                                     key={`${candidate.id}-${p.id}`}
                                     whileHover={{ y: -3 }}
-                                    className="bg-card p-5 rounded-2xl shadow-sm border border-border/30 hover:border-primary/20 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
+                                    className="bg-card p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-border/30 hover:border-primary/20 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
                                     onClick={() => {
                                       setSelectedCandidateId(String(candidate.id));
                                       setSelectedCandidateName(candidate.name);
@@ -730,27 +729,27 @@ function RegionView({
                                     }}
                                   >
                                     <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
-                                    <div className="flex items-start gap-3 pl-3">
+                                    <div className="flex items-start gap-2 sm:gap-3 pl-2 sm:pl-3">
                                       <span className="text-[11px] font-bold text-muted-foreground mt-0.5 shrink-0">{pIdx + 1}</span>
                                       <div className="flex-1 min-w-0">
                                         {p.realmName && (
-                                          <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase tracking-wider">{p.realmName}</span>
+                                          <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase tracking-wider line-clamp-1">{p.realmName}</span>
                                         )}
-                                        <h5 className="text-[14px] font-bold text-foreground mb-1.5 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                        <h5 className="text-[13px] sm:text-[14px] font-bold text-foreground mb-1.5 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
                                           {p.title}
                                         </h5>
                                         {p.description && (
                                           <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">{p.description}</p>
                                         )}
                                         {(p.method || p.funding || p.duration) && (
-                                          <div className="flex flex-wrap gap-1.5 mt-2">
+                                          <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-2">
                                             {p.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">이행방법 ✓</span>}
                                             {p.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">재원조달 ✓</span>}
                                             {p.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">이행기간 ✓</span>}
                                           </div>
                                         )}
                                       </div>
-                                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors shrink-0 mt-0.5">
+                                      <div className="hidden sm:flex w-6 h-6 rounded-full bg-muted items-center justify-center group-hover:bg-primary/10 transition-colors shrink-0 mt-0.5">
                                         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary" />
                                       </div>
                                     </div>
@@ -768,13 +767,13 @@ function RegionView({
                           <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                             <Plus className="w-3 h-3" /> 기타 정당 후보 공약
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                             {minorCandidates.map((candidate) => {
                               const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
                               const color = getPartyColor(candidate.party);
 
                               return (
-                                <div key={candidate.id} className="bg-muted p-5 rounded-2xl border border-border/30">
+                                <div key={candidate.id} className="bg-muted p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-border/30">
                                   <div className="flex items-center gap-2 mb-3">
                                     <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
                                     <span className={`text-[10px] font-black ${color.replace('bg-', 'text-')}`}>{candidate.name} (기호 {getPartyRank(candidate.party)})</span>

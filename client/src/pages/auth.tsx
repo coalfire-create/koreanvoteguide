@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown } from "lucide-react";
 import { KakaoLoginButton } from "@/components/KakaoLoginButton";
-import { NaverLoginButton } from "@/components/NaverLoginButton";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 export default function AuthPage() {
@@ -94,10 +93,9 @@ export default function AuthPage() {
               회원가입 없이 카카오로 바로 시작하세요
             </p>
             <KakaoLoginButton next={returnTo} />
-            <NaverLoginButton next={returnTo} />
             <GoogleLoginButton next={returnTo} />
             <p className="text-center text-[11px] text-slate-400 leading-relaxed">
-              카카오·네이버·구글 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
+              카카오·구글 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
             </p>
           </div>
 

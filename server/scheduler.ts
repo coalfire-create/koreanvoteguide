@@ -1,8 +1,10 @@
 import cron from "node-cron";
 import axios from "axios";
 import { db } from "./db";
-import { assemblyDataCache, schedulerStatus, verificationCodes, searchHistory, users } from "@shared/schema";
-import { eq, lt, and, isNotNull, sql } from "drizzle-orm";
+import { assemblyDataCache, schedulerStatus, verificationCodes, searchHistory, users, legislators, assemblyBills, assemblyVotes, aiCache } from "@shared/schema";
+import { eq, lt, and, isNotNull, sql, isNull, desc } from "drizzle-orm";
+import { callLLMText, callLLMJson } from "./utils/llm-wrapper";
+import { getAiCache, setAiCache } from "./utils/ai-cache";
 import { log } from "./index";
 
 const API_BASE = "https://open.assembly.go.kr/portal/openapi";
@@ -245,5 +247,157 @@ export function startScheduler(): void {
   // 5/21 이후 매일 06:10 KST 재시도 (누락 후보 보완)
   cron.schedule("10 21 * * *", runPhotoSync, { timezone: "UTC" });
 
+  // ===== AI 캐시 사전 생성 (야간 off-peak) =====
+  // 02:00 KST (= 17:00 UTC): 트렌딩 상위 20명 의원 프로필 분석 사전 생성
+  cron.schedule("0 17 * * *", () => preGenerateMemberProfiles(), { timezone: "UTC" });
+  // 03:00 KST (= 18:00 UTC): 법안 AI 설명 누락 항목 채우기
+  cron.schedule("0 18 * * *", () => preGenerateBillDescriptions(), { timezone: "UTC" });
+  // 매일 04:00 KST (= 19:00 UTC): 만료된 ai_cache 행 삭제
+  cron.schedule("0 19 * * *", () => cleanupAiCache(), { timezone: "UTC" });
+
   void sql;
+}
+
+// ===== AI 사전 생성 유틸 =====
+
+async function preGenerateMemberProfiles(): Promise<void> {
+  log("의원 프로필 AI 사전 생성 시작...", "ai-pregen");
+  try {
+    const topMembers = await db
+      .select({
+        monaCd: legislators.monaCd,
+        name: legislators.name,
+        party: legislators.party,
+        district: legislators.district,
+        followerCount: legislators.followerCount,
+        profileViewCount: legislators.profileViewCount,
+        recentNewsCount: legislators.recentNewsCount,
+      })
+      .from(legislators)
+      .orderBy(
+        desc(
+          sql<number>`${legislators.followerCount} * 20 + ${legislators.profileViewCount} + ${legislators.recentNewsCount} * 5`,
+        ),
+      )
+      .limit(20);
+
+    let generated = 0;
+    for (const m of topMembers) {
+      const cacheKey = `analyze-profile::${m.monaCd}`;
+      const existing = await getAiCache<object>(cacheKey);
+      if (existing) continue; // 이미 신선한 캐시 있음
+
+      const voteRows = await db
+        .select({ billName: assemblyBills.billName, committee: assemblyBills.committee, voteResult: assemblyVotes.voteResult })
+        .from(assemblyVotes)
+        .leftJoin(assemblyBills, eq(assemblyVotes.billId, assemblyBills.billId))
+        .where(eq(assemblyVotes.legislatorId, m.monaCd))
+        .limit(40);
+
+      if (voteRows.length < 3) continue;
+
+      const voteSummary = voteRows
+        .filter((v) => v.billName)
+        .map((v) => `${v.voteResult}: ${v.billName}${v.committee ? ` (${v.committee})` : ""}`)
+        .join("\n");
+
+      const profileSchema =
+        "당신은 대한민국 국회의원의 표결 기록을 분석하는 중립적인 정치 전문가입니다. " +
+        "반드시 아래 JSON 스키마만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.\n" +
+        JSON.stringify({
+          summary: "경제 분야에서 친기업·규제완화 성향이 뚜렷하며, 재정 건전성을 중시합니다. (1문장, 50자 이내)",
+          orientation: { economy: 7, government: 3 },
+          topInterests: [
+            { field: "경제", percentage: 45 },
+            { field: "복지", percentage: 30 },
+            { field: "교육", percentage: 25 },
+          ],
+          crucialBills: [
+            { billName: "중대재해처벌법 개정안", reason: "기업 규제 완화에 찬성 표결을 던짐" },
+            { billName: "법안명2", reason: "이유2" },
+            { billName: "법안명3", reason: "이유3" },
+          ],
+        }) +
+        "\n\norientation.economy: 0=친노동/시장개입, 10=친기업/규제완화\n" +
+        "orientation.government: 0=큰정부/복지확대, 10=작은정부/감세\n" +
+        "topInterests: 관심분야 TOP3, 합계 100\n" +
+        "crucialBills: 성향 파악에 결정적인 법안 3개";
+
+      try {
+        const result = await callLLMJson<object>({
+          system: profileSchema,
+          user: `의원: ${m.name} (${m.party} / ${m.district})\n\n최근 표결 기록 (${voteRows.length}건):\n${voteSummary}`,
+          temperature: 0.2,
+          maxTokens: 700,
+          label: "members/analyze-profile/pregen",
+          provider: "openai",
+        });
+        await setAiCache(cacheKey, "analyze-profile", result);
+        generated++;
+        await new Promise((r) => setTimeout(r, 500));
+      } catch (e: any) {
+        log(`의원 프로필 사전 생성 실패 (${m.name}): ${e.message}`, "ai-pregen");
+      }
+    }
+    log(`의원 프로필 AI 사전 생성 완료: ${generated}건`, "ai-pregen");
+  } catch (err: any) {
+    log(`의원 프로필 사전 생성 전체 오류: ${err.message}`, "ai-pregen");
+  }
+}
+
+async function preGenerateBillDescriptions(): Promise<void> {
+  log("법안 AI 설명 사전 생성 시작...", "ai-pregen");
+  if (!process.env.GROQ_API_KEY) {
+    log("GROQ_API_KEY 미설정, 법안 설명 사전 생성 스킵", "ai-pregen");
+    return;
+  }
+  try {
+    const bills = await db
+      .select({ billId: assemblyBills.billId, billName: assemblyBills.billName, committee: assemblyBills.committee, proposer: assemblyBills.proposer })
+      .from(assemblyBills)
+      .where(isNull(assemblyBills.aiDescription))
+      .orderBy(desc(assemblyBills.proposeDate))
+      .limit(50);
+
+    let generated = 0;
+    for (const bill of bills) {
+      try {
+        const context = [
+          bill.committee ? `소관위원회: ${bill.committee}` : "",
+          bill.proposer ? `발의자: ${bill.proposer}` : "",
+        ].filter(Boolean).join(", ");
+
+        const description = await callLLMText({
+          system:
+            "당신은 한국 국회 법안을 시민이 쉽게 이해할 수 있도록 설명하는 전문가입니다. " +
+            "2~3문장(80자 이내)으로만 설명하세요. 다른 말은 하지 마세요.",
+          user: `법안명: ${bill.billName}${context ? `\n추가정보: ${context}` : ""}`,
+          temperature: 0.3,
+          maxTokens: 200,
+          label: "bills/describe/pregen",
+        });
+
+        await db
+          .update(assemblyBills)
+          .set({ aiDescription: description })
+          .where(eq(assemblyBills.billId, bill.billId));
+        generated++;
+        await new Promise((r) => setTimeout(r, 300));
+      } catch (e: any) {
+        log(`법안 설명 생성 실패 (${bill.billName}): ${e.message}`, "ai-pregen");
+      }
+    }
+    log(`법안 AI 설명 사전 생성 완료: ${generated}건`, "ai-pregen");
+  } catch (err: any) {
+    log(`법안 설명 사전 생성 전체 오류: ${err.message}`, "ai-pregen");
+  }
+}
+
+async function cleanupAiCache(): Promise<void> {
+  try {
+    await db.delete(aiCache).where(lt(aiCache.expiresAt, new Date()));
+    log("만료 ai_cache 행 정리 완료", "ai-cache-cleanup");
+  } catch (err: any) {
+    log(`ai_cache 정리 오류: ${err.message}`, "ai-cache-cleanup");
+  }
 }

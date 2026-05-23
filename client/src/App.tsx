@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { queryClient } from "./lib/queryClient";
@@ -8,7 +8,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { BottomNav } from "@/components/bottom-nav";
 import { SideNav } from "@/components/side-nav";
-import { SplashScreen } from "@/components/splash-screen";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
@@ -126,19 +125,12 @@ function MainApp() {
 }
 
 function App() {
-  const [showSplash, setShowSplash] = useState(true);
-
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
-            <div className="relative w-full h-full min-h-screen">
-              <MainApp />
-              {showSplash && (
-                <SplashScreen onComplete={() => setShowSplash(false)} />
-              )}
-            </div>
+            <MainApp />
           </AuthProvider>
           <Toaster />
         </TooltipProvider>

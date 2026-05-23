@@ -35,8 +35,6 @@ export const users = pgTable("users", {
   // ===== Kakao OAuth (메인 로그인 수단) =====
   // kakaoId: Kakao 사용자 고유 ID(숫자). 같은 사용자 재로그인 시 lookup 키.
   kakaoId: text("kakao_id"),
-  // naverId: Naver 사용자 고유 식별자(앱별 고유). 같은 사용자 재로그인 시 lookup 키.
-  naverId: text("naver_id"),
   // googleId: Google 사용자 고유 식별자. 같은 사용자 재로그인 시 lookup 키.
   googleId: text("google_id"),
   // email: Kakao account_email scope에서 받은 이메일. 사용자 동의 시에만 채워짐.
@@ -62,8 +60,6 @@ export const users = pgTable("users", {
   ciUniqIdx: uniqueIndex("users_ci_uniq").on(table.ci),
   // Kakao 사용자 재로그인용 lookup 키. NULL은 비-Kakao 계정.
   kakaoIdUniq: uniqueIndex("users_kakao_id_uniq").on(table.kakaoId),
-  // Naver 사용자 재로그인용 lookup 키. NULL은 비-Naver 계정.
-  naverIdUniq: uniqueIndex("users_naver_id_uniq").on(table.naverId),
   // Google 사용자 재로그인용 lookup 키. NULL은 비-Google 계정.
   googleIdUniq: uniqueIndex("users_google_id_uniq").on(table.googleId),
   ageGroupIdx: index("users_age_group_idx").on(table.ageGroup),
@@ -803,6 +799,21 @@ export const favoritePoliticianSchema = z.object({
 export const favoritesUpdateSchema = z.array(favoritePoliticianSchema).max(100, "즐겨찾기는 최대 100명까지 등록할 수 있습니다");
 
 export type FavoritePolitician = z.infer<typeof favoritePoliticianSchema>;
+
+// ===== AI 응답 영속 캐시 (7일 TTL, 서버 재시작 후에도 유지) =====
+export const aiCache = pgTable("ai_cache", {
+  id: serial("id").primaryKey(),
+  cacheKey: text("cache_key").notNull().unique(),
+  feature: text("feature").notNull(),  // 'candidate-report' | 'stance-analyst' | 'analyze-pledge' | 'analyze-profile'
+  result: jsonb("result").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  cacheKeyIdx: uniqueIndex("ai_cache_key_uniq").on(table.cacheKey),
+  expiresIdx: index("ai_cache_expires_idx").on(table.expiresAt),
+}));
+
+export type AiCacheRow = typeof aiCache.$inferSelect;
 
 // ===== connect-pg-simple Session Table =====
 export const session = pgTable("session", {

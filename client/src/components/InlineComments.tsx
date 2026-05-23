@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -18,6 +18,7 @@ import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 interface InlineCommentsProps {
   postId: string;
+  maxVisible?: number;
 }
 
 function AuthorBadges({ badges }: { badges: string[] }) {
@@ -47,12 +48,14 @@ function AuthorDisplay({ displayName, authorType }: { displayName?: string; auth
   return <span className="text-[12px] font-bold text-slate-400">익명</span>;
 }
 
-export function InlineComments({ postId }: InlineCommentsProps) {
+export function InlineComments({ postId, maxVisible = 3 }: InlineCommentsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [commentText, setCommentText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/community/posts", postId],
@@ -112,25 +115,25 @@ export function InlineComments({ postId }: InlineCommentsProps) {
     }
   }
 
-  return (
-    <div className="mt-4 pt-4 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
-      <h4 className="text-[13px] font-bold text-foreground mb-3 flex items-center gap-1.5">
-        댓글 <span className="text-primary">{data?.comments?.length || 0}</span>
-      </h4>
+  const allComments: any[] = data?.comments ?? [];
+  const visibleComments = expanded ? allComments : allComments.slice(0, maxVisible);
+  const hiddenCount = allComments.length - maxVisible;
 
+  return (
+    <div className="mt-3 pt-3 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
       {isLoading ? (
-        <div className="space-y-3 py-2">
-          <Skeleton className="h-10 w-full rounded-xl" />
-          <Skeleton className="h-10 w-full rounded-xl" />
+        <div className="space-y-2 py-1">
+          <Skeleton className="h-8 w-full rounded-xl" />
+          <Skeleton className="h-8 w-3/4 rounded-xl" />
         </div>
-      ) : !data?.comments || data.comments.length === 0 ? (
-        <p className="text-xs text-center text-muted-foreground py-6 bg-muted/30 rounded-2xl mb-3">첫 번째 댓글을 남겨보세요.</p>
+      ) : allComments.length === 0 ? (
+        <p className="text-[11px] text-center text-muted-foreground py-3 bg-muted/30 rounded-xl mb-2">첫 번째 댓글을 남겨보세요.</p>
       ) : (
-        <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-          {data.comments.map((c: any) => (
-            <div key={c.id} className="flex gap-2.5 p-2 rounded-xl hover:bg-muted/40 transition-colors">
-              <div className="w-6 h-6 rounded-full bg-slate-200/70 flex flex-col items-center justify-center shrink-0 border border-slate-300/40 mt-0.5">
-                <span className="text-[9px] font-bold text-slate-500">
+        <div className="space-y-2 mb-3">
+          {visibleComments.map((c: any) => (
+            <div key={c.id} className="flex gap-2 p-2 rounded-xl hover:bg-muted/40 transition-colors">
+              <div className="w-5 h-5 rounded-full bg-slate-200/70 flex items-center justify-center shrink-0 border border-slate-300/40 mt-0.5">
+                <span className="text-[8px] font-bold text-slate-500">
                   {c.authorType === "nickname" ? (c.displayName?.charAt(0) || "닉") : "익"}
                 </span>
               </div>
@@ -169,11 +172,11 @@ export function InlineComments({ postId }: InlineCommentsProps) {
                   </div>
                 </div>
                 {editingCommentId === c.id ? (
-                  <div className="space-y-2 mt-1">
+                  <div className="space-y-1.5 mt-1">
                     <Textarea
                       value={editCommentText}
                       onChange={(e) => setEditCommentText(e.target.value)}
-                      className="min-h-[50px] text-xs resize-none bg-background focus-visible:ring-primary/20"
+                      className="min-h-[44px] text-xs resize-none bg-background focus-visible:ring-primary/20"
                       maxLength={500}
                     />
                     <div className="flex items-center justify-end gap-1.5">
@@ -191,16 +194,34 @@ export function InlineComments({ postId }: InlineCommentsProps) {
               </div>
             </div>
           ))}
+
+          {!expanded && hiddenCount > 0 && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="w-full text-[11px] font-bold text-primary/70 hover:text-primary py-1.5 text-center hover:bg-primary/5 rounded-lg transition-colors"
+            >
+              댓글 {hiddenCount}개 더보기
+            </button>
+          )}
+          {expanded && allComments.length > maxVisible && (
+            <button
+              onClick={() => setExpanded(false)}
+              className="w-full text-[11px] font-bold text-muted-foreground hover:text-foreground py-1.5 text-center hover:bg-muted/50 rounded-lg transition-colors"
+            >
+              접기
+            </button>
+          )}
         </div>
       )}
 
       {/* 댓글 작성 영역 */}
       <div className="flex gap-2">
         <Textarea
-          placeholder={user ? "댓글 남기기..." : "비로그인 상태에서는 익명으로 작성됩니다."}
+          ref={textareaRef}
+          placeholder={user ? "댓글 남기기..." : "익명으로 댓글을 작성합니다."}
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          className="min-h-[38px] max-h-[100px] rounded-xl border-slate-200 text-xs resize-none bg-muted/40 focus-visible:ring-primary/20 py-2.5 px-3 flex-1"
+          className="min-h-[36px] max-h-[80px] rounded-xl border-slate-200 text-xs resize-none bg-muted/40 focus-visible:ring-primary/20 py-2 px-3 flex-1"
           rows={1}
           disabled={commentMutation.isPending}
           onKeyDown={(e) => {
@@ -213,9 +234,9 @@ export function InlineComments({ postId }: InlineCommentsProps) {
         <Button
           onClick={handleComment}
           disabled={!commentText.trim() || commentMutation.isPending}
-          className="rounded-xl h-[38px] px-3.5 font-bold text-xs shrink-0 self-end bg-primary text-primary-foreground hover:bg-primary/95"
+          className="rounded-xl h-[36px] px-3 font-bold text-xs shrink-0 self-end bg-primary text-primary-foreground hover:bg-primary/95"
         >
-          등록
+          {commentMutation.isPending ? "..." : "등록"}
         </Button>
       </div>
     </div>

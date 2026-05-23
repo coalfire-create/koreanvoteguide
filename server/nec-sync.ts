@@ -1,7 +1,7 @@
 import axios from "axios";
 import { db } from "./db";
 import { electionCandidates, legislators } from "../shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 
 const SERVICE_KEY = process.env.DATA_GO_KR_API_KEY;
 // 예비후보자/후보자 정보 API (승인 완료)
@@ -351,28 +351,69 @@ export interface PledgeDetail {
   deptCont: string | null;
 }
 
-// 공약 본문(prmmCont)을 □ 섹션 단위로 파싱. 알 수 없는 섹션은 목표(goal)에 덧붙여 무손실 보존.
+// 공약 본문(prmmCont)을 섹션 단위로 파싱.
+// 1차: □/■/◇/▣ 구분자 분리 (대부분 후보)
+// 2차: ○/◦/● 으로 시작하는 알려진 섹션 헤더 라인 감지 (박완수 등 일부 후보 형식)
 function parsePrmmCont(raw: string | null): {
   goal: string | null; method: string | null; duration: string | null; funding: string | null;
 } {
   const text = (raw || "").trim();
   const res = { goal: null as string | null, method: null as string | null, duration: null as string | null, funding: null as string | null };
   if (!text) return res;
+
+  // ── 1차 시도: □/■/◇/▣ 구분자 분리 ─────────────────────
   const parts = text.split(/[□■◇▣]/).map((s) => s.trim()).filter(Boolean);
-  if (parts.length <= 1) { res.goal = text; return res; }
-  const extra: string[] = [];
-  for (const part of parts) {
-    const sep = part.search(/[\n:]/);
-    const header = (sep < 0 ? part : part.slice(0, sep)).replace(/\s+/g, "");
-    const body = (sep < 0 ? part : part.slice(sep + 1)).trim() || part;
-    if (/목표|목적/.test(header) && !res.goal) res.goal = body;
-    else if (/이행방법|추진방법|추진계획|이행방안|방법/.test(header) && !res.method) res.method = body;
-    else if (/이행기간|추진기간|완료시기|이행시기|기간/.test(header) && !res.duration) res.duration = body;
-    else if (/재원|재정|소요예산|예산확보|예산|조달/.test(header) && !res.funding) res.funding = body;
-    else extra.push(`□ ${part}`);
+  if (parts.length > 1) {
+    const extra: string[] = [];
+    for (const part of parts) {
+      const sep = part.search(/[\n:]/);
+      const header = (sep < 0 ? part : part.slice(0, sep)).replace(/\s+/g, "");
+      const body = (sep < 0 ? part : part.slice(sep + 1)).trim() || part;
+      if (/목표|목적/.test(header) && !res.goal) res.goal = body;
+      else if (/이행방법|추진방법|추진계획|이행방안|방법/.test(header) && !res.method) res.method = body;
+      else if (/이행기간|추진기간|완료시기|이행시기|기간/.test(header) && !res.duration) res.duration = body;
+      else if (/재원|재정|소요예산|예산확보|예산|조달/.test(header) && !res.funding) res.funding = body;
+      else extra.push(`□ ${part}`);
+    }
+    if (!res.goal) res.goal = extra.length ? extra.join("\n\n") : text;
+    else if (extra.length) res.goal = `${res.goal}\n\n${extra.join("\n\n")}`;
+    return res;
   }
-  if (!res.goal) res.goal = extra.length ? extra.join("\n\n") : text;
-  else if (extra.length) res.goal = `${res.goal}\n\n${extra.join("\n\n")}`;
+
+  // ── 2차 시도: ○/◦/● 으로 시작하는 섹션 헤더 라인 감지 ──
+  // ex) "○ 목 표\n  내용\n\n○ 이행방법\n  내용"
+  const SECTION_RE = /^[○◦●]\s*(목\s*표|목\s*적|이행\s*방법|추진\s*방법|추진\s*계획|이행\s*방안|이행\s*기간|추진\s*기간|완료\s*시기|이행\s*시기|재원\s*조달\s*방안?|재원\s*조달|재원|재정|소요\s*예산|예산\s*확보)\s*(?:등)?\s*$/;
+  const lines = text.split("\n");
+  let currentSection: "goal" | "method" | "duration" | "funding" | null = null;
+  const buffers: Record<string, string[]> = { goal: [], method: [], duration: [], funding: [] };
+  let foundAny = false;
+
+  for (const line of lines) {
+    const m = SECTION_RE.exec(line.trim());
+    if (m) {
+      foundAny = true;
+      const hdr = m[1].replace(/\s+/g, "");
+      if (/목표|목적/.test(hdr)) currentSection = "goal";
+      else if (/이행방법|추진방법|추진계획|이행방안/.test(hdr)) currentSection = "method";
+      else if (/이행기간|추진기간|완료시기|이행시기/.test(hdr)) currentSection = "duration";
+      else if (/재원|재정|소요예산|예산확보/.test(hdr)) currentSection = "funding";
+      else currentSection = null;
+    } else if (currentSection) {
+      buffers[currentSection].push(line);
+    }
+  }
+
+  if (foundAny) {
+    for (const key of ["goal", "method", "duration", "funding"] as const) {
+      const content = buffers[key].join("\n").trim();
+      if (content) res[key] = content;
+    }
+    if (!res.goal) res.goal = text;
+    return res;
+  }
+
+  // 구분자 없음 — 전체 텍스트를 goal에
+  res.goal = text;
   return res;
 }
 
@@ -458,6 +499,14 @@ export async function enrichCandidatePledges(opts: { force?: boolean } = {}): Pr
   }
   const force = !!opts.force;
 
+  // electionType → sgTypecode 역매핑
+  // 공약은 단체장(시도지사·구시군의장)만 수집. 교육감·의원류는 스킵.
+  const typecodeOf: Record<string, string> = {
+    시도지사: "3",
+    구시군의장: "4",
+  };
+  const eligibleTypes = Object.keys(typecodeOf);
+
   const rows = await db
     .select({
       id: electionCandidates.id,
@@ -466,20 +515,11 @@ export async function enrichCandidatePledges(opts: { force?: boolean } = {}): Pr
       pledges: electionCandidates.pledges,
       name: electionCandidates.name,
     })
-    .from(electionCandidates);
-
-  // electionType → sgTypecode 역매핑
-  const typecodeOf: Record<string, string> = {
-    국회의원: "2",
-    시도지사: "3",
-    구시군의장: "4",
-    시도의원: "5",
-    구시군의원: "6",
-    교육감: "11",
-  };
+    .from(electionCandidates)
+    .where(inArray(electionCandidates.electionType, eligibleTypes));
 
   const out = { scanned: rows.length, enriched: 0, empty: 0, errors: 0 };
-  
+
   // 공약이 비어있거나 강제 옵션인 대상 필터링
   const targets = rows.filter((row) => {
     const existing = Array.isArray(row.pledges) ? (row.pledges as any[]) : [];

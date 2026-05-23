@@ -696,6 +696,10 @@ export default function CandidateDetail() {
 
     <PledgeDetailView
       candidateId={String(candidate.id)}
+      candidateName={candidate.name}
+      candidateParty={candidate.party}
+      candidateJob={verification.job ?? undefined}
+      candidateCareer1={candidate.career ?? undefined}
       promise={selectedPledge}
       open={!!selectedPledge}
       onClose={() => setSelectedPledge(null)}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link, useLocation, useSearch } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, PenSquare, X, Eye, ThumbsUp, MessageCircle, ArrowUp, ArrowDown, TrendingUp, Flame, Sparkles, Edit } from "lucide-react";
 
@@ -79,8 +79,6 @@ export default function Community() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
-
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const { data: trending = [] } = useQuery<{ memberId: string; name: string; count: number }[]>({
@@ -353,33 +351,16 @@ export default function Community() {
                           <ThumbsUp className={`w-4 h-4 transition-all ${likedPosts.has(post.id) ? "fill-primary text-primary scale-110" : ""}`} />
                           {(post.likes ?? 0) + (likedPosts.has(post.id) ? 1 : 0)}
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenCommentPostId(prev => prev === post.id ? null : post.id);
-                          }}
-                          className={`flex items-center gap-1 text-[12px] font-bold transition-colors ${openCommentPostId === post.id ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
-                        >
-                          <MessageCircle className={`w-4 h-4 ${openCommentPostId === post.id ? "fill-primary/20 text-primary" : ""}`} />
+                        <span className="flex items-center gap-1 text-[12px] font-bold text-muted-foreground">
+                          <MessageCircle className="w-4 h-4" />
                           {post.commentCount ?? 0}
-                        </button>
+                        </span>
                      </div>
                   </div>
 
-                  <AnimatePresence>
-                    {openCommentPostId === post.id && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                        className="overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <InlineComments postId={post.id} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <InlineComments postId={post.id} maxVisible={3} />
+                  </div>
                 </div>
               ))
             )}
