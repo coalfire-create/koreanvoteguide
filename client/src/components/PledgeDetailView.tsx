@@ -529,8 +529,41 @@ function ComparisonView({
         )}
       </div>
 
+      {/* 5축 정밀 평가 */}
+      <div className="px-4 pb-8 pt-2 space-y-6 border-t border-gray-100 mt-2">
+        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider pt-4">5축 정밀 평가</p>
+
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
+            <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
+          </div>
+          <CandidatePledgeAxes
+            promise={candidateA.pledge}
+            candidateName={candidateA.name}
+            candidateParty={candidateA.party}
+            candidateJob={candidateA.job}
+            candidateCareer1={candidateA.career1}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
+            <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
+          </div>
+          <CandidatePledgeAxes
+            promise={candidateB.pledge}
+            candidateName={candidateB.name}
+            candidateParty={candidateB.party}
+            candidateJob={candidateB.job}
+            candidateCareer1={candidateB.career1}
+          />
+        </div>
+      </div>
+
       {/* 두 후보 공약 카드 */}
-      <div className="grid grid-cols-2 gap-2 border-b border-gray-100 p-2 md:gap-4 md:p-4">
+      <div className="grid grid-cols-2 gap-2 border-t border-b border-gray-100 p-2 md:gap-4 md:p-4">
         <div className="p-3 md:p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorA}` }}>
           <div>
             <div className="text-[10px] md:text-[11px] font-black mb-1 md:mb-2 uppercase tracking-wider" style={{ color: colorA }}>
@@ -651,40 +684,6 @@ function ComparisonView({
               </div>
             )}
           </div>
-
-        </div>
-      </div>
-
-      {/* 5축 정밀 평가 */}
-      <div className="px-4 pb-8 pt-2 space-y-6 border-t border-gray-100 mt-2">
-        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider pt-4">5축 정밀 평가</p>
-
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
-            <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
-          </div>
-          <CandidatePledgeAxes
-            promise={candidateA.pledge}
-            candidateName={candidateA.name}
-            candidateParty={candidateA.party}
-            candidateJob={candidateA.job}
-            candidateCareer1={candidateA.career1}
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
-            <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
-          </div>
-          <CandidatePledgeAxes
-            promise={candidateB.pledge}
-            candidateName={candidateB.name}
-            candidateParty={candidateB.party}
-            candidateJob={candidateB.job}
-            candidateCareer1={candidateB.career1}
-          />
         </div>
       </div>
     </div>
