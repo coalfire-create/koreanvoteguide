@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "ensure:ai-cache": "tsx script/ensure-ai-cache.ts",
     "sync:candidates": "tsx --env-file=.env script/sync-election.ts",
     "fetch:candidates-csv": "tsx --env-file=.env script/fetch-candidates-csv.ts",
     "import:verification": "tsx --env-file=.env script/import-candidate-verification.ts",

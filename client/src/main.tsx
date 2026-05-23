@@ -3,21 +3,23 @@ import App from "./App";
 import "./index.css";
 
 // Google Analytics (GA4) 동적 연동
+// gtag 초기화는 인라인 <script> 주입 대신 번들 모듈('self') 안에서 직접 실행한다.
+// → CSP에 script-src 'unsafe-inline'을 추가하지 않아도 동작 (XSS 방어 유지).
 const gaId = import.meta.env.VITE_GA_ID;
 if (gaId) {
-  const script1 = document.createElement("script");
-  script1.async = true;
-  script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-  document.head.appendChild(script1);
+  const gtagScript = document.createElement("script");
+  gtagScript.async = true;
+  gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+  document.head.appendChild(gtagScript);
 
-  const script2 = document.createElement("script");
-  script2.innerHTML = `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', '${gaId}');
-  `;
-  document.head.appendChild(script2);
+  const w = window as unknown as { dataLayer: unknown[]; gtag: (...args: unknown[]) => void };
+  w.dataLayer = w.dataLayer || [];
+  w.gtag = function gtag() {
+    // eslint-disable-next-line prefer-rest-params
+    w.dataLayer.push(arguments);
+  };
+  w.gtag("js", new Date());
+  w.gtag("config", gaId);
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

@@ -39,8 +39,9 @@ app.use(
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
-            scriptSrc: ["'self'"],
-            // 외부 이미지는 사진 프록시 + 위키 정도만. HTTP 혼합 콘텐츠 제거.
+            // Google Analytics(GA4) gtag 로더 허용. 인라인 스크립트는 사용하지 않음(main.tsx 참고).
+            scriptSrc: ["'self'", "https://www.googletagmanager.com"],
+            // 외부 이미지는 사진 프록시 + 위키 + GA 비콘 정도만. HTTP 혼합 콘텐츠 제거.
             imgSrc: [
               "'self'",
               "data:",
@@ -49,8 +50,16 @@ app.use(
               "https://wikimedia.org",
               "https://search.pstatic.net",
               "https://sstatic.naver.net",
+              "https://www.googletagmanager.com",
+              "https://*.google-analytics.com",
             ],
-            connectSrc: ["'self'"],
+            // GA4 수집 엔드포인트(google-analytics.com, analytics.google.com) 허용.
+            connectSrc: [
+              "'self'",
+              "https://www.googletagmanager.com",
+              "https://*.google-analytics.com",
+              "https://*.analytics.google.com",
+            ],
             objectSrc: ["'none'"],
             frameAncestors: ["'none'"],
             baseUri: ["'self'"],

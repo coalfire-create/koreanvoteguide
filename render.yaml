@@ -49,6 +49,14 @@ services:
       - key: OPEN_ASSEMBLY_API_KEY
         sync: false
 
+      # ===== LLM (AI 공약/의원 분석) — OPENAI 우선, 미설정 시 GROQ로 자동 폴백 =====
+      # 둘 중 하나는 반드시 설정해야 AI 기능(공약 분석·이유있는 점수·평가)이 동작.
+      # 미설정 시 해당 엔드포인트는 503 반환.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+
       # ===== Google OAuth =====
       - key: GOOGLE_CLIENT_ID
         sync: false
