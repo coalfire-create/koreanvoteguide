@@ -207,6 +207,8 @@ function PledgeFeasibilitySection({
       });
       if (!res.ok) throw new Error("분석 실패");
       const json = await res.json();
+      // 서버가 rate limit으로 fallback 응답을 보냈으면 재시도
+      if (json?._isFallback) throw new Error("AI_RATE_LIMITED");
       return {
         feasibilityScore: typeof json?.feasibilityScore === "number" ? json.feasibilityScore : fallback.score,
         feasibilityLabel: json?.feasibilityLabel ?? fallback.label,
@@ -228,7 +230,8 @@ function PledgeFeasibilitySection({
       } as PledgeAnalysisResult;
     },
     staleTime: 60 * 60 * 1000,
-    retry: 1,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000), // 5s, 15s, 30s
   });
 
   const score = ai?.feasibilityScore ?? fallback.score;
@@ -361,7 +364,8 @@ function ComparisonView({
       } as CompareResult;
     },
     staleTime: 60 * 60 * 1000,
-    retry: 1,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000),
   });
 
   return (
@@ -720,6 +724,8 @@ function SinglePledgeView({
       });
       if (!res.ok) throw new Error("분석 실패");
       const json = await res.json();
+      // 서버가 rate limit으로 fallback 응답을 보냈으면 재시도
+      if (json?._isFallback) throw new Error("AI_RATE_LIMITED");
       return {
         feasibilityScore: typeof json?.feasibilityScore === "number" ? json.feasibilityScore : fallback.score,
         feasibilityLabel: json?.feasibilityLabel ?? fallback.label,
@@ -741,7 +747,8 @@ function SinglePledgeView({
       } as PledgeAnalysisResult;
     },
     staleTime: 60 * 60 * 1000,
-    retry: 1,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000), // 5s, 15s, 30s
   });
 
   // 종합 점수: AI 응답(공약별로 다른 LLM 채점)을 우선, 로딩/실패 시에만 키워드 fallback.
@@ -1083,15 +1090,14 @@ export default function PledgeDetailView({
                 <textarea
                   value={commentContent}
                   onChange={(e) => setCommentContent(e.target.value)}
-                  placeholder={user ? "이 공약에 대해 어떻게 생각하시나요?" : "로그인 후 토론에 참여할 수 있습니다"}
+                  placeholder="이 공약에 대해 어떻게 생각하시나요? (비로그인 사용자도 익명으로 참여 가능합니다)"
                   rows={4}
-                  disabled={!user}
                   className="w-full text-[15px] px-2 py-2 rounded-2xl border-none outline-none focus:ring-0 resize-none disabled:bg-transparent placeholder:text-gray-400"
                 />
                 <div className="flex justify-end mt-4">
                   <Button
-                    onClick={() => { if (!user) { toast({ title: "로그인 필요" }); return; } if (commentContent.trim()) commentMutation.mutate(commentContent); }}
-                    disabled={commentMutation.isPending || !commentContent.trim() || !user}
+                    onClick={() => { if (commentContent.trim()) commentMutation.mutate(commentContent); }}
+                    disabled={commentMutation.isPending || !commentContent.trim()}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl px-8 py-3 font-bold text-[15px] shadow-xl shadow-indigo-100"
                   >
                     {commentMutation.isPending ? "전송 중..." : "의견 남기기"}

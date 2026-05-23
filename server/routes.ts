@@ -4576,7 +4576,20 @@ export async function registerRoutes(
   const billDescInFlight = new Map<string, Promise<string>>();
   // 동시 AI 호출 수 제한 (429 방어)
   let aiDescActive = 0;
-  const AI_DESC_MAX_CONCURRENT = 3;
+  const AI_DESC_MAX_CONCURRENT = 2;
+
+  // ===== 글로벌 AI 호출 큐 (Groq rate limit 방어) =====
+  // 연속 AI 호출 사이에 최소 간격을 두어 rate limit 버스트를 방지한다.
+  let lastAiCallTime = 0;
+  const AI_CALL_MIN_GAP_MS = 800; // Groq free tier: 분당 30 요청 → 2초 간격이 안전, 0.8초는 약간의 여유
+  async function aiCallThrottle(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - lastAiCallTime;
+    if (elapsed < AI_CALL_MIN_GAP_MS) {
+      await new Promise(r => setTimeout(r, AI_CALL_MIN_GAP_MS - elapsed));
+    }
+    lastAiCallTime = Date.now();
+  }
 
   app.post("/api/bills/describe", async (req, res) => {
     try {
@@ -4623,6 +4636,7 @@ export async function registerRoutes(
       const generatePromise = (async () => {
         aiDescActive++;
         try {
+          await aiCallThrottle(); // rate limit 방어 스로틀
           const context = [
             committee ? `소관위원회: ${committee}` : "",
             proposer ? `발의자: ${proposer}` : "",
@@ -4936,6 +4950,7 @@ export async function registerRoutes(
         `(분야: ${blockRealm} · 목표/내용: ${blockContent})\n\n` +
         `위 엄격 채점 규칙에 따라 평가하라. 이행방법·재원조달·이행기간 중 '기재 안 됨'이 하나라도 있으면 50점을 넘지 마라. 반드시 detailedAxes 5개 축 모두 포함하라.`;
 
+      await aiCallThrottle(); // rate limit 방어 스로틀
       const rawResult = await callLLMJsonOrFallback<Record<string, any>>(
         {
           system: SYSTEM_PROMPT,
@@ -4951,7 +4966,7 @@ export async function registerRoutes(
       // 모델이 snake_case로 반환하면 camelCase로 미러링 (프론트 호환)
       const critique =
         rawResult?.feasibility_critique ?? rawResult?.feasibilityCritique ?? null;
-      const result = {
+      const result: Record<string, any> = {
         ...rawResult,
         feasibility_critique: critique,
         feasibilityCritique: critique,
@@ -4963,11 +4978,15 @@ export async function registerRoutes(
         setAiCache(cacheKey, "analyze-pledge", result).catch((e: unknown) =>
           console.error("[analyze-pledge] DB 캐시 저장 실패:", (e as Error).message),
         );
+      } else {
+        // 폴백 응답에 플래그 추가 — 프론트엔드에서 감지 후 재시도
+        result._isFallback = true;
       }
       res.json(result);
     } catch (error: any) {
       console.error("[analyze-pledge] error:", error);
       res.status(200).json({
+        _isFallback: true,
         feasibilityScore: 35,
         feasibilityLabel: "낮음",
         authorityScore: 0,
@@ -6271,12 +6290,12 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/candidates/:id/pledges/:pledgeId/comments", requireAuth, async (req, res) => {
+  app.post("/api/candidates/:id/pledges/:pledgeId/comments", async (req, res) => {
     try {
       const id = req.params.id as string;
       const pledgeId = req.params.pledgeId as string;
       const { content } = req.body;
-      const userId = req.session.userId!;
+      const actorId = getActorId(req);
 
 
       if (!content || typeof content !== 'string' || content.trim().length === 0) {
@@ -6286,9 +6305,9 @@ export async function registerRoutes(
       await db.insert(pledgeComments).values({
         candidateId: id,
         pledgeId,
-        userId,
+        userId: actorId,
         content: content.trim(),
-        anonNickname: getOrCreateNickname(userId)
+        anonNickname: getOrCreateNickname(actorId)
       });
 
       res.json({ success: true });

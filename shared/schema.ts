@@ -667,7 +667,7 @@ export const pledgeComments = pgTable("pledge_comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   candidateId: varchar("candidate_id").notNull().references(() => electionCandidates.id),
   pledgeId: varchar("pledge_id").notNull(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
   anonNickname: text("anon_nickname").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

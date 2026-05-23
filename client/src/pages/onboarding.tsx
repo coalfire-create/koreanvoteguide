@@ -117,13 +117,15 @@ export default function Onboarding() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-[36px] font-black text-gray-900 leading-[1.15] tracking-tight mb-3">
-          내 지역구를<br />선택해주세요
+        <h1 className="text-[32px] sm:text-[36px] font-black text-gray-900 leading-[1.25] tracking-tight mb-4 break-keep">
+          내 지역구를 선택하고<br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">AI 공약 분석</span>을 확인하세요
         </h1>
-        <p className="text-[15px] text-gray-500 leading-relaxed">
-          2026 지방선거 후보자 정보와 정책을<br />지역에 맞춰 바로 확인하세요.
+        <p className="text-[15px] text-gray-600 leading-[1.7] font-medium break-keep">
+          후보자들의 핵심 정책과 실현가능성을 AI가 중립적으로 비교해 드립니다.<br />
+          2026 지방선거, 현명한 선택을 위한 가장 스마트한 가이드.
           <br />
-          <span className="text-[13px] text-gray-400 mt-1 inline-block">최대 3개까지 선택 가능하며, 선택한 순서대로 순위가 지정됩니다.</span>
+          <span className="text-[13px] text-gray-400 mt-2 inline-block font-normal">관심 지역은 최대 3개까지 선택할 수 있습니다.</span>
         </p>
       </motion.div>
 

@@ -18,8 +18,9 @@ import OpenAI from "openai";
 // ─────────────────────────────────────────────
 const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
-const MAX_RETRIES = 3;            // 1차 + 재시도 3 = 총 4회
-const BACKOFF_BASE_MS = 1000;     // 1s → 2s → 4s
+const MAX_RETRIES = 4;            // 1차 + 재시도 4 = 총 5회
+const BACKOFF_BASE_MS = 2000;     // 2s → 4s → 8s → 16s
+const RATE_LIMIT_EXTRA_MS = 5000; // 429 에러 시 추가 대기
 
 // 4xx 가운데 재시도 가치가 있는 상태코드 (rate limit)
 const TRANSIENT_4XX = new Set<number>([408, 425, 429]);
@@ -235,8 +236,11 @@ async function callWithRetry(params: InternalCallParams): Promise<string> {
       }
       if (attempt > MAX_RETRIES) break;
 
-      const wait = BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-      process.stderr.write(`  ⚠ [llm:${label}] ${wait}ms 후 재시도 (${attempt}/${MAX_RETRIES})\n`);
+      // 429(rate limit) 시에는 추가 대기를 부여해 Groq 할당량 회복을 기다린다
+      const is429 = (err as any)?.status === 429;
+      const baseWait = BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s, 16s
+      const wait = is429 ? baseWait + RATE_LIMIT_EXTRA_MS : baseWait;
+      process.stderr.write(`  ⚠ [llm:${label}] ${wait}ms 후 재시도 (${attempt}/${MAX_RETRIES})${is429 ? ' [429 rate limit]' : ''}\n`);
       await delay(wait);
     }
   }
