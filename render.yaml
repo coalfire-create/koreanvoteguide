@@ -48,16 +48,24 @@ services:
         sync: false
       - key: OPEN_ASSEMBLY_API_KEY
         sync: false
-      - key: NAVER_CLIENT_ID
+
+      # ===== Google OAuth =====
+      - key: GOOGLE_CLIENT_ID
         sync: false
-      - key: NAVER_CLIENT_SECRET
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://xn--2r5b1f.com/api/auth/google/callback
+
+      # ===== Google Analytics (GA4) =====
+      - key: VITE_GA_ID
         sync: false
 
       # ===== Kakao OAuth =====
       - key: KAKAO_REST_API_KEY
         sync: false
       - key: KAKAO_REDIRECT_URI
-        value: https://이유.com/api/auth/kakao/callback
+        value: https://xn--2r5b1f.com/api/auth/kakao/callback
       # KAKAO_CLIENT_SECRET 은 Kakao Developers에서 활성화한 경우만 추가
       # - key: KAKAO_CLIENT_SECRET
       #   sync: false
