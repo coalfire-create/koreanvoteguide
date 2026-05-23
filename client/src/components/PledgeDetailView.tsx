@@ -572,35 +572,36 @@ function ComparisonView({
       </div>
 
       {/* 5축 정밀 평가 */}
-      <div className="px-4 pb-8 pt-2 space-y-6 border-t border-gray-100 mt-2">
-        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider pt-4">5축 정밀 평가</p>
-
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
-            <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
+      <div className="px-4 pb-8 pt-2 border-t border-gray-100 mt-2">
+        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider pt-4 mb-4">5축 정밀 평가</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
+              <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
+            </div>
+            <CandidatePledgeAxes
+              promise={candidateA.pledge}
+              candidateName={candidateA.name}
+              candidateParty={candidateA.party}
+              candidateJob={candidateA.job}
+              candidateCareer1={candidateA.career1}
+            />
           </div>
-          <CandidatePledgeAxes
-            promise={candidateA.pledge}
-            candidateName={candidateA.name}
-            candidateParty={candidateA.party}
-            candidateJob={candidateA.job}
-            candidateCareer1={candidateA.career1}
-          />
-        </div>
 
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
-            <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
+              <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
+            </div>
+            <CandidatePledgeAxes
+              promise={candidateB.pledge}
+              candidateName={candidateB.name}
+              candidateParty={candidateB.party}
+              candidateJob={candidateB.job}
+              candidateCareer1={candidateB.career1}
+            />
           </div>
-          <CandidatePledgeAxes
-            promise={candidateB.pledge}
-            candidateName={candidateB.name}
-            candidateParty={candidateB.party}
-            candidateJob={candidateB.job}
-            candidateCareer1={candidateB.career1}
-          />
         </div>
       </div>
 
