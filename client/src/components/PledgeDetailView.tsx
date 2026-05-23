@@ -159,15 +159,6 @@ interface PledgeDetailViewProps {
   compareWith?: CompareWith | null;
 }
 
-// ─── AI 비교 분석 결과 타입 ────────────────────────────────────────────────
-
-interface CompareResult {
-  coreContrast: string;
-  candidateAHighlights: string[];
-  candidateBHighlights: string[];
-  voterGuide: string;
-}
-
 // ─── 공약 개별 실현가능성 평가 섹션 (비교 뷰 내 삽입용) ───────────────────
 function PledgeFeasibilitySection({
   promise,
@@ -323,34 +314,26 @@ function PledgeFeasibilitySection({
 }
 
 
-// ─── 비교 뷰용 — 후보별 5축 정밀 평가 패널 ─────────────────────────────────
-function CandidatePledgeAxes({
-  promise,
-  candidateName = "",
-  candidateParty = "",
-  candidateJob = "",
-  candidateCareer1 = "",
-}: {
-  promise: Pledge;
-  candidateName?: string;
-  candidateParty?: string;
-  candidateJob?: string;
-  candidateCareer1?: string;
-}) {
+// ─── 공약 분석 공용 훅 — analyze-pledge 호출 + 종합 점수 계산 ────────────────
+// 단독 뷰/비교 뷰가 동일 queryKey를 공유하므로 React Query가 네트워크 호출을 dedupe 한다.
+function usePledgeAnalysis(
+  promise: Pledge,
+  candidate: { name?: string; party?: string; job?: string; career1?: string },
+) {
   const fallback = analyzeFeasibility(promise.title, promise.description || "");
   const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
 
-  const { data: ai, isLoading } = useQuery<PledgeAnalysisResult>({
+  const query = useQuery<PledgeAnalysisResult>({
     queryKey: ["pledge-analyze", promise.id, promise.title, promise.method, promise.funding, promise.duration],
     queryFn: async () => {
       const res = await fetch("/api/candidates/analyze-pledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: candidateName,
-          party: candidateParty,
-          job: candidateJob,
-          career1: candidateCareer1,
+          name: candidate.name ?? "",
+          party: candidate.party ?? "",
+          job: candidate.job ?? "",
+          career1: candidate.career1 ?? "",
           pledge: pledgeText,
           title: promise.title,
           realmName: promise.realmName,
@@ -369,6 +352,10 @@ function CandidatePledgeAxes({
         summary: json?.summary ?? "",
         strengths: Array.isArray(json?.strengths) ? json.strengths : [],
         concerns: Array.isArray(json?.concerns) ? json.concerns : [],
+        feasibilityCritique:
+          typeof json?.feasibilityCritique === "string" ? json.feasibilityCritique
+          : typeof json?.feasibility_critique === "string" ? json.feasibility_critique
+          : undefined,
         voterTip: json?.voterTip ?? "",
         detailedAxes: json?.detailedAxes ?? null,
         keyVulnerability: json?.keyVulnerability ?? null,
@@ -379,6 +366,7 @@ function CandidatePledgeAxes({
     retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000),
   });
 
+  const ai = query.data;
   const axesAvgScore = (() => {
     const axes = ai?.detailedAxes;
     if (!axes) return null;
@@ -393,6 +381,13 @@ function CandidatePledgeAxes({
   const scoreColor = score >= 75 ? "text-emerald-600" : score >= 55 ? "text-blue-600" : score >= 40 ? "text-amber-600" : "text-red-500";
   const scoreBg = score >= 75 ? "bg-emerald-50" : score >= 55 ? "bg-blue-50" : score >= 40 ? "bg-amber-50" : "bg-red-50";
   const barColor = score >= 75 ? "#10b981" : score >= 55 ? "#3b82f6" : "#f59e0b";
+
+  return { ...query, ai, score, label, scoreColor, scoreBg, barColor };
+}
+
+// ─── 비교 뷰용 — 후보별 5축 정밀 평가 패널 ─────────────────────────────────
+function CandidatePledgeAxes({ analysis }: { analysis: ReturnType<typeof usePledgeAnalysis> }) {
+  const { ai, isLoading, score, label, scoreColor, scoreBg, barColor } = analysis;
 
   if (isLoading) {
     return (
@@ -453,43 +448,20 @@ function ComparisonView({
   const colorA = getPartyHex(candidateA.party);
   const colorB = getPartyHex(candidateB.party);
 
-  const { data: result, isLoading, isError } = useQuery<CompareResult>({
-    queryKey: ["pledge-compare", candidateA.pledge.title, candidateB.pledge.title],
-    queryFn: async () => {
-      const res = await fetch("/api/candidates/compare-pledges", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          candidateA: {
-            name: candidateA.name,
-            party: candidateA.party,
-            job: candidateA.job ?? "",
-            career1: candidateA.career1 ?? "",
-            pledge: candidateA.pledge.title + (candidateA.pledge.description ? ` — ${candidateA.pledge.description}` : ""),
-          },
-          candidateB: {
-            name: candidateB.name,
-            party: candidateB.party,
-            job: candidateB.job ?? "",
-            career1: candidateB.career1 ?? "",
-            pledge: candidateB.pledge.title + (candidateB.pledge.description ? ` — ${candidateB.pledge.description}` : ""),
-          },
-        }),
-      });
-      if (!res.ok) throw new Error("분석 실패");
-      const json = await res.json();
-      // 백엔드 폴백 응답을 그대로 받아도 화면이 채워지도록 모든 필드를 보장
-      return {
-        coreContrast: json?.coreContrast ?? "AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.",
-        candidateAHighlights: Array.isArray(json?.candidateAHighlights) ? json.candidateAHighlights : [],
-        candidateBHighlights: Array.isArray(json?.candidateBHighlights) ? json.candidateBHighlights : [],
-        voterGuide: json?.voterGuide ?? "",
-      } as CompareResult;
-    },
-    staleTime: 60 * 60 * 1000,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000),
-  });
+  // 두 후보의 5축 분석을 한 번씩만 호출(별도 compare-pledges LLM 호출 제거).
+  // 하단 5축 차트도 이 결과를 그대로 재사용한다.
+  const analysisA = usePledgeAnalysis(candidateA.pledge, candidateA);
+  const analysisB = usePledgeAnalysis(candidateB.pledge, candidateB);
+
+  const comparing = analysisA.isLoading || analysisB.isLoading;
+  const scoreGap = Math.abs(analysisA.score - analysisB.score);
+  const leaderName =
+    analysisA.score === analysisB.score
+      ? null
+      : analysisA.score > analysisB.score
+      ? candidateA.name
+      : candidateB.name;
+  const leaderColor = leaderName === candidateA.name ? colorA : colorB;
 
   return (
     <div>
@@ -500,10 +472,10 @@ function ComparisonView({
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <h3 className="text-[16px] font-black text-gray-900">AI 공약 비교 분석</h3>
-          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
+          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">AI 분석</span>
         </div>
 
-        {isLoading && (
+        {comparing ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="animate-pulse">
@@ -513,59 +485,59 @@ function ComparisonView({
             ))}
             <p className="text-[12px] text-gray-400 text-center pt-2">AI가 공약을 분석하고 있습니다...</p>
           </div>
-        )}
-
-        {isError && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl text-[13px] text-red-600">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-          </div>
-        )}
-
-        {result && (
+        ) : (
           <div className="space-y-4">
-            {/* 핵심 차이점 */}
+            {/* 종합 점수 대결 */}
             <div className="bg-gray-50 rounded-2xl p-4">
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">핵심 차이점</p>
-              <p className="text-[14px] text-gray-800 leading-relaxed font-medium">{result.coreContrast}</p>
+              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3 text-center">종합 실현가능성 점수</p>
+              <div className="flex items-stretch justify-between gap-2">
+                <div className="flex-1 text-center">
+                  <div className="text-[12px] font-black mb-1 break-words" style={{ color: colorA }}>{candidateA.name}</div>
+                  <div className="text-[32px] font-black leading-none" style={{ color: colorA }}>{analysisA.score}</div>
+                  <div className="text-[11px] font-bold text-gray-400 mt-0.5">{analysisA.label}</div>
+                </div>
+                <div className="flex items-center text-[12px] font-black text-gray-300">VS</div>
+                <div className="flex-1 text-center">
+                  <div className="text-[12px] font-black mb-1 break-words" style={{ color: colorB }}>{candidateB.name}</div>
+                  <div className="text-[32px] font-black leading-none" style={{ color: colorB }}>{analysisB.score}</div>
+                  <div className="text-[11px] font-bold text-gray-400 mt-0.5">{analysisB.label}</div>
+                </div>
+              </div>
+              <p className="text-[12px] text-center font-bold mt-3 pt-3 border-t border-gray-200">
+                {leaderName ? (
+                  <>
+                    <span style={{ color: leaderColor }}>{leaderName}</span>
+                    <span className="text-gray-600"> 공약이 종합 {scoreGap}점 우세</span>
+                  </>
+                ) : (
+                  <span className="text-gray-600">두 공약의 종합 점수가 동일합니다 (박빙)</span>
+                )}
+              </p>
             </div>
 
-            {/* 후보별 분석 */}
+            {/* 후보별 요약 + 핵심 취약점 */}
             <div className="grid grid-cols-2 gap-2 md:gap-3">
-              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
-                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-words" style={{ color: colorA }}>{candidateA.name} 공약</p>
-                <ul className="space-y-1 md:space-y-1.5">
-                  {(result.candidateAHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
-                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorA }} />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorB}10`, border: `1px solid ${colorB}25` }}>
-                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-words" style={{ color: colorB }}>{candidateB.name} 공약</p>
-                <ul className="space-y-1 md:space-y-1.5">
-                  {(result.candidateBHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
-                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorB }} />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {([
+                [candidateA, analysisA, colorA],
+                [candidateB, analysisB, colorB],
+              ] as const).map(([cand, analysis, color], idx) => (
+                <div key={idx} className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}25` }}>
+                  <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-words" style={{ color }}>{cand.name}</p>
+                  {analysis.ai?.summary && (
+                    <p className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed mb-2">{analysis.ai.summary}</p>
+                  )}
+                  {analysis.ai?.keyVulnerability && (
+                    <div className="flex items-start gap-1 mt-2">
+                      <Shield className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
+                      <span className="text-[10px] md:text-[11px] text-red-600 leading-relaxed">{analysis.ai.keyVulnerability}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-
-            {/* 유권자 가이드 */}
-            {result.voterGuide && (
-              <div className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100">
-                <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 가이드</p>
-                <p className="text-[13px] text-gray-700 leading-relaxed">{result.voterGuide}</p>
-              </div>
-            )}
 
             <p className="text-[11px] text-gray-400 text-center italic">
-              * AI가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다
+              * AI가 각 공약을 독립적으로 채점한 결과를 비교한 것입니다
             </p>
           </div>
         )}
@@ -580,13 +552,7 @@ function ComparisonView({
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
               <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
             </div>
-            <CandidatePledgeAxes
-              promise={candidateA.pledge}
-              candidateName={candidateA.name}
-              candidateParty={candidateA.party}
-              candidateJob={candidateA.job}
-              candidateCareer1={candidateA.career1}
-            />
+            <CandidatePledgeAxes analysis={analysisA} />
           </div>
 
           <div>
@@ -594,13 +560,7 @@ function ComparisonView({
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
               <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
             </div>
-            <CandidatePledgeAxes
-              promise={candidateB.pledge}
-              candidateName={candidateB.name}
-              candidateParty={candidateB.party}
-              candidateJob={candidateB.job}
-              candidateCareer1={candidateB.career1}
-            />
+            <CandidatePledgeAxes analysis={analysisB} />
           </div>
         </div>
       </div>
