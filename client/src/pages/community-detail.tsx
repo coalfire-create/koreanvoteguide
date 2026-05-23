@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BADGE_LABELS } from "@shared/schema";
+import { ShareButton } from "@/components/ShareButton";
 import DOMPurify from "dompurify";
 
 interface SanitizedPost {
@@ -268,6 +269,11 @@ export default function CommunityDetail() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <ShareButton
+                title={post.title}
+                text={post.content?.replace(/<[^>]*>/g, " ").slice(0, 80)}
+                variant="icon"
+              />
               <Button
                 variant="ghost"
                 size="icon"

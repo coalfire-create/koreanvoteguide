@@ -111,8 +111,10 @@ export default function BillSearch() {
     for (const bill of sortedBills) {
       if (!bill.proposer) continue;
       
-      // 대표발의자 이름 추출 (예: "홍길동(더불어민주당/서울...)" -> "홍길동")
-      const proposerName = bill.proposer.split('(')[0].trim();
+      // 대표발의자 이름 추출 (예: "홍길동(더불어민주당/서울...)", "홍길동의원 등 10인" -> "홍길동")
+      let proposerName = bill.proposer.split('(')[0].trim();
+      proposerName = proposerName.replace(/(의원)?\s*등.*$/, '').trim();
+      proposerName = proposerName.replace(/의원$/, '').trim();
       
       if (!recentProposers.has(proposerName)) {
         // 이름이 일치하는 의원 찾기

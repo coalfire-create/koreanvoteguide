@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Newspaper, Layers, AlignJustify, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
+import { ShareButton } from "@/components/ShareButton";
 
 interface NewsItem {
   title: string;
@@ -95,7 +96,10 @@ function GroupedCard({ group, onNewsClick }: { group: NewsGroup; onNewsClick: (n
               )}
             </div>
           </div>
-          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
+          <div className="flex items-center gap-1 shrink-0">
+            <ShareButton title={group.articles[0].title} url={group.articles[0].link} variant="icon" className="w-7 h-7 opacity-0 group-hover:opacity-100" />
+            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground mt-0.5 group-hover:text-primary transition-colors" />
+          </div>
         </button>
 
         {/* 다른 언론사 보도 */}
@@ -298,7 +302,10 @@ export default function NewsPage() {
                       )}
                     </div>
                   </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <ShareButton title={item.title} url={item.link} variant="icon" className="w-7 h-7 opacity-0 group-hover:opacity-100" />
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground mt-0.5 group-hover:text-primary transition-colors" />
+                  </div>
                 </button>
               ))}
             </div>

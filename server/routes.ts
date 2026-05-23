@@ -4581,7 +4581,7 @@ export async function registerRoutes(
   // ===== 글로벌 AI 호출 큐 (Groq rate limit 방어) =====
   // 연속 AI 호출 사이에 최소 간격을 두어 rate limit 버스트를 방지한다.
   let lastAiCallTime = 0;
-  const AI_CALL_MIN_GAP_MS = 800; // Groq free tier: 분당 30 요청 → 2초 간격이 안전, 0.8초는 약간의 여유
+  const AI_CALL_MIN_GAP_MS = 800; // Groq 전용 스로틀 (분당 30 req 제한 방어)
   async function aiCallThrottle(): Promise<void> {
     const now = Date.now();
     const elapsed = now - lastAiCallTime;
@@ -4767,7 +4767,7 @@ export async function registerRoutes(
               temperature: 0.4,
               maxTokens: 900,
               label: "bills/analyze",
-              provider: "openai",
+              provider: "groq",
             },
             fallback,
           );
@@ -5156,7 +5156,7 @@ export async function registerRoutes(
           temperature: 0.3,
           maxTokens: 1000,
           label: "candidates/analyze-topic",
-          provider: "openai",
+          provider: "groq",
         },
         fallback,
       );

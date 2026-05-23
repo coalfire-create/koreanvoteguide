@@ -27,12 +27,12 @@ function FormattedText({ text, size = "sm" }: { text: string; size?: "sm" | "bas
   if (!text) return null;
   const lines = text.split("\n");
   
-  const textClass = size === "sm" ? "text-[12px] text-gray-600" : "text-[15px] text-gray-800 font-medium";
+  const textClass = size === "sm" ? "text-[13px] text-gray-800 font-medium" : "text-[15px] text-gray-800 font-medium";
   const spacingClass = size === "sm" ? "mb-1.5" : "mb-2.5";
   const lineHClass = size === "sm" ? "leading-relaxed" : "leading-[1.8]";
 
   return (
-    <div className={`space-y-0.5 ${textClass} ${lineHClass} break-keep`}>
+    <div className={`space-y-0.5 ${textClass} ${lineHClass} break-words`}>
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} className={size === "sm" ? "h-1" : "h-1.5"} />;
@@ -44,7 +44,7 @@ function FormattedText({ text, size = "sm" }: { text: string; size?: "sm" | "bas
           const [, bullet, content] = match;
           return (
             <div key={i} className={`flex items-start gap-1.5 ${spacingClass}`}>
-              <span className={`shrink-0 opacity-80 ${size === "sm" ? "mt-[2px]" : "mt-[3px]"}`}>{bullet}</span>
+              <span className={`shrink-0 font-bold ${size === "sm" ? "mt-[2px]" : "mt-[3px]"}`}>{bullet}</span>
               <span className="flex-1">{content}</span>
             </div>
           );
@@ -300,7 +300,7 @@ function PledgeFeasibilitySection({
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-100 rounded-xl p-2 md:p-3 text-[10px] md:text-[12px] text-red-700 leading-relaxed break-keep"
+          className="bg-red-50 border border-red-100 rounded-xl p-2 md:p-3 text-[10px] md:text-[12px] text-red-700 leading-relaxed break-words"
         >
           <div className="flex items-center gap-1 mb-1">
             <Shield className="w-3 h-3 text-red-600 shrink-0" />
@@ -370,6 +370,84 @@ function ComparisonView({
 
   return (
     <div>
+      {/* AI 분석 */}
+      <div className="px-5 py-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <h3 className="text-[16px] font-black text-gray-900">AI 공약 비교 분석</h3>
+          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
+        </div>
+
+        {isLoading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-3 bg-gray-100 rounded-full mb-2" style={{ width: `${90 - i * 10}%` }} />
+                <div className="h-3 bg-gray-100 rounded-full" style={{ width: `${70 - i * 5}%` }} />
+              </div>
+            ))}
+            <p className="text-[12px] text-gray-400 text-center pt-2">AI가 공약을 분석하고 있습니다...</p>
+          </div>
+        )}
+
+        {isError && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl text-[13px] text-red-600">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-4">
+            {/* 핵심 차이점 */}
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">핵심 차이점</p>
+              <p className="text-[14px] text-gray-800 leading-relaxed font-medium">{result.coreContrast}</p>
+            </div>
+
+            {/* 후보별 분석 */}
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
+              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
+                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-words" style={{ color: colorA }}>{candidateA.name} 공약</p>
+                <ul className="space-y-1 md:space-y-1.5">
+                  {(result.candidateAHighlights || []).map((h, i) => (
+                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
+                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorA }} />
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorB}10`, border: `1px solid ${colorB}25` }}>
+                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-words" style={{ color: colorB }}>{candidateB.name} 공약</p>
+                <ul className="space-y-1 md:space-y-1.5">
+                  {(result.candidateBHighlights || []).map((h, i) => (
+                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
+                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorB }} />
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* 유권자 가이드 */}
+            {result.voterGuide && (
+              <div className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 가이드</p>
+                <p className="text-[13px] text-gray-700 leading-relaxed">{result.voterGuide}</p>
+              </div>
+            )}
+
+            <p className="text-[11px] text-gray-400 text-center italic">
+              * AI가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* 두 후보 공약 카드 */}
       <div className="grid grid-cols-2 gap-2 border-b border-gray-100 p-2 md:gap-4 md:p-4">
         <div className="p-3 md:p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorA}` }}>
@@ -377,10 +455,10 @@ function ComparisonView({
             <div className="text-[10px] md:text-[11px] font-black mb-1 md:mb-2 uppercase tracking-wider" style={{ color: colorA }}>
               {candidateA.party}
             </div>
-            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-keep">{candidateA.name}</div>
-            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-keep">{candidateA.pledge.title}</p>
+            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-words">{candidateA.name}</div>
+            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-words">{candidateA.pledge.title}</p>
             {candidateA.pledge.description && (
-              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-keep">{candidateA.pledge.description}</p>
+              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-words">{candidateA.pledge.description}</p>
             )}
             {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
               <div className="mt-3 pt-3 md:mt-4 md:pt-4 border-t border-gray-100 space-y-3 md:space-y-4">
@@ -431,24 +509,17 @@ function ComparisonView({
               </div>
             )}
           </div>
-          {/* AI 실현가능성 점수 & 5축 평가 */}
-          <PledgeFeasibilitySection
-            promise={candidateA.pledge}
-            candidateName={candidateA.name}
-            candidateParty={candidateA.party}
-            candidateJob={candidateA.job}
-            candidateCareer1={candidateA.career1}
-          />
+
         </div>
         <div className="p-3 md:p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorB}` }}>
           <div>
             <div className="text-[10px] md:text-[11px] font-black mb-1 md:mb-2 uppercase tracking-wider" style={{ color: colorB }}>
               {candidateB.party}
             </div>
-            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-keep">{candidateB.name}</div>
-            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-keep">{candidateB.pledge.title}</p>
+            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-words">{candidateB.name}</div>
+            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-words">{candidateB.pledge.title}</p>
             {candidateB.pledge.description && (
-              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-keep">{candidateB.pledge.description}</p>
+              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-words">{candidateB.pledge.description}</p>
             )}
             {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
               <div className="mt-3 pt-3 md:mt-4 md:pt-4 border-t border-gray-100 space-y-3 md:space-y-4">
@@ -499,94 +570,11 @@ function ComparisonView({
               </div>
             )}
           </div>
-          {/* AI 실현가능성 점수 & 5축 평가 */}
-          <PledgeFeasibilitySection
-            promise={candidateB.pledge}
-            candidateName={candidateB.name}
-            candidateParty={candidateB.party}
-            candidateJob={candidateB.job}
-            candidateCareer1={candidateB.career1}
-          />
+
         </div>
       </div>
 
-      {/* AI 분석 */}
-      <div className="px-5 py-6">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-[16px] font-black text-gray-900">AI 공약 비교 분석</h3>
-          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
-        </div>
-
-        {isLoading && (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-3 bg-gray-100 rounded-full mb-2" style={{ width: `${90 - i * 10}%` }} />
-                <div className="h-3 bg-gray-100 rounded-full" style={{ width: `${70 - i * 5}%` }} />
-              </div>
-            ))}
-            <p className="text-[12px] text-gray-400 text-center pt-2">AI가 공약을 분석하고 있습니다...</p>
-          </div>
-        )}
-
-        {isError && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl text-[13px] text-red-600">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-          </div>
-        )}
-
-        {result && (
-          <div className="space-y-4">
-            {/* 핵심 차이점 */}
-            <div className="bg-gray-50 rounded-2xl p-4">
-              <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">핵심 차이점</p>
-              <p className="text-[14px] text-gray-800 leading-relaxed font-medium">{result.coreContrast}</p>
-            </div>
-
-            {/* 후보별 분석 */}
-            <div className="grid grid-cols-2 gap-2 md:gap-3">
-              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
-                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-keep" style={{ color: colorA }}>{candidateA.name} 공약</p>
-                <ul className="space-y-1 md:space-y-1.5">
-                  {(result.candidateAHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
-                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorA }} />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorB}10`, border: `1px solid ${colorB}25` }}>
-                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-keep" style={{ color: colorB }}>{candidateB.name} 공약</p>
-                <ul className="space-y-1 md:space-y-1.5">
-                  {(result.candidateBHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
-                      <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorB }} />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* 유권자 가이드 */}
-            {result.voterGuide && (
-              <div className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100">
-                <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 가이드</p>
-                <p className="text-[13px] text-gray-700 leading-relaxed">{result.voterGuide}</p>
-              </div>
-            )}
-
-            <p className="text-[11px] text-gray-400 text-center italic">
-              * AI가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다
-            </p>
-          </div>
-        )}
-      </div>
+      {/* AI 분석 (상단으로 이동됨) */}
     </div>
   );
 }
@@ -666,7 +654,7 @@ function DetailedAxesChart({ axes }: { axes: DetailedAxes }) {
                     className="overflow-hidden"
                   >
                     <div className={`mt-2 ${meta.bgColor} rounded-xl p-4 border border-gray-100`}>
-                      <p className="text-[14px] text-gray-700 leading-[1.8] break-keep">{axis.analysis}</p>
+                      <p className="text-[14px] text-gray-700 leading-[1.8] break-words">{axis.analysis}</p>
                     </div>
                   </motion.div>
                 )}
@@ -790,10 +778,10 @@ function SinglePledgeView({
             </span>
           )}
         </div>
-        <h1 className="text-[20px] md:text-[22px] font-black text-gray-900 leading-[1.4] mb-4 break-keep">{promise.title}</h1>
+        <h1 className="text-[20px] md:text-[22px] font-black text-gray-900 leading-[1.4] mb-4 break-words">{promise.title}</h1>
         {promise.description && (
           <div className="bg-white rounded-2xl p-4 border border-indigo-100/50 shadow-sm">
-            <p className="text-[14px] text-gray-700 leading-[1.7] font-medium break-keep">{promise.description}</p>
+            <p className="text-[14px] text-gray-700 leading-[1.7] font-medium break-words">{promise.description}</p>
           </div>
         )}
 
@@ -866,7 +854,7 @@ function SinglePledgeView({
             animate={{ opacity: 1, y: 0 }}
             className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
           >
-            <p className="text-[13px] md:text-[14px] text-gray-700 leading-[1.7] break-keep font-medium">{ai.summary}</p>
+            <p className="text-[13px] md:text-[14px] text-gray-700 leading-[1.7] break-words font-medium">{ai.summary}</p>
           </motion.div>
         )}
 
@@ -912,7 +900,7 @@ function SinglePledgeView({
                 </div>
                 <span className="text-[12px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
               </div>
-              <p className="text-[13px] text-red-800 leading-[1.7] font-medium break-keep">{ai.keyVulnerability}</p>
+              <p className="text-[13px] text-red-800 leading-[1.7] font-medium break-words">{ai.keyVulnerability}</p>
             </motion.div>
           )}
 
@@ -929,7 +917,7 @@ function SinglePledgeView({
                 </div>
                 <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
               </div>
-              <p className="text-[13px] text-amber-900 leading-[1.7] font-medium break-keep">{ai.feasibilityCritique}</p>
+              <p className="text-[13px] text-amber-900 leading-[1.7] font-medium break-words">{ai.feasibilityCritique}</p>
             </motion.div>
           )}
 
@@ -942,7 +930,7 @@ function SinglePledgeView({
               </p>
               <div className="space-y-2">
                 {(ai?.strengths ?? fallback.reasons).map((r, i) => (
-                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-keep">
+                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
                     <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" /> {r}
                   </p>
                 ))}
@@ -955,7 +943,7 @@ function SinglePledgeView({
               </p>
               <div className="space-y-2">
                 {(ai?.concerns ?? fallback.concerns).map((c, i) => (
-                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-keep">
+                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
                     <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-red-300" /> {c}
                   </p>
                 ))}
@@ -971,7 +959,7 @@ function SinglePledgeView({
               className="mt-6 p-5 bg-white/60 rounded-[20px] border border-white"
             >
               <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 체크포인트</p>
-              <p className="text-[15px] text-gray-700 leading-[1.7] break-keep font-medium">{ai.voterTip}</p>
+              <p className="text-[15px] text-gray-700 leading-[1.7] break-words font-medium">{ai.voterTip}</p>
             </motion.div>
           )}
 
@@ -1032,11 +1020,11 @@ export default function PledgeDetailView({
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
+          initial={{ y: "100%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: "100%", opacity: 0 }}
           transition={{ type: "spring", damping: 30, stiffness: 300 }}
-          className="fixed inset-0 z-[100] bg-white flex flex-col"
+          className="fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden"
         >
           {/* 헤더 */}
           <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
@@ -1050,7 +1038,7 @@ export default function PledgeDetailView({
           </div>
 
           {/* 본문 */}
-          <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col w-full">
             {isCompareMode ? (
               <ComparisonView
                 candidateA={{

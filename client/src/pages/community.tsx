@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { CommunityPost } from "@shared/schema";
 import { PostDetailDialog } from "@/components/post-detail-dialog";
 import { InlineComments } from "@/components/InlineComments";
+import { ShareButton } from "@/components/ShareButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -355,6 +356,13 @@ export default function Community() {
                           <MessageCircle className="w-4 h-4" />
                           {post.commentCount ?? 0}
                         </span>
+                        <ShareButton
+                          title={post.title}
+                          text={post.content?.replace(/<[^>]*>/g, " ").slice(0, 80)}
+                          url={`${window.location.origin}/community/${post.id}`}
+                          variant="button"
+                          className="ml-1"
+                        />
                      </div>
                   </div>
 

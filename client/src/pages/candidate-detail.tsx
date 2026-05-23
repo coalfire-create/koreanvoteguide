@@ -45,6 +45,7 @@ type PostWithCount = CommunityPost & { commentCount?: number; displayName?: stri
 import { CandidateEvaluationReport } from "@/components/CandidateEvaluationReport";
 import PledgeDetailView, { analyzeFeasibility } from "@/components/PledgeDetailView";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { ShareButton } from "@/components/ShareButton";
 
 // ─── 뉴스 타입 ──────────────────────────────────────────────────────────────
 interface NewsItem {
@@ -322,11 +323,19 @@ export default function CandidateDetail() {
       {/* ── 헤더 ── */}
       <div className={`${partyBg} px-4 pt-10 pb-16 relative`}>
         <div className="max-w-4xl mx-auto relative">
-          <Link href="/">
-            <button className="absolute top-0 left-0 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-          </Link>
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
+            <Link href="/">
+              <button className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+            </Link>
+            <ShareButton
+              title={`${candidate.name} 후보 - 이유있는 투표`}
+              text={`${candidate.name}(${candidate.party}) 후보의 공약과 정보를 확인하세요`}
+              variant="icon"
+              className="text-white hover:bg-white/20"
+            />
+          </div>
           <div className="flex flex-col items-center gap-3 mt-6">
             <div className="w-24 h-24 rounded-full bg-white/20 border-4 border-white/60 overflow-hidden shadow-lg">
               <PoliticianPhoto
