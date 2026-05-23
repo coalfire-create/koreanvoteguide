@@ -234,8 +234,17 @@ function PledgeFeasibilitySection({
     retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000), // 5s, 15s, 30s
   });
 
-  const score = ai?.feasibilityScore ?? fallback.score;
-  const label = ai?.feasibilityLabel ?? fallback.label;
+  const axesAvgScore = (() => {
+    const axes = ai?.detailedAxes;
+    if (!axes) return null;
+    const vals = Object.values(axes)
+      .map((a) => a?.score)
+      .filter((s): s is number => typeof s === "number" && Number.isFinite(s));
+    if (vals.length === 0) return null;
+    return Math.round((vals.reduce((sum, s) => sum + s, 0) / vals.length) * 20);
+  })();
+  const score = axesAvgScore ?? ai?.feasibilityScore ?? fallback.score;
+  const label = score >= 75 ? "높음" : score >= 55 ? "중간" : score >= 35 ? "보통" : "낮음";
   const scoreColor =
     score >= 75 ? "text-emerald-600" :
     score >= 55 ? "text-blue-600" :
@@ -751,9 +760,7 @@ function SinglePledgeView({
     return Math.round((vals.reduce((sum, s) => sum + s, 0) / vals.length) * 20);
   })();
   const score = axesAvgScore ?? ai?.feasibilityScore ?? fallback.score;
-  const label =
-    ai?.feasibilityLabel ??
-    (score >= 75 ? "높음" : score >= 55 ? "중간" : score >= 35 ? "보통" : "낮음");
+  const label = score >= 75 ? "높음" : score >= 55 ? "중간" : score >= 35 ? "보통" : "낮음";
   const scoreColor =
     score >= 75 ? "text-emerald-600" :
     score >= 55 ? "text-blue-600" :
@@ -785,9 +792,152 @@ function SinglePledgeView({
           </div>
         )}
 
+        {/* AI 실현 가능성 분석 (위로 이동됨) */}
+        <div className="mt-5 space-y-4">
+          {/* 헤더 */}
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-md shadow-indigo-200">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+            </div>
+            <h3 className="text-[16px] md:text-lg font-black text-gray-900">AI 실현 가능성 분석</h3>
+            <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
+            {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin ml-1" />}
+          </div>
+
+          {/* AI 요약 (로드된 경우) */}
+          {ai?.summary && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
+            >
+              <p className="text-[13px] md:text-[14px] text-gray-700 leading-[1.7] break-words font-medium">{ai.summary}</p>
+            </motion.div>
+          )}
+
+          {/* 종합 점수 카드 */}
+          <div className={`rounded-2xl p-5 ${scoreBg} shadow-sm border border-black/5`}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[14px] font-black text-gray-800">종합 평가</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[16px] md:text-[18px] font-black ${scoreColor}`}>{label}</span>
+                <div className="text-[12px] font-bold text-white px-3 py-1 rounded-full shadow-sm"
+                  style={{ backgroundColor: barColor }}>
+                  {score}점
+                </div>
+              </div>
+            </div>
+
+            <div className="h-3 md:h-4 bg-white/60 rounded-full overflow-hidden mb-6 shadow-inner">
+              <motion.div
+                key={score}
+                initial={{ width: 0 }}
+                animate={{ width: `${score}%` }}
+                transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
+                className="h-full rounded-full"
+                style={{ background: `linear-gradient(90deg, ${barColor} 0%, #fff 200%)` }}
+              />
+            </div>
+
+            {/* ─── 5축 정밀 평가 차트 ─── */}
+            {ai?.detailedAxes && (
+              <DetailedAxesChart axes={ai.detailedAxes} />
+            )}
+
+            {/* ─── 핵심 취약점 카드 ─── */}
+            {ai?.keyVulnerability && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-md bg-red-100 flex items-center justify-center">
+                    <Shield className="w-3.5 h-3.5 text-red-600" />
+                  </div>
+                  <span className="text-[12px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
+                </div>
+                <p className="text-[13px] text-red-800 leading-[1.7] font-medium break-words">{ai.keyVulnerability}</p>
+              </motion.div>
+            )}
+
+            {/* ─── 비판적 평가 (feasibilityCritique) ─── */}
+            {ai?.feasibilityCritique && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                  </div>
+                  <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
+                </div>
+                <p className="text-[13px] text-amber-900 leading-[1.7] font-medium break-words">{ai.feasibilityCritique}</p>
+              </motion.div>
+            )}
+
+            {/* ─── 긍정/우려 요인 ─── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
+                <p className="text-[13px] font-bold text-emerald-600 mb-3 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">✓</span>
+                  긍정 요인
+                </p>
+                <div className="space-y-2">
+                  {(ai?.strengths ?? fallback.reasons).map((r, i) => (
+                    <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
+                      <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" /> {r}
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
+                <p className="text-[13px] font-bold text-red-500 mb-3 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-[10px]">!</span>
+                  우려 요인
+                </p>
+                <div className="space-y-2">
+                  {(ai?.concerns ?? fallback.concerns).map((c, i) => (
+                    <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
+                      <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-red-300" /> {c}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 유권자 팁 */}
+            {ai?.voterTip && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-6 p-5 bg-white/60 rounded-[20px] border border-white"
+              >
+                <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 체크포인트</p>
+                <p className="text-[15px] text-gray-700 leading-[1.7] break-words font-medium">{ai.voterTip}</p>
+              </motion.div>
+            )}
+
+            {isError && (
+              <div className="mt-4 flex items-center gap-2 text-[12px] text-amber-600 bg-amber-50 rounded-xl p-3">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+              </div>
+            )}
+
+            <p className="text-[12px] text-gray-400 mt-6 text-center italic font-medium">
+              {ai ? "* Groq AI(LLaMA3)가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다" : "* 공약 텍스트 기반 자동 추정값입니다"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-6 space-y-4">
         {/* 구조화 공약 정보 패널 — 선관위 공보 원문 기반 */}
         {(promise.content || promise.method || promise.funding || promise.duration) && (
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {promise.content && (
               <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm md:col-span-2">
                 <div className="flex items-center gap-2 mb-3">
@@ -834,146 +984,6 @@ function SinglePledgeView({
             )}
           </div>
         )}
-      </div>
-
-      <div className="px-4 py-6 space-y-4">
-        {/* 헤더 */}
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-md shadow-indigo-200">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-          </div>
-          <h3 className="text-[16px] md:text-lg font-black text-gray-900">AI 실현 가능성 분석</h3>
-          <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
-          {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin ml-1" />}
-        </div>
-
-        {/* AI 요약 (로드된 경우) */}
-        {ai?.summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
-          >
-            <p className="text-[13px] md:text-[14px] text-gray-700 leading-[1.7] break-words font-medium">{ai.summary}</p>
-          </motion.div>
-        )}
-
-        {/* 종합 점수 카드 */}
-        <div className={`rounded-2xl p-5 ${scoreBg} shadow-sm border border-black/5`}>
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[14px] font-black text-gray-800">종합 평가</span>
-            <div className="flex items-center gap-2">
-              <span className={`text-[16px] md:text-[18px] font-black ${scoreColor}`}>{label}</span>
-              <div className="text-[12px] font-bold text-white px-3 py-1 rounded-full shadow-sm"
-                style={{ backgroundColor: barColor }}>
-                {score}점
-              </div>
-            </div>
-          </div>
-
-          <div className="h-3 md:h-4 bg-white/60 rounded-full overflow-hidden mb-6 shadow-inner">
-            <motion.div
-              key={score}
-              initial={{ width: 0 }}
-              animate={{ width: `${score}%` }}
-              transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
-              className="h-full rounded-full"
-              style={{ background: `linear-gradient(90deg, ${barColor} 0%, #fff 200%)` }}
-            />
-          </div>
-
-          {/* ─── 5축 정밀 평가 차트 ─── */}
-          {ai?.detailedAxes && (
-            <DetailedAxesChart axes={ai.detailedAxes} />
-          )}
-
-          {/* ─── 핵심 취약점 카드 ─── */}
-          {ai?.keyVulnerability && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-6 h-6 rounded-md bg-red-100 flex items-center justify-center">
-                  <Shield className="w-3.5 h-3.5 text-red-600" />
-                </div>
-                <span className="text-[12px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
-              </div>
-              <p className="text-[13px] text-red-800 leading-[1.7] font-medium break-words">{ai.keyVulnerability}</p>
-            </motion.div>
-          )}
-
-          {/* ─── 비판적 평가 (feasibilityCritique) ─── */}
-          {ai?.feasibilityCritique && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                </div>
-                <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
-              </div>
-              <p className="text-[13px] text-amber-900 leading-[1.7] font-medium break-words">{ai.feasibilityCritique}</p>
-            </motion.div>
-          )}
-
-          {/* ─── 긍정/우려 요인 ─── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-            <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
-              <p className="text-[13px] font-bold text-emerald-600 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">✓</span>
-                긍정 요인
-              </p>
-              <div className="space-y-2">
-                {(ai?.strengths ?? fallback.reasons).map((r, i) => (
-                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
-                    <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" /> {r}
-                  </p>
-                ))}
-              </div>
-            </div>
-            <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
-              <p className="text-[13px] font-bold text-red-500 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-[10px]">!</span>
-                우려 요인
-              </p>
-              <div className="space-y-2">
-                {(ai?.concerns ?? fallback.concerns).map((c, i) => (
-                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-words">
-                    <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-red-300" /> {c}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 유권자 팁 */}
-          {ai?.voterTip && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-6 p-5 bg-white/60 rounded-[20px] border border-white"
-            >
-              <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-wider mb-2">유권자 체크포인트</p>
-              <p className="text-[15px] text-gray-700 leading-[1.7] break-words font-medium">{ai.voterTip}</p>
-            </motion.div>
-          )}
-
-          {isError && (
-            <div className="mt-4 flex items-center gap-2 text-[12px] text-amber-600 bg-amber-50 rounded-xl p-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              AI 분석을 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-            </div>
-          )}
-
-          <p className="text-[12px] text-gray-400 mt-6 text-center italic font-medium">
-            {ai ? "* Groq AI(LLaMA3)가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다" : "* 공약 텍스트 기반 자동 추정값입니다"}
-          </p>
-        </div>
       </div>
     </div>
   );

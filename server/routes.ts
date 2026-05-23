@@ -151,6 +151,15 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// AI 엔드포인트 — 비용 과다 호출 방지. IP당 10분에 15회.
+const aiLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  message: { error: "AI 분석 요청이 너무 많습니다. 10분 후 다시 시도해주세요." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // 커뮤니티 글/댓글 작성·수정 — 도배 방지(전역 120/분보다 엄격). IP 기준 공유 카운트.
 const communityWriteLimiter = rateLimit({
   windowMs: 60 * 1000, // 1분
@@ -4833,7 +4842,7 @@ export async function registerRoutes(
     return "후보 직위가 명확하지 않다. 공약이 지방정부 권한 내인지 보수적으로 판단한다.";
   };
 
-  app.post("/api/candidates/analyze-pledge", async (req, res) => {
+  app.post("/api/candidates/analyze-pledge", aiLimiter, async (req, res) => {
     try {
       const body = req.body ?? {};
       const name = orNoData(body.name);
@@ -4956,7 +4965,7 @@ export async function registerRoutes(
           system: SYSTEM_PROMPT,
           user: userPrompt,
           temperature: 0.2,
-          maxTokens: 1500,
+          maxTokens: 900,
           label: "candidates/analyze-pledge",
           provider: "openai",
         },
@@ -5013,7 +5022,7 @@ export async function registerRoutes(
   // ===== 공약 AI 비교 분석 =====
   const pledgeCompareCache = new Map<string, object>();
 
-  app.post("/api/candidates/compare-pledges", async (req, res) => {
+  app.post("/api/candidates/compare-pledges", aiLimiter, async (req, res) => {
     try {
       const body = req.body ?? {};
       const rawA = body.candidateA ?? {};
@@ -5034,10 +5043,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "두 후보의 공약이 필요합니다" });
       }
 
-      const cacheKey = `${candidateA.name}::${candidateA.pledge}||${candidateB.name}::${candidateB.pledge}`;
+      const cacheKey = `compare-pledges::${candidateA.name}::${candidateA.pledge}||${candidateB.name}::${candidateB.pledge}`;
       if (pledgeCompareCache.has(cacheKey)) {
         return res.json(pledgeCompareCache.get(cacheKey));
       }
+      const compareL2 = await getAiCache<object>(cacheKey);
+      if (compareL2) { pledgeCompareCache.set(cacheKey, compareL2); return res.json(compareL2); }
 
       if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 
@@ -5073,8 +5084,10 @@ export async function registerRoutes(
         fallback,
       );
 
-      // 폴백(LLM 실패)은 캐시하지 않음 — 다음 요청에서 LLM을 다시 시도할 수 있도록
-      if (result !== fallback) pledgeCompareCache.set(cacheKey, result);
+      if (result !== fallback) {
+        pledgeCompareCache.set(cacheKey, result);
+        setAiCache(cacheKey, "compare-pledges", result).catch(() => {});
+      }
       res.json(result);
     } catch (error: any) {
       console.error("[compare-pledges] error:", error);
@@ -5089,7 +5102,7 @@ export async function registerRoutes(
   });
 
   // ===== 분야별 공약 통합 분석 =====
-  app.post("/api/candidates/analyze-topic", async (req, res) => {
+  app.post("/api/candidates/analyze-topic", aiLimiter, async (req, res) => {
     try {
       const body = req.body ?? {};
       const topic = orNoData(body.topic);
@@ -5176,7 +5189,7 @@ export async function registerRoutes(
   // ===== 국회의원 프리미엄 AI 프로필 분석 =====
   const memberProfileCache = new Map<string, object>();
 
-  app.get("/api/members/analyze-profile", async (req, res) => {
+  app.get("/api/members/analyze-profile", aiLimiter, async (req, res) => {
     try {
       const monaCd = String(req.query.monaCd ?? "");
       if (!monaCd) return res.status(400).json({ error: "monaCd 필요" });
@@ -5293,7 +5306,7 @@ export async function registerRoutes(
   //   { monaCd: string }                          — DB 등록된 의원
   //   또는 { politicianName: string }              — 후보자/비등록자
   //   또는 { monaCd, politicianName }              — 둘 다 명시
-  app.post("/api/ai/evaluate", async (req, res) => {
+  app.post("/api/ai/evaluate", aiLimiter, async (req, res) => {
     try {
       const monaCd = typeof req.body?.monaCd === "string" ? req.body.monaCd.trim() : "";
       const explicitName =
@@ -5394,28 +5407,33 @@ export async function registerRoutes(
         });
       }
 
-      // ── 6. LLM 페이로드 직렬화 ──
-      const userPayload = JSON.stringify(
-        {
-          politician: { name: politicianName, party, district },
-          "[대표 발의 법안]": proposedBills,
-          "[본회의 표결]": votingRecords,
-          "[최근 뉴스 및 발언]": recentNews,
-        },
-        null,
-        2
-      );
+      // ── 6. L2 캐시 확인 (DB 영속) ──
+      const evaluateCacheKey = `evaluate::${monaCd || politicianName}`;
+      const cachedEval = await getAiCache<EvaluatePayload>(evaluateCacheKey);
+      if (cachedEval) {
+        return res.json({ ...cachedEval, dataCounts: { proposedBills: proposedBills.length, votingRecords: votingRecords.length, recentNews: recentNews.length } });
+      }
 
-      // ── 7. LLM 호출 (객관성 최우선 — temperature 최소화) ──
+      // ── 7. LLM 페이로드 직렬화 (compact — 토큰 절약) ──
+      const userPayload = JSON.stringify({
+        politician: { name: politicianName, party, district },
+        bills: proposedBills,
+        votes: votingRecords,
+        news: recentNews,
+      });
+
+      // ── 8. LLM 호출 (객관성 최우선 — temperature 최소화) ──
       try {
         const result = await callLLMJson<EvaluatePayload>({
           system: STRICT_NEUTRALITY_SYSTEM_PROMPT,
           user: userPayload,
           temperature: 0.1,
-          maxTokens: 1200,
+          maxTokens: 900,
           label: "ai/evaluate",
           provider: "openai",
         });
+
+        setAiCache(evaluateCacheKey, "evaluate", result).catch(() => {});
 
         return res.json({
           ...result,
