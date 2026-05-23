@@ -38,6 +38,7 @@ function newsTimeAgo(pubDate: string) {
 
 export default function BillSearch() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { bills, isLoading: billsLoading } = useAssemblyBills();
@@ -45,6 +46,18 @@ export default function BillSearch() {
   const { bills: hotBills, isLoading: hotBillsLoading, isError: hotBillsError } = useHotBills();
   const { history: searchHistory, isLoading: historyLoading } = useSearchHistory();
   const queryClient = useQueryClient();
+
+  // 실시간 검색 결과 (입력 즉시 반영)
+  const isSearching = searchQuery.trim().length > 0;
+  const searchResults = isSearching
+    ? bills.filter((bill: any) => {
+        const q = searchQuery.trim().toLowerCase();
+        const name = (bill.name || bill.billName || "").toLowerCase();
+        const proposer = (bill.proposer || "").toLowerCase();
+        const summary = (bill.summary || bill.committee || "").toLowerCase();
+        return name.includes(q) || proposer.includes(q) || summary.includes(q);
+      }).slice(0, 30)
+    : [];
 
   // 오늘 발의 법안 수 (DB COUNT, KST 기준)
   const { data: todayBillData, isLoading: todayBillLoading } = useQuery<{ date: string; count: number }>({
@@ -124,6 +137,7 @@ export default function BillSearch() {
 
   const handleSearchClick = async () => {
     if (!searchQuery.trim()) return;
+    setSubmittedQuery(searchQuery.trim());
     await saveSearchQuery(searchQuery.trim());
     queryClient.invalidateQueries({ queryKey: ["/api/search-history"] });
   };
@@ -136,6 +150,11 @@ export default function BillSearch() {
   const handleDeleteItem = async (id: number) => {
     await deleteSearchHistoryItem(id);
     queryClient.invalidateQueries({ queryKey: ["/api/search-history"] });
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSubmittedQuery("");
   };
 
   return (
@@ -193,6 +212,124 @@ export default function BillSearch() {
           
           {/* Main Content */}
           <div className="space-y-8">
+
+            {/* ===== 검색 결과 ===== */}
+            {isSearching && (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[18px] font-extrabold text-foreground flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-[10px] bg-primary/10 flex items-center justify-center">
+                      <Search className="w-4 h-4 text-primary" />
+                    </span>
+                    <span>
+                      &ldquo;<span className="text-primary">{searchQuery}</span>&rdquo; 검색 결과
+                    </span>
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[12px] font-bold text-muted-foreground">
+                      {billsLoading ? "검색 중..." : `총 ${searchResults.length}건`}
+                    </span>
+                    <button
+                      onClick={handleClearSearch}
+                      className="text-[12px] font-bold text-primary hover:underline"
+                    >
+                      초기화
+                    </button>
+                  </div>
+                </div>
+
+                {billsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <div key={i} className="bg-card rounded-[14px] p-5 shadow-sm border border-border/30 flex gap-4">
+                        <Skeleton className="w-8 h-8 rounded-[8px] shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-3/4 rounded" />
+                          <Skeleton className="h-3 w-1/2 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="bg-card rounded-[16px] p-12 shadow-sm border border-border/30 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <Search className="w-10 h-10 opacity-30" />
+                    <p className="text-[16px] font-bold">&ldquo;{searchQuery}&rdquo;에 대한 결과가 없습니다</p>
+                    <p className="text-[13px] font-medium opacity-70">다른 키워드로 검색해 보세요</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {searchResults.map((bill: any, idx: number) => {
+                      const statusLabel = !bill.status || bill.status === "" || bill.status === "계류" ? "심사중" : bill.status;
+                      const statusColor = statusLabel === "심사중" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : statusLabel === "통과" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-muted-foreground border border-border/30";
+                      const billName = bill.name || bill.billName || "이름 없는 법안";
+                      const committee = bill.summary || bill.committee || "";
+                      // 검색어 강조 표시 함수
+                      const highlight = (text: string) => {
+                        if (!searchQuery.trim()) return text;
+                        const q = searchQuery.trim();
+                        const idx = text.toLowerCase().indexOf(q.toLowerCase());
+                        if (idx === -1) return text;
+                        return (
+                          <>
+                            {text.slice(0, idx)}
+                            <mark className="bg-primary/20 text-primary rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+                            {text.slice(idx + q.length)}
+                          </>
+                        );
+                      };
+                      return (
+                        <div
+                          key={bill.id || bill.billId || idx}
+                          onClick={() => navigate(`/bills/${bill.id || bill.billId}/vote`)}
+                          className="group bg-card rounded-[16px] p-5 flex gap-4 items-center cursor-pointer transition-all duration-200 border border-border/30 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-primary/20"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="text-[16px]">{getBillEmoji(billName, committee)}</span>
+                              <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                              {committee && (
+                                <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border/30 text-[10px] font-bold rounded-md flex items-center gap-1">
+                                  <Building2 className="w-3 h-3" />
+                                  {committee}
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="font-bold text-[15px] text-foreground leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                              {highlight(billName)}
+                            </h3>
+                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-semibold flex-wrap">
+                              {bill.proposer && (
+                                <span className="truncate max-w-[200px]">
+                                  {highlight(bill.proposer.split("(")[0].trim())} 대표발의
+                                </span>
+                              )}
+                              {(bill.proposedDate || bill.proposeDate) && (
+                                <span className="flex items-center gap-1 ml-auto text-muted-foreground/50">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {bill.proposedDate || bill.proposeDate}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="w-10 h-10 rounded-full bg-muted group-hover:bg-primary flex items-center justify-center transition-colors shrink-0 border border-border/30 group-hover:border-primary">
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary-foreground transition-colors" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {searchResults.length === 30 && (
+                      <p className="text-center text-[12px] text-muted-foreground font-medium pt-2">상위 30건만 표시됩니다. 더 구체적인 키워드로 검색해 보세요.</p>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* 검색 중이면 아래 섹션들 숨김 */}
+            {isSearching ? null : (
+              <>
             
             {/* 인기 법안 Top 5 */}
             <section>
@@ -595,7 +732,9 @@ export default function BillSearch() {
               </div>
             </section>
 
-            
+
+            </>
+            )}
           </div>
 
           {/* Middle Widgets Column */}

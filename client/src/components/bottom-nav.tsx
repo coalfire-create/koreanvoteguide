@@ -27,41 +27,38 @@ export function BottomNav() {
             <Link
               key={item.url}
               href={item.url}
+              data-testid={`link-nav-${item.url.replace("/", "") || "home"}`}
+              className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300 ${
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <a
-                data-testid={`link-nav-${item.url.replace("/", "") || "home"}`}
-                className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300 ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {item.isCenter ? (
-                  <div
-                    className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-transform active:scale-95 ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`}
+              {item.isCenter ? (
+                <div
+                  className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-transform active:scale-95 ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`}
+                >
+                  <item.icon
+                    className={`w-6 h-6 mb-0.5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
+                  />
+                  <span
+                    className={`text-[10px] tracking-wide ${isActive ? "font-bold" : "font-medium"}`}
                   >
-                    <item.icon
-                      className={`w-6 h-6 mb-0.5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
-                    />
-                    <span
-                      className={`text-[10px] tracking-wide ${isActive ? "font-bold" : "font-medium"}`}
-                    >
-                      {item.title}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <item.icon
-                      className={`w-6 h-6 transition-all duration-300 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
-                    />
-                    <span
-                      className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? "font-bold" : "font-medium"}`}
-                    >
-                      {item.title}
-                    </span>
-                  </>
-                )}
-              </a>
+                    {item.title}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <item.icon
+                    className={`w-6 h-6 transition-all duration-300 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
+                  />
+                  <span
+                    className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? "font-bold" : "font-medium"}`}
+                  >
+                    {item.title}
+                  </span>
+                </>
+              )}
             </Link>
           );
         })}

@@ -557,7 +557,7 @@ function RegionView({
                             <div className={`absolute inset-0 rounded-full border-2 ${color.replace('bg-', 'border-')} opacity-20 scale-110 group-hover:scale-125 transition-transform duration-500`}></div>
                           </div>
                           <div className="text-center mt-6 md:mt-8">
-                            <h4 className="text-[17px] sm:text-[20px] md:text-2xl font-black text-foreground mb-1 md:mb-2">{candidate.name}</h4>
+                            <h4 className="text-[17px] sm:text-[20px] md:text-2xl font-black text-foreground mb-1 md:mb-2 break-keep">{candidate.name}</h4>
                             {(candidate.job || candidate.career1) && (
                               <p className={`text-[10px] sm:text-[11px] md:text-[13px] font-bold ${color.replace('bg-', 'text-')} bg-muted px-2 sm:px-4 py-1 rounded-lg line-clamp-1`}>
                                 {candidate.job || candidate.career1}
@@ -622,7 +622,7 @@ function RegionView({
                                   기호 {symbol}
                                 </div>
                               </div>
-                              <h5 className="text-[16px] font-black text-foreground mb-1 group-hover:text-primary transition-colors">{candidate.name}</h5>
+                              <h5 className="text-[16px] font-black text-foreground mb-1 group-hover:text-primary transition-colors break-keep">{candidate.name}</h5>
                               <p className="text-[11px] text-muted-foreground font-bold tracking-tight mb-1">{candidate.party}</p>
                               {candidate.candidateStatus && (
                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-500/15 text-orange-500' : 'bg-muted text-muted-foreground'}`}>

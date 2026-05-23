@@ -245,36 +245,36 @@ function PledgeFeasibilitySection({
     score >= 75 ? "#10b981" : score >= 55 ? "#3b82f6" : "#f59e0b";
 
   return (
-    <div className="mt-6 pt-6 border-t border-gray-100 space-y-4">
+    <div className="mt-3 pt-3 md:mt-6 md:pt-6 border-t border-gray-100 space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-          <span className="text-[12px] font-black text-gray-800">AI 실현가능성 평가</span>
+        <div className="flex items-center gap-1 md:gap-1.5">
+          <Sparkles className="w-3 md:w-3.5 h-3 md:h-3.5 text-indigo-600" />
+          <span className="text-[10px] md:text-[12px] font-black text-gray-800">AI 실현가능성</span>
         </div>
-        {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
+        {isLoading && <Loader2 className="w-3 md:w-3.5 h-3 md:h-3.5 text-indigo-400 animate-spin" />}
       </div>
 
       {isError && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-[11px] text-red-600">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          AI 평가 로드 실패
+        <div className="flex items-center gap-1.5 p-2 bg-red-50 rounded-xl text-[10px] md:text-[11px] text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          평가 로드 실패
         </div>
       )}
 
       {/* 종합 점수 카드 */}
-      <div className={`rounded-xl p-4 ${scoreBg}`}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[12px] font-bold text-gray-700">종합 평가</span>
-          <div className="flex items-center gap-2">
-            <span className={`text-[13px] font-black ${scoreColor}`}>{label}</span>
-            <div className="text-[11px] font-bold text-white px-2 py-0.5 rounded-full"
+      <div className={`rounded-xl p-2.5 md:p-4 ${scoreBg}`}>
+        <div className="flex items-center justify-between mb-1.5 md:mb-2">
+          <span className="text-[10px] md:text-[12px] font-bold text-gray-700">종합 평가</span>
+          <div className="flex items-center gap-1 md:gap-2">
+            <span className={`text-[11px] md:text-[13px] font-black ${scoreColor}`}>{label}</span>
+            <div className="text-[9px] md:text-[11px] font-bold text-white px-1.5 md:px-2 py-0.5 rounded-full"
               style={{ backgroundColor: barColor }}>
               {score}점
             </div>
           </div>
         </div>
 
-        <div className="h-2 bg-white/60 rounded-full overflow-hidden mb-1 shadow-inner">
+        <div className="h-1.5 md:h-2 bg-white/60 rounded-full overflow-hidden mb-1 shadow-inner">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${score}%` }}
@@ -285,9 +285,9 @@ function PledgeFeasibilitySection({
         </div>
       </div>
 
-      {/* 5축 차트 */}
+      {/* 5축 차트 - 모바일에서는 숨김 */}
       {ai?.detailedAxes && (
-        <div className="mt-4">
+        <div className="mt-3 hidden md:block">
           <DetailedAxesChart axes={ai.detailedAxes} />
         </div>
       )}
@@ -297,10 +297,10 @@ function PledgeFeasibilitySection({
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-100 rounded-xl p-3 text-[12px] text-red-700 leading-relaxed break-keep"
+          className="bg-red-50 border border-red-100 rounded-xl p-2 md:p-3 text-[10px] md:text-[12px] text-red-700 leading-relaxed break-keep"
         >
-          <div className="flex items-center gap-1.5 mb-1">
-            <Shield className="w-3.5 h-3.5 text-red-600 shrink-0" />
+          <div className="flex items-center gap-1 mb-1">
+            <Shield className="w-3 h-3 text-red-600 shrink-0" />
             <span className="font-black">핵심 취약점</span>
           </div>
           <p>{ai.keyVulnerability}</p>
@@ -367,59 +367,59 @@ function ComparisonView({
   return (
     <div>
       {/* 두 후보 공약 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-100 p-4">
-        <div className="p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorA}` }}>
+      <div className="grid grid-cols-2 gap-2 border-b border-gray-100 p-2 md:gap-4 md:p-4">
+        <div className="p-3 md:p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorA}` }}>
           <div>
-            <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorA }}>
+            <div className="text-[10px] md:text-[11px] font-black mb-1 md:mb-2 uppercase tracking-wider" style={{ color: colorA }}>
               {candidateA.party}
             </div>
-            <div className="text-[15px] font-black text-gray-900 mb-1">{candidateA.name}</div>
-            <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateA.pledge.title}</p>
+            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-keep">{candidateA.name}</div>
+            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-keep">{candidateA.pledge.title}</p>
             {candidateA.pledge.description && (
-              <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateA.pledge.description}</p>
+              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-keep">{candidateA.pledge.description}</p>
             )}
             {(candidateA.pledge.content || candidateA.pledge.method || candidateA.pledge.funding || candidateA.pledge.duration) && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+              <div className="mt-3 pt-3 md:mt-4 md:pt-4 border-t border-gray-100 space-y-3 md:space-y-4">
                 {candidateA.pledge.content && (
-                  <div className="bg-indigo-50/40 rounded-2xl p-4 border border-indigo-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <div className="bg-indigo-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-indigo-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
+                        <CheckCircle2 className="w-3 md:w-3.5 h-3 md:h-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
                     </div>
                     <FormattedText text={candidateA.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.method && (
-                  <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
-                        <span className="text-[12px]">📋</span>
+                  <div className="bg-emerald-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-emerald-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                        <span className="text-[10px] md:text-[12px]">📋</span>
                       </div>
-                      <span className="text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
                     </div>
                     <FormattedText text={candidateA.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.funding && (
-                  <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
-                        <span className="text-[12px]">💰</span>
+                  <div className="bg-amber-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-amber-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                        <span className="text-[10px] md:text-[12px]">💰</span>
                       </div>
-                      <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달</span>
                     </div>
                     <FormattedText text={candidateA.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateA.pledge.duration && (
-                  <div className="bg-sky-50/40 rounded-2xl p-4 border border-sky-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
-                        <span className="text-[12px]">⏱️</span>
+                  <div className="bg-sky-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-sky-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                        <span className="text-[10px] md:text-[12px]">⏱️</span>
                       </div>
-                      <span className="text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
                     </div>
                     <FormattedText text={candidateA.pledge.duration} size="sm" />
                   </div>
@@ -436,58 +436,58 @@ function ComparisonView({
             candidateCareer1={candidateA.career1}
           />
         </div>
-        <div className="p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorB}` }}>
+        <div className="p-3 md:p-5 border border-gray-100 rounded-2xl flex flex-col justify-between" style={{ borderTop: `4px solid ${colorB}` }}>
           <div>
-            <div className="text-[11px] font-black mb-2 uppercase tracking-wider" style={{ color: colorB }}>
+            <div className="text-[10px] md:text-[11px] font-black mb-1 md:mb-2 uppercase tracking-wider" style={{ color: colorB }}>
               {candidateB.party}
             </div>
-            <div className="text-[15px] font-black text-gray-900 mb-1">{candidateB.name}</div>
-            <p className="text-[13px] text-gray-700 leading-relaxed font-medium">{candidateB.pledge.title}</p>
+            <div className="text-[13px] md:text-[15px] font-black text-gray-900 mb-0.5 md:mb-1 break-keep">{candidateB.name}</div>
+            <p className="text-[12px] md:text-[13px] text-gray-700 leading-relaxed font-medium break-keep">{candidateB.pledge.title}</p>
             {candidateB.pledge.description && (
-              <p className="text-[12px] text-gray-400 mt-2 leading-relaxed">{candidateB.pledge.description}</p>
+              <p className="text-[11px] md:text-[12px] text-gray-400 mt-1 md:mt-2 leading-relaxed break-keep">{candidateB.pledge.description}</p>
             )}
             {(candidateB.pledge.content || candidateB.pledge.method || candidateB.pledge.funding || candidateB.pledge.duration) && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+              <div className="mt-3 pt-3 md:mt-4 md:pt-4 border-t border-gray-100 space-y-3 md:space-y-4">
                 {candidateB.pledge.content && (
-                  <div className="bg-indigo-50/40 rounded-2xl p-4 border border-indigo-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <div className="bg-indigo-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-indigo-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-indigo-100/50 flex items-center justify-center border border-indigo-200/50">
+                        <CheckCircle2 className="w-3 md:w-3.5 h-3 md:h-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-indigo-700 uppercase tracking-wider">목표</span>
                     </div>
                     <FormattedText text={candidateB.pledge.content} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.method && (
-                  <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
-                        <span className="text-[12px]">📋</span>
+                  <div className="bg-emerald-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-emerald-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
+                        <span className="text-[10px] md:text-[12px]">📋</span>
                       </div>
-                      <span className="text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
                     </div>
                     <FormattedText text={candidateB.pledge.method} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.funding && (
-                  <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
-                        <span className="text-[12px]">💰</span>
+                  <div className="bg-amber-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-amber-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
+                        <span className="text-[10px] md:text-[12px]">💰</span>
                       </div>
-                      <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-amber-700 uppercase tracking-wider">재원 조달</span>
                     </div>
                     <FormattedText text={candidateB.pledge.funding} size="sm" />
                   </div>
                 )}
                 {candidateB.pledge.duration && (
-                  <div className="bg-sky-50/40 rounded-2xl p-4 border border-sky-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
-                        <span className="text-[12px]">⏱️</span>
+                  <div className="bg-sky-50/40 rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-sky-100 shadow-sm">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
+                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
+                        <span className="text-[10px] md:text-[12px]">⏱️</span>
                       </div>
-                      <span className="text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                      <span className="text-[10px] md:text-[12px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
                     </div>
                     <FormattedText text={candidateB.pledge.duration} size="sm" />
                   </div>
@@ -544,23 +544,23 @@ function ComparisonView({
             </div>
 
             {/* 후보별 분석 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="rounded-2xl p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
-                <p className="text-[11px] font-black mb-2" style={{ color: colorA }}>{candidateA.name} 공약</p>
-                <ul className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
+              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorA}10`, border: `1px solid ${colorA}25` }}>
+                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-keep" style={{ color: colorA }}>{candidateA.name} 공약</p>
+                <ul className="space-y-1 md:space-y-1.5">
                   {(result.candidateAHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-1.5">
+                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
                       <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorA }} />
                       {h}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="rounded-2xl p-4" style={{ backgroundColor: `${colorB}10`, border: `1px solid ${colorB}25` }}>
-                <p className="text-[11px] font-black mb-2" style={{ color: colorB }}>{candidateB.name} 공약</p>
-                <ul className="space-y-1.5">
+              <div className="rounded-xl md:rounded-2xl p-2.5 md:p-4" style={{ backgroundColor: `${colorB}10`, border: `1px solid ${colorB}25` }}>
+                <p className="text-[10px] md:text-[11px] font-black mb-1.5 md:mb-2 break-keep" style={{ color: colorB }}>{candidateB.name} 공약</p>
+                <ul className="space-y-1 md:space-y-1.5">
                   {(result.candidateBHighlights || []).map((h, i) => (
-                    <li key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-1.5">
+                    <li key={i} className="text-[11px] md:text-[12px] text-gray-700 leading-relaxed flex gap-1 md:gap-1.5">
                       <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: colorB }} />
                       {h}
                     </li>
@@ -772,80 +772,84 @@ function SinglePledgeView({
 
   return (
     <div>
-      <div className="px-6 py-10 bg-gradient-to-b from-indigo-50/50 to-white">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-200">
-          <CheckCircle2 className="w-7 h-7 text-white" />
+      <div className="px-4 py-6 bg-gradient-to-b from-indigo-50/50 to-white">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
+            <CheckCircle2 className="w-5 h-5 text-white" />
+          </div>
+          {promise.realmName && (
+            <span className="inline-block text-[11px] font-black text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
+              {promise.realmName}
+            </span>
+          )}
         </div>
-        {promise.realmName && (
-          <span className="inline-block text-[11px] font-black text-indigo-600 bg-indigo-100 px-3 py-1 rounded-lg mb-3 uppercase tracking-wider">{promise.realmName}</span>
-        )}
-        <h1 className="text-2xl font-black text-gray-900 leading-[1.4] mb-6 break-keep">{promise.title}</h1>
+        <h1 className="text-[20px] md:text-[22px] font-black text-gray-900 leading-[1.4] mb-4 break-keep">{promise.title}</h1>
         {promise.description && (
-          <div className="bg-white rounded-[20px] p-6 border border-indigo-100/50 shadow-sm">
-            <p className="text-[16px] text-gray-700 leading-[1.8] font-medium break-keep">{promise.description}</p>
+          <div className="bg-white rounded-2xl p-4 border border-indigo-100/50 shadow-sm">
+            <p className="text-[14px] text-gray-700 leading-[1.7] font-medium break-keep">{promise.description}</p>
           </div>
         )}
 
         {/* 구조화 공약 정보 패널 — 선관위 공보 원문 기반 */}
         {(promise.content || promise.method || promise.funding || promise.duration) && (
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
             {promise.content && (
-              <div className="bg-white rounded-[20px] p-6 border border-gray-200 shadow-sm sm:col-span-2">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                    <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+              <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm md:col-span-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
                   </div>
-                  <span className="text-[14px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
+                  <span className="text-[13px] font-black text-indigo-600 uppercase tracking-wider">목표</span>
                 </div>
-                <FormattedText text={promise.content} size="base" />
+                <FormattedText text={promise.content} size="sm" />
               </div>
             )}
             {promise.method && (
-              <div className="bg-emerald-50/40 rounded-[20px] p-6 border border-emerald-100">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50">
-                    <span className="text-[14px]">📋</span>
+              <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-emerald-100/50 flex items-center justify-center border border-emerald-200/50 shrink-0">
+                    <span className="text-[12px]">📋</span>
                   </div>
-                  <span className="text-[14px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
+                  <span className="text-[13px] font-black text-emerald-700 uppercase tracking-wider">이행 방법</span>
                 </div>
-                <FormattedText text={promise.method} size="base" />
+                <FormattedText text={promise.method} size="sm" />
               </div>
             )}
             {promise.funding && (
-              <div className="bg-amber-50/40 rounded-[20px] p-6 border border-amber-100">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100/50 flex items-center justify-center border border-amber-200/50">
-                    <span className="text-[14px]">💰</span>
+              <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-amber-100/50 flex items-center justify-center border border-amber-200/50 shrink-0">
+                    <span className="text-[12px]">💰</span>
                   </div>
-                  <span className="text-[14px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
+                  <span className="text-[13px] font-black text-amber-700 uppercase tracking-wider">재원 조달 방안</span>
                 </div>
-                <FormattedText text={promise.funding} size="base" />
+                <FormattedText text={promise.funding} size="sm" />
               </div>
             )}
             {promise.duration && (
-              <div className="bg-sky-50/40 rounded-[20px] p-6 border border-sky-100">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-sky-100/50 flex items-center justify-center border border-sky-200/50">
-                    <span className="text-[14px]">⏱️</span>
+              <div className="bg-sky-50/40 rounded-2xl p-4 border border-sky-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-sky-100/50 flex items-center justify-center border border-sky-200/50 shrink-0">
+                    <span className="text-[12px]">⏱️</span>
                   </div>
-                  <span className="text-[14px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
+                  <span className="text-[13px] font-black text-sky-700 uppercase tracking-wider">이행 기간</span>
                 </div>
-                <FormattedText text={promise.duration} size="base" />
+                <FormattedText text={promise.duration} size="sm" />
               </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="px-6 py-8 space-y-6">
+      <div className="px-4 py-6 space-y-4">
         {/* 헤더 */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-200">
-            <Sparkles className="w-4 h-4 text-white" />
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#6D28D9] to-indigo-400 flex items-center justify-center shadow-md shadow-indigo-200">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
-          <h3 className="text-xl font-black text-gray-900">AI 실현 가능성 분석</h3>
+          <h3 className="text-[16px] md:text-lg font-black text-gray-900">AI 실현 가능성 분석</h3>
           <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
-          {isLoading && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin ml-1" />}
+          {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin ml-1" />}
         </div>
 
         {/* AI 요약 (로드된 경우) */}
@@ -853,26 +857,26 @@ function SinglePledgeView({
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-[20px] p-5 border border-indigo-100"
+            className="bg-gradient-to-r from-[#6D28D9]/5 to-indigo-50 rounded-2xl p-4 border border-indigo-100"
           >
-            <p className="text-[15px] text-gray-700 leading-[1.8] break-keep font-medium">{ai.summary}</p>
+            <p className="text-[13px] md:text-[14px] text-gray-700 leading-[1.7] break-keep font-medium">{ai.summary}</p>
           </motion.div>
         )}
 
         {/* 종합 점수 카드 */}
-        <div className={`rounded-[2rem] p-8 ${scoreBg} shadow-sm`}>
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-[16px] font-black text-gray-800">종합 평가</span>
-            <div className="flex items-center gap-3">
-              <span className={`text-[20px] font-black ${scoreColor}`}>{label}</span>
-              <div className="text-[14px] font-bold text-white px-4 py-1.5 rounded-full shadow-sm"
+        <div className={`rounded-2xl p-5 ${scoreBg} shadow-sm border border-black/5`}>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[14px] font-black text-gray-800">종합 평가</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[16px] md:text-[18px] font-black ${scoreColor}`}>{label}</span>
+              <div className="text-[12px] font-bold text-white px-3 py-1 rounded-full shadow-sm"
                 style={{ backgroundColor: barColor }}>
                 {score}점
               </div>
             </div>
           </div>
 
-          <div className="h-5 bg-white/60 rounded-full overflow-hidden mb-8 shadow-inner">
+          <div className="h-3 md:h-4 bg-white/60 rounded-full overflow-hidden mb-6 shadow-inner">
             <motion.div
               key={score}
               initial={{ width: 0 }}
@@ -893,15 +897,15 @@ function SinglePledgeView({
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 bg-red-50 border border-red-200 rounded-[20px] p-5"
+              className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-red-600" />
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-red-100 flex items-center justify-center">
+                  <Shield className="w-3.5 h-3.5 text-red-600" />
                 </div>
-                <span className="text-[13px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
+                <span className="text-[12px] font-black text-red-700 uppercase tracking-wider">핵심 취약점</span>
               </div>
-              <p className="text-[15px] text-red-800 leading-[1.8] font-medium break-keep">{ai.keyVulnerability}</p>
+              <p className="text-[13px] text-red-800 leading-[1.7] font-medium break-keep">{ai.keyVulnerability}</p>
             </motion.div>
           )}
 
@@ -910,41 +914,41 @@ function SinglePledgeView({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-5 bg-amber-50 border border-amber-200 rounded-[20px] p-5"
+              className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-4"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <AlertCircle className="w-4 h-4 text-amber-700" />
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
                 </div>
-                <span className="text-[13px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
+                <span className="text-[12px] font-black text-amber-700 uppercase tracking-wider">실현가능성 비판</span>
               </div>
-              <p className="text-[15px] text-amber-900 leading-[1.8] font-medium break-keep">{ai.feasibilityCritique}</p>
+              <p className="text-[13px] text-amber-900 leading-[1.7] font-medium break-keep">{ai.feasibilityCritique}</p>
             </motion.div>
           )}
 
           {/* ─── 긍정/우려 요인 ─── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <div className="bg-white/50 rounded-[20px] p-6 shadow-sm">
-              <p className="text-[14px] font-bold text-emerald-600 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[11px]">✓</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
+              <p className="text-[13px] font-bold text-emerald-600 mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">✓</span>
                 긍정 요인
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {(ai?.strengths ?? fallback.reasons).map((r, i) => (
-                  <p key={i} className="text-[14px] text-gray-700 leading-[1.7] flex gap-2 break-keep">
+                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-keep">
                     <span className="text-emerald-400 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" /> {r}
                   </p>
                 ))}
               </div>
             </div>
-            <div className="bg-white/50 rounded-[20px] p-6 shadow-sm">
-              <p className="text-[14px] font-bold text-red-500 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-[11px]">!</span>
+            <div className="bg-white/50 rounded-2xl p-4 shadow-sm border border-white/60">
+              <p className="text-[13px] font-bold text-red-500 mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center text-[10px]">!</span>
                 우려 요인
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {(ai?.concerns ?? fallback.concerns).map((c, i) => (
-                  <p key={i} className="text-[14px] text-gray-700 leading-[1.7] flex gap-2 break-keep">
+                  <p key={i} className="text-[12px] text-gray-700 leading-relaxed flex gap-2 break-keep">
                     <span className="text-red-300 mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-red-300" /> {c}
                   </p>
                 ))}
