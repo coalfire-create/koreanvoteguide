@@ -4865,10 +4865,11 @@ export async function registerRoutes(
       }
 
       const cacheKey = `analyze-pledge::${[name, pledgeTitle, method, funding, duration].join("||")}`;
-      if (pledgeAnalyzeCache.has(cacheKey)) return res.json(pledgeAnalyzeCache.get(cacheKey));
-      // L2: DB 영속 캐시
-      const pledgeL2 = await getAiCache<object>(cacheKey);
-      if (pledgeL2) { pledgeAnalyzeCache.set(cacheKey, pledgeL2); return res.json(pledgeL2); }
+      const memHit = pledgeAnalyzeCache.get(cacheKey) as Record<string, any> | undefined;
+      if (memHit?.detailedAxes) return res.json(memHit);
+      // L2: DB 영속 캐시 — detailedAxes 없는 구버전은 무시하고 재실행
+      const pledgeL2 = await getAiCache<Record<string, any>>(cacheKey);
+      if (pledgeL2?.detailedAxes) { pledgeAnalyzeCache.set(cacheKey, pledgeL2); return res.json(pledgeL2); }
 
       if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 

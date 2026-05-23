@@ -323,6 +323,78 @@ function PledgeFeasibilitySection({
 }
 
 
+// ─── 비교 뷰용 — 후보별 5축 정밀 평가 패널 ─────────────────────────────────
+function CandidatePledgeAxes({
+  promise,
+  candidateName = "",
+  candidateParty = "",
+  candidateJob = "",
+  candidateCareer1 = "",
+}: {
+  promise: Pledge;
+  candidateName?: string;
+  candidateParty?: string;
+  candidateJob?: string;
+  candidateCareer1?: string;
+}) {
+  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+  const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
+
+  const { data: ai, isLoading } = useQuery<PledgeAnalysisResult>({
+    queryKey: ["pledge-analyze", promise.id, promise.title, promise.method, promise.funding, promise.duration],
+    queryFn: async () => {
+      const res = await fetch("/api/candidates/analyze-pledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: candidateName,
+          party: candidateParty,
+          job: candidateJob,
+          career1: candidateCareer1,
+          pledge: pledgeText,
+          title: promise.title,
+          realmName: promise.realmName,
+          content: promise.content ?? promise.description,
+          method: promise.method,
+          funding: promise.funding,
+          duration: promise.duration,
+        }),
+      });
+      if (!res.ok) throw new Error("분석 실패");
+      const json = await res.json();
+      if (json?._isFallback) throw new Error("AI_RATE_LIMITED");
+      return {
+        feasibilityScore: typeof json?.feasibilityScore === "number" ? json.feasibilityScore : fallback.score,
+        feasibilityLabel: json?.feasibilityLabel ?? fallback.label,
+        summary: json?.summary ?? "",
+        strengths: Array.isArray(json?.strengths) ? json.strengths : [],
+        concerns: Array.isArray(json?.concerns) ? json.concerns : [],
+        voterTip: json?.voterTip ?? "",
+        detailedAxes: json?.detailedAxes ?? null,
+        keyVulnerability: json?.keyVulnerability ?? null,
+      } as PledgeAnalysisResult;
+    },
+    staleTime: 60 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(5000 * Math.pow(3, attempt), 30000),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="animate-pulse flex items-center gap-3">
+            <div className="h-3 bg-gray-100 rounded-full flex-1" style={{ maxWidth: `${90 - i * 6}%` }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!ai?.detailedAxes) return null;
+  return <DetailedAxesChart axes={ai.detailedAxes} />;
+}
+
 // ============================================================
 // 비교 모드 뷰
 // ============================================================
@@ -583,7 +655,38 @@ function ComparisonView({
         </div>
       </div>
 
-      {/* AI 분석 (상단으로 이동됨) */}
+      {/* 5축 정밀 평가 */}
+      <div className="px-4 pb-8 pt-2 space-y-6 border-t border-gray-100 mt-2">
+        <p className="text-[12px] font-black text-gray-400 uppercase tracking-wider pt-4">5축 정밀 평가</p>
+
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorA }} />
+            <span className="text-[14px] font-black" style={{ color: colorA }}>{candidateA.name}</span>
+          </div>
+          <CandidatePledgeAxes
+            promise={candidateA.pledge}
+            candidateName={candidateA.name}
+            candidateParty={candidateA.party}
+            candidateJob={candidateA.job}
+            candidateCareer1={candidateA.career1}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorB }} />
+            <span className="text-[14px] font-black" style={{ color: colorB }}>{candidateB.name}</span>
+          </div>
+          <CandidatePledgeAxes
+            promise={candidateB.pledge}
+            candidateName={candidateB.name}
+            candidateParty={candidateB.party}
+            candidateJob={candidateB.job}
+            candidateCareer1={candidateB.career1}
+          />
+        </div>
+      </div>
     </div>
   );
 }
