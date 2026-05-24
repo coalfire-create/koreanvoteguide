@@ -4428,27 +4428,20 @@ export async function registerRoutes(
         : [];
 
       // 5) 머지 + 정렬. followed 우선 노출, 추천은 자연스럽게 사이사이 끼움.
-      const merged = [...billItems, ...voteItems]
-        .filter((x) => x.occurredAt)
-        .sort((a, b) => (b.occurredAt > a.occurredAt ? 1 : -1));
+      const merged = [...billItems, ...voteItems].filter((x) => x.occurredAt);
 
-      // followed 비율 < 50%일 때만 추천을 그대로 두고, 충분히 많으면 추천을 뒤로 미룬다.
-      const followedCount = merged.filter((m) => !m.isRecommended).length;
-      const recommendedCount = merged.length - followedCount;
-      let final = merged;
-      if (followedCount >= 6 && recommendedCount > 0) {
-        // 팔로우 항목 5개마다 추천 1개 끼워넣기
-        const followedItems = merged.filter((m) => !m.isRecommended);
-        const recItems = merged.filter((m) => m.isRecommended);
-        final = [];
-        let ri = 0;
-        for (let i = 0; i < followedItems.length; i++) {
-          final.push(followedItems[i]);
-          if ((i + 1) % 5 === 0 && ri < recItems.length) {
-            final.push(recItems[ri++]);
-          }
-        }
-        while (ri < recItems.length) final.push(recItems[ri++]);
+      const followedItems = merged.filter((m) => !m.isRecommended).sort((a, b) => (b.occurredAt > a.occurredAt ? 1 : -1));
+      const recItems = merged.filter((m) => m.isRecommended).sort((a, b) => (b.occurredAt > a.occurredAt ? 1 : -1));
+
+      let final = [];
+      if (followedIds.size > 0) {
+        // 사용자가 팔로우한 의원이 있을 경우: 팔로우 의원 활동을 상단에 몰아서 우선 노출
+        // 이후 추천 항목들을 붙인다. 
+        // 이렇게 해야 최근 활동이 뜸한 의원을 팔로우해도 피드 상단에서 확인할 수 있다.
+        final = [...followedItems, ...recItems];
+      } else {
+        // 아무도 안 팔로우한 경우: 전체 추천 항목을 시간순으로 정렬
+        final = recItems;
       }
 
       const payload = {
