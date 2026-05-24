@@ -343,16 +343,13 @@ export type CommunityBookmark = typeof communityBookmarks.$inferSelect;
 
 export const BADGE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
   vote_verified:      { label: "투표인증",   emoji: "🗳️", color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-  real_name_verified: { label: "실명인증",   emoji: "✅",  color: "text-teal-600 bg-teal-50 border-teal-200" },
   active:             { label: "활동왕",     emoji: "⭐",  color: "text-amber-600 bg-amber-50 border-amber-200" },
   veteran:            { label: "베테랑",     emoji: "🏅",  color: "text-orange-600 bg-orange-50 border-orange-200" },
-  first_post:         { label: "첫글",       emoji: "✏️",  color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
 };
 
 // 뱃지별 전용 테마(갤러리) 접근 제어 매핑
 export const BADGE_THEMES: Record<string, { badge: string; name: string; description: string; icon: string }> = {
   vote_verified_theme:      { badge: "vote_verified",      name: "투표 인증자 라운지",  description: "투표를 인증한 시민만 참여할 수 있는 프리미엄 토론 공간", icon: "🗳️" },
-  real_name_verified_theme: { badge: "real_name_verified", name: "실명 인증자 라운지",  description: "실명 인증된 회원만 참여할 수 있는 클린 토론 공간",       icon: "✅" },
 };
 
 export const insertCommentSchema = createInsertSchema(communityComments).pick({

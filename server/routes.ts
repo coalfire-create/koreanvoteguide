@@ -27,6 +27,7 @@ import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trendi
 import { getPoliticianPhotoUrl, proxyImage, getBatchPhotoUrls, preFetchPhotos } from "./photo-service";
 import { callLLMText, callLLMJson, callLLMJsonOrFallback, LLMConfigError, LLMTransientError, LLMParseError } from "./utils/llm-wrapper";
 import { getAiCache, setAiCache } from "./utils/ai-cache";
+import { LruMap } from "./utils/lru";
 import { fetchRecentNews, stripHtml, type RecentNewsItem } from "./utils/news";
 import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
 import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
@@ -852,7 +853,7 @@ export async function registerRoutes(
           username: "tester",
           name: "테스터(Mock)",
           voteVerified: false,
-          badges: ["first_post"],
+          badges: [],
           postCount: 0,
           favorites: [],
           favoriteRegions: [{ code: "11", name: "서울" }],
@@ -2545,9 +2546,9 @@ export async function registerRoutes(
         pollId: `bill:${billId}`,
         userId,
         content: safe,
-        authorType: user?.nickname ? "nickname" : "realname",
+        authorType: user?.nickname ? "nickname" : "anonymous",
         displayName,
-        isVerified: !!user?.realNameVerified,
+        isVerified: false,
         parentId: parsedParent,
       }).returning();
 
@@ -2943,7 +2944,7 @@ export async function registerRoutes(
 
   // ===== AI 정책 성향 "이유있는 점수" 분석가 (차원별 1~10 + 결정적 법안 TOP3) =====
   // 실제 표결 기록에 근거한 LLM 분석. 결정론적 stance.ts 를 정량 앵커로 활용.
-  const stanceAnalystCache = new Map<string, StanceAnalystReport>();
+  const stanceAnalystCache = new LruMap<string, StanceAnalystReport>(300);
   app.get("/api/db/legislators/:id/stance/analysis", async (req, res) => {
     try {
       const id = req.params.id as string;
@@ -3382,11 +3383,7 @@ export async function registerRoutes(
       let resolvedIsVerified = false;
 
       if (user) {
-        if (authorType === "realname" && user.realNameVerified && user.realName) {
-          resolvedAuthorType = "realname";
-          resolvedDisplayName = user.realName;
-          resolvedIsVerified = true;
-        } else if (user.nickname) {
+        if (user.nickname) {
           resolvedAuthorType = "nickname";
           resolvedDisplayName = user.nickname;
         } else {
@@ -4580,7 +4577,7 @@ export async function registerRoutes(
 
   // ===== 법안 AI 설명 생성 (On-Demand) =====
   // L1: 인메모리 캐시 (재시작 전까지 빠른 응답)
-  const billDescCache = new Map<string, string>();
+  const billDescCache = new LruMap<string, string>(1000);
   // 동일 법안 중복 AI 호출 방지용 in-flight 맵
   const billDescInFlight = new Map<string, Promise<string>>();
   // 동시 AI 호출 수 제한 (429 방어)
@@ -4710,7 +4707,7 @@ export async function registerRoutes(
     impact: string;           // 통과 시 예상 영향
     keyPoints: string[];      // 핵심 포인트
   }
-  const billAnalysisCache = new Map<string, BillAnalysis>();
+  const billAnalysisCache = new LruMap<string, BillAnalysis>(1000);
   const billAnalysisInFlight = new Map<string, Promise<BillAnalysis>>();
   let billAnalysisActive = 0;
   const BILL_ANALYSIS_MAX_CONCURRENT = 3;
@@ -4804,7 +4801,7 @@ export async function registerRoutes(
   });
 
   // ===== 단독 공약 AI 분석 =====
-  const pledgeAnalyzeCache = new Map<string, object>();
+  const pledgeAnalyzeCache = new LruMap<string, object>(1000);
 
   // DB의 null/빈값을 LLM이 안전하게 처리할 수 있도록 통일된 placeholder 적용
   const orNoData = (v: unknown): string => {
@@ -5021,7 +5018,7 @@ export async function registerRoutes(
   });
 
   // ===== 공약 AI 비교 분석 =====
-  const pledgeCompareCache = new Map<string, object>();
+  const pledgeCompareCache = new LruMap<string, object>(500);
 
   app.post("/api/candidates/compare-pledges", aiLimiter, async (req, res) => {
     try {
@@ -5188,7 +5185,7 @@ export async function registerRoutes(
   });
 
   // ===== 국회의원 프리미엄 AI 프로필 분석 =====
-  const memberProfileCache = new Map<string, object>();
+  const memberProfileCache = new LruMap<string, object>(500);
 
   app.get("/api/members/analyze-profile", aiLimiter, async (req, res) => {
     try {

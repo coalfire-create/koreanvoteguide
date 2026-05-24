@@ -540,7 +540,13 @@ export default function CandidateDetail() {
               </div>
             ) : (
               <>
-                <p className="text-[12px] text-gray-400 font-medium mb-3">공약을 클릭하면 AI 분석과 시민 의견을 볼 수 있습니다</p>
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm animate-pulse">
+                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[13px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
+                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 AI가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
                   {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
                     <PledgeCard

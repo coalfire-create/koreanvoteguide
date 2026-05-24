@@ -95,7 +95,7 @@ export function DailyPoll({ board }: DailyPollProps) {
 
   const commentMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", `/api/poll-comments`, { pollId: poll!.id, content, authorType: user?.nickname ? "nickname" : "realname" });
+      const res = await apiRequest("POST", `/api/poll-comments`, { pollId: poll!.id, content, authorType: user?.nickname ? "nickname" : "anonymous" });
       return res.json();
     },
     onSuccess: () => {
@@ -350,13 +350,12 @@ export function DailyPoll({ board }: DailyPollProps) {
                     >
                       <div className="w-[30px] h-[30px] rounded-[0.6rem] bg-gradient-to-tr from-slate-100 to-slate-200 border border-slate-200/60 flex items-center justify-center shrink-0 shadow-inner">
                         <span className="text-[11px] font-black text-slate-500">
-                          {c.authorType === "realname" ? "실명" : c.authorType === "nickname" ? "닉" : "익"}
+                          {c.authorType === "nickname" ? "닉" : "익"}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className="text-[12px] font-extrabold text-slate-800">{c.displayName || "익명의 유권자"}</span>
-                          {c.authorType === "realname" && <span className="bg-teal-50 text-teal-600 text-[9px] px-1.5 py-0.5 font-bold rounded flex items-center gap-0.5 border border-teal-100"><CheckCircle2 className="w-2.5 h-2.5"/> 인증됨</span>}
                           <span className="text-[10px] text-slate-400 font-medium ml-auto tracking-wide">
                             {new Date(c.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>

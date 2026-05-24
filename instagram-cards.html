@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>안티그래비티 — 인스타 카드뉴스</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&family=Space+Grotesk:wght@400;700&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #060606;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding: 48px 20px;
+}
+.hint {
+  color: rgba(255,255,255,0.25);
+  font-size: 12px;
+  font-family: monospace;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: -20px;
+}
+
+/* ── 공통 카드 ── */
+.card {
+  width: 1080px;
+  height: 1080px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* grain overlay on every card */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* page indicator */
+.pg {
+  position: absolute;
+  bottom: 52px; right: 60px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.18);
+  z-index: 10;
+}
+
+/* ═══════════════════════════════
+   CARD 1 — COVER
+═══════════════════════════════ */
+.c1 {
+  background: #05050a;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 90px 88px;
+}
+.c1-glow-a {
+  position: absolute;
+  width: 900px; height: 900px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, #6c2ff7, #ff2d78, #ff7a00, #6c2ff7);
+  filter: blur(100px);
+  opacity: 0.35;
+  top: -200px; left: -200px;
+}
+.c1-glow-b {
+  position: absolute;
+  width: 500px; height: 500px;
+  border-radius: 50%;
+  background: #00f0ff;
+  filter: blur(130px);
+  opacity: 0.15;
+  bottom: -100px; right: -80px;
+}
+.c1-line {
+  position: absolute;
+  top: 0; left: 240px;
+  width: 1px; height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.06) 60%, transparent);
+}
+.c1-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 100px;
+  padding: 10px 24px;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 44px;
+}
+.c1-chip span { color: #ff2d78; }
+.c1-title {
+  position: relative;
+  font-size: 128px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 0.95;
+  letter-spacing: -6px;
+  margin-bottom: 8px;
+}
+.c1-title-grad {
+  background: linear-gradient(135deg, #fff 0%, #c9b8ff 50%, #ff8ab0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.c1-sub {
+  position: relative;
+  font-size: 36px;
+  font-weight: 300;
+  color: rgba(255,255,255,0.38);
+  letter-spacing: 2px;
+  margin-bottom: 80px;
+  margin-top: 20px;
+}
+.c1-sub em { font-style: normal; color: rgba(255,255,255,0.7); font-weight: 700; }
+.c1-tags {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.c1-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 24px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+}
+.c1-tag-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #6c2ff7;
+  flex-shrink: 0;
+}
+.c1-tag-dot.pink { background: #ff2d78; }
+.c1-tag-dot.orange { background: #ff7a00; }
+.c1-tag-dot.cyan { background: #00f0ff; }
+.c1-right {
+  position: absolute;
+  right: 88px; bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.c1-date-box {
+  background: rgba(108,47,247,0.2);
+  border: 1px solid rgba(108,47,247,0.4);
+  border-radius: 20px;
+  padding: 20px 32px;
+  text-align: center;
+}
+.c1-date-box .day { font-size: 56px; font-weight: 900; color: #fff; line-height:1; }
+.c1-date-box .mon { font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.45); letter-spacing: 2px; margin-top: 4px; }
+
+/* ═══════════════════════════════
+   CARD 2 — 지역별 후보 비교
+═══════════════════════════════ */
+.c2 {
+  background: #060610;
+  padding: 80px 88px;
+}
+.c2-mesh {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108,47,247,0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(255,45,120,0.15) 0%, transparent 60%);
+}
+.c2-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 79px, rgba(255,255,255,0.025) 80px),
+    repeating-linear-gradient(90deg, transparent, transparent 79px, rgba(255,255,255,0.025) 80px);
+}
+.section-eyebrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 24px;
+}
+.section-eyebrow::before {
+  content: '';
+  width: 28px; height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+}
+.big-head {
+  position: relative;
+  font-size: 74px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.05;
+  letter-spacing: -3px;
+  margin-bottom: 12px;
+}
+.big-head .hl {
+  background: linear-gradient(90deg, #6c2ff7, #ff2d78);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sub-head {
+  position: relative;
+  font-size: 26px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 400;
+  line-height: 1.6;
+  margin-bottom: 60px;
+}
+
+/* candidate compare cards */
+.vs-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 36px;
+}
+.cand-side {
+  flex: 1;
+  padding: 44px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cand-side.left { background: rgba(59,130,246,0.08); }
+.cand-side.right { background: rgba(239,68,68,0.08); }
+.cand-party-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 4px;
+}
+.cand-dot { width: 10px; height: 10px; border-radius: 50%; }
+.cand-dot.b { background: #3b82f6; }
+.cand-dot.r { background: #ef4444; }
+.cand-name-big { font-size: 52px; font-weight: 900; color: #fff; line-height: 1; }
+.cand-role { font-size: 20px; color: rgba(255,255,255,0.3); font-weight: 400; margin-top: 6px; }
+.vs-divider {
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.04);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(255,255,255,0.08);
+}
+.vs-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.2);
+  writing-mode: vertical-rl;
+  letter-spacing: 6px;
+}
+.feature-row {
+  position: relative;
+  display: flex;
+  gap: 16px;
+}
+.feat-chip {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 20px 24px;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+}
+
+/* ═══════════════════════════════
+   CARD 3 — 공약 AI 분석
+═══════════════════════════════ */
+.c3 {
+  background: #04080e;
+  padding: 80px 88px;
+}
+.c3-glow {
+  position: absolute;
+  width: 700px; height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,240,255,0.12) 0%, transparent 70%);
+  top: -100px; right: -200px;
+}
+.c3-stripe {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 6px;
+  background: linear-gradient(180deg, #00f0ff, #6c2ff7, #ff2d78);
+}
+.ai-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(108,47,247,0.15));
+  border: 1px solid rgba(0,240,255,0.25);
+  border-radius: 100px;
+  padding: 10px 24px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 2px;
+  margin-bottom: 28px;
+}
+.pledge-cards {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+.pl-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 24px;
+  padding: 30px 36px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.pl-icon {
+  font-size: 38px;
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pl-icon.g { background: rgba(0,240,100,0.1); }
+.pl-icon.y { background: rgba(255,200,0,0.1); }
+.pl-icon.r { background: rgba(255,60,60,0.1); }
+.pl-body { flex: 1; }
+.pl-body .pt { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.35; }
+.pl-body .ps { font-size: 18px; color: rgba(255,255,255,0.3); margin-top: 6px; }
+.pl-score {
+  flex-shrink: 0;
+  border-radius: 16px;
+  padding: 12px 22px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pl-score.h { background: rgba(0,240,100,0.15); color: #00f064; border: 1px solid rgba(0,240,100,0.25); }
+.pl-score.m { background: rgba(255,200,0,0.12); color: #ffc800; border: 1px solid rgba(255,200,0,0.2); }
+.pl-score.l { background: rgba(255,60,60,0.12); color: #ff3c3c; border: 1px solid rgba(255,60,60,0.2); }
+
+.ai-disclaimer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  font-size: 18px;
+  color: rgba(255,255,255,0.2);
+  font-weight: 400;
+}
+.ai-disclaimer::before {
+  content: '✦';
+  font-size: 14px;
+  color: #00f0ff;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════
+   CARD 4 — 의원 실적
+═══════════════════════════════ */
+.c4 {
+  background: #060a06;
+  padding: 80px 88px;
+}
+.c4-glow {
+  position: absolute;
+  width: 800px; height: 800px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,255,120,0.1) 0%, transparent 65%);
+  bottom: -300px; left: -200px;
+}
+.c4-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  width: 100%;
+  margin-bottom: 28px;
+}
+.stat-tile {
+  background: rgba(255,255,255,0.03);
+  border-radius: 28px;
+  padding: 36px 38px;
+  border: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+  overflow: hidden;
+}
+.stat-tile::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.stat-tile.g::before { background: linear-gradient(90deg, #00f064, transparent); }
+.stat-tile.b::before { background: linear-gradient(90deg, #3b82f6, transparent); }
+.stat-tile.y::before { background: linear-gradient(90deg, #ffc800, transparent); }
+.stat-tile.p::before { background: linear-gradient(90deg, #a855f7, transparent); }
+.stat-tile .st-label {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 16px;
+}
+.stat-tile .st-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+.stat-tile.g .st-val { color: #00f064; }
+.stat-tile.b .st-val { color: #60a5fa; }
+.stat-tile.y .st-val { color: #ffc800; }
+.stat-tile.p .st-val { color: #c084fc; }
+.stat-tile .st-sub {
+  font-size: 18px;
+  color: rgba(255,255,255,0.25);
+  margin-top: 10px;
+}
+.member-preview {
+  position: relative;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 24px;
+  padding: 28px 36px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.mp-avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, #6c2ff7, #ff2d78);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.mp-name { font-size: 26px; font-weight: 700; color: #fff; }
+.mp-info { font-size: 18px; color: rgba(255,255,255,0.3); margin-top: 4px; }
+.mp-right { margin-left: auto; text-align: right; }
+.mp-badge {
+  display: inline-block;
+  background: rgba(0,240,100,0.12);
+  border: 1px solid rgba(0,240,100,0.2);
+  color: #00f064;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 100px;
+}
+
+/* ═══════════════════════════════
+   CARD 5 — 뉴스 & AI 편향
+═══════════════════════════════ */
+.c5 {
+  background: #080508;
+  padding: 80px 88px;
+}
+.c5-glow {
+  position: absolute;
+  width: 700px; height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%);
+  top: -150px; right: -150px;
+}
+.news-item {
+  position: relative;
+  display: flex;
+  gap: 0;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.news-accent {
+  width: 4px;
+  flex-shrink: 0;
+}
+.news-accent.prog { background: linear-gradient(180deg, #3b82f6, #06b6d4); }
+.news-accent.neut { background: linear-gradient(180deg, #a855f7, #6c2ff7); }
+.news-accent.cons { background: linear-gradient(180deg, #ef4444, #f97316); }
+.news-content {
+  flex: 1;
+  padding: 28px 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.news-title {
+  font-size: 23px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.4;
+  flex: 1;
+}
+.news-tag {
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 100px;
+  letter-spacing: 1px;
+}
+.news-tag.prog { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+.news-tag.neut { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.2); }
+.news-tag.cons { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+.source-row {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.src-chip {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 100px;
+  padding: 8px 20px;
+  font-size: 17px;
+  color: rgba(255,255,255,0.3);
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════
+   CARD 6 — 커뮤니티
+═══════════════════════════════ */
+.c6 {
+  background: #080608;
+  padding: 80px 88px;
+}
+.c6-glow {
+  position: absolute;
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(255,45,120,0.12) 0%, transparent 70%);
+  top: -50px; left: -100px;
+  border-radius: 50%;
+}
+.post-card {
+  position: relative;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 24px;
+  padding: 28px 34px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+}
+.post-card:hover { border-color: rgba(255,255,255,0.12); }
+.post-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.user-ava {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.ua-1 { background: linear-gradient(135deg, #6c2ff7, #ff2d78); }
+.ua-2 { background: linear-gradient(135deg, #00f0ff, #6c2ff7); }
+.ua-3 { background: linear-gradient(135deg, #ff7a00, #ff2d78); }
+.ua-4 { background: linear-gradient(135deg, #00f064, #00f0ff); }
+.post-txt {
+  flex: 1;
+  min-width: 0;
+}
+.post-txt .pt { font-size: 23px; font-weight: 700; color: rgba(255,255,255,0.85); line-height: 1.35; }
+.post-txt .pm { font-size: 17px; color: rgba(255,255,255,0.25); margin-top: 5px; }
+.post-stats {
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.pst {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  color: rgba(255,255,255,0.28);
+  font-weight: 700;
+}
+.fire-post .post-txt .pt { color: #fff; }
+.fire-post { border-color: rgba(255,120,0,0.25); background: rgba(255,120,0,0.04); }
+
+/* ═══════════════════════════════
+   CARD 7 — CTA
+═══════════════════════════════ */
+.c7 {
+  background: #050505;
+  justify-content: center;
+  align-items: center;
+}
+.c7-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 70% at 20% 50%, rgba(108,47,247,0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 60% at 80% 40%, rgba(255,45,120,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 60% 80%, rgba(0,240,255,0.1) 0%, transparent 55%);
+}
+.c7-lines {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.c7-line {
+  position: absolute;
+  height: 1px;
+  left: 0; right: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+}
+.c7-headline {
+  position: relative;
+  text-align: center;
+  font-size: 100px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.0;
+  letter-spacing: -5px;
+  margin-bottom: 28px;
+}
+.c7-headline .grad {
+  background: linear-gradient(90deg, #c4b5fd, #ff8ab0, #ffb347);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.c7-sub {
+  position: relative;
+  font-size: 28px;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  line-height: 1.7;
+  margin-bottom: 72px;
+  font-weight: 300;
+}
+.c7-sub strong {
+  color: rgba(255,255,255,0.65);
+  font-weight: 700;
+}
+.c7-btn-wrap {
+  position: relative;
+  display: flex;
+  gap: 16px;
+}
+.c7-btn {
+  background: linear-gradient(135deg, #6c2ff7, #ff2d78);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+  padding: 22px 60px;
+  border-radius: 100px;
+  letter-spacing: -0.5px;
+}
+.c7-btn-ghost {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5);
+  font-size: 26px;
+  font-weight: 700;
+  padding: 22px 40px;
+  border-radius: 100px;
+}
+.c7-dday {
+  position: absolute;
+  top: 64px; right: 72px;
+  text-align: right;
+}
+.c7-dday .dd-label { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.25); letter-spacing: 3px; text-transform: uppercase; }
+.c7-dday .dd-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+  background: linear-gradient(135deg, #c4b5fd, #ff8ab0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.c7-dday .dd-sub { font-size: 20px; color: rgba(255,255,255,0.2); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<p class="hint">↓ 각 카드 1080×1080 — 브라우저 캡처 후 개별 저장</p>
+
+<!-- ═══════ CARD 1 ═══════ -->
+<div class="card c1">
+  <div class="c1-glow-a"></div>
+  <div class="c1-glow-b"></div>
+  <div class="c1-line"></div>
+
+  <div class="c1-chip">🗳️ <span>2026</span> 지방선거</div>
+  <div class="c1-title">
+    <span class="c1-title-grad">안티<br>그래비티</span>
+  </div>
+  <div class="c1-sub"><em>이유 있는</em> 투표를 위한 앱</div>
+
+  <div class="c1-tags">
+    <div class="c1-tag"><div class="c1-tag-dot"></div>내 지역 후보 &amp; 공약 비교</div>
+    <div class="c1-tag"><div class="c1-tag-dot pink"></div>AI 공약 실현 가능성 분석</div>
+    <div class="c1-tag"><div class="c1-tag-dot orange"></div>현역 의원 출석·표결 추적</div>
+    <div class="c1-tag"><div class="c1-tag-dot cyan"></div>12개 언론 뉴스 + 편향 체크</div>
+  </div>
+
+  <div class="c1-right">
+    <div class="c1-date-box">
+      <div class="day">D-10</div>
+      <div class="mon">2026 · 06 · 03</div>
+    </div>
+  </div>
+  <div class="pg">01 / 07</div>
+</div>
+
+<!-- ═══════ CARD 2 ═══════ -->
+<div class="card c2">
+  <div class="c2-mesh"></div>
+  <div class="c2-grid-lines"></div>
+
+  <div class="section-eyebrow" style="color:rgba(108,47,247,0.8)">Feature 01</div>
+  <div class="big-head">내 지역 후보<br><span class="hl">한눈에 비교</span></div>
+  <div class="sub-head">지역 설정 한 번이면<br>시·도지사부터 구청장·교육감까지 전부 나온다</div>
+
+  <div class="vs-wrap">
+    <div class="cand-side left">
+      <div class="cand-party-tag"><div class="cand-dot b"></div>더불어민주당</div>
+      <div class="cand-name-big">홍길동</div>
+      <div class="cand-role">서울시장 후보</div>
+    </div>
+    <div class="vs-divider"><div class="vs-text">VS</div></div>
+    <div class="cand-side right">
+      <div class="cand-party-tag"><div class="cand-dot r"></div>국민의힘</div>
+      <div class="cand-name-big">이순신</div>
+      <div class="cand-role">서울시장 후보</div>
+    </div>
+  </div>
+
+  <div class="feature-row">
+    <div class="feat-chip">📋 이력·학력</div>
+    <div class="feat-chip">📌 공약 나란히</div>
+    <div class="feat-chip">📰 관련 뉴스</div>
+    <div class="feat-chip">🗳️ 표결 기록</div>
+  </div>
+  <div class="pg">02 / 07</div>
+</div>
+
+<!-- ═══════ CARD 3 ═══════ -->
+<div class="card c3">
+  <div class="c3-glow"></div>
+  <div class="c3-stripe"></div>
+
+  <div class="section-eyebrow" style="position:relative; color:rgba(0,240,255,0.7)">Feature 02</div>
+  <div class="big-head" style="position:relative;">공약 실현 가능성<br><span style="background:linear-gradient(90deg,#00f0ff,#6c2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AI가 따진다</span></div>
+  <div class="sub-head" style="position:relative;">말만 번지르르한 공약은 그만.<br>Gemini AI가 예산·법적 권한까지 체크한다</div>
+  <div class="ai-badge">✦ Powered by Gemini 2.0 Flash</div>
+
+  <div class="pledge-cards">
+    <div class="pl-card">
+      <div class="pl-icon g">🏠</div>
+      <div class="pl-body">
+        <div class="pt">청년 주거 바우처 월 20만원 지급</div>
+        <div class="ps">예산 확보 및 집행 경로 명확</div>
+      </div>
+      <div class="pl-score h">실현 높음</div>
+    </div>
+    <div class="pl-card">
+      <div class="pl-icon y">🚇</div>
+      <div class="pl-body">
+        <div class="pt">GTX-D 연장 2027 착공 추진</div>
+        <div class="ps">국토부·중앙정부 협의 필수</div>
+      </div>
+      <div class="pl-score m">보통</div>
+    </div>
+    <div class="pl-card">
+      <div class="pl-icon r">🌳</div>
+      <div class="pl-body">
+        <div class="pt">탄소세 도입으로 환경 예산 2배</div>
+        <div class="ps">지방 과세 권한 초과 가능성</div>
+      </div>
+      <div class="pl-score l">실현 낮음</div>
+    </div>
+  </div>
+  <div class="ai-disclaimer" style="position:relative;">AI 분석은 공개 데이터 기반으로 참고용입니다</div>
+  <div class="pg">03 / 07</div>
+</div>
+
+<!-- ═══════ CARD 4 ═══════ -->
+<div class="card c4">
+  <div class="c4-glow"></div>
+
+  <div class="section-eyebrow" style="position:relative; color:rgba(0,255,120,0.7)">Feature 03</div>
+  <div class="big-head" style="position:relative;">현역 의원<br><span style="background:linear-gradient(90deg,#00f064,#00f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">실적 추적</span></div>
+  <div class="sub-head" style="position:relative;">출석률·발의·표결·성향 — 국회 공식 데이터로 확인</div>
+
+  <div class="c4-grid">
+    <div class="stat-tile g">
+      <div class="st-label">출석률</div>
+      <div class="st-val">94%</div>
+      <div class="st-sub">평균 대비 +12%p</div>
+    </div>
+    <div class="stat-tile b">
+      <div class="st-label">발의 법안</div>
+      <div class="st-val">47건</div>
+      <div class="st-sub">22대 국회 기준</div>
+    </div>
+    <div class="stat-tile y">
+      <div class="st-label">찬성 표결</div>
+      <div class="st-val">83%</div>
+      <div class="st-sub">당론 일치율</div>
+    </div>
+    <div class="stat-tile p">
+      <div class="st-label">정치 성향</div>
+      <div class="st-val">진보</div>
+      <div class="st-sub">표결 패턴 분석</div>
+    </div>
+  </div>
+
+  <div class="member-preview">
+    <div class="mp-avatar">👤</div>
+    <div>
+      <div class="mp-name">국회의원 300명 전체 열람</div>
+      <div class="mp-info">즐겨찾기로 내 지역구 의원 팔로우</div>
+    </div>
+    <div class="mp-right">
+      <div class="mp-badge">무료 공개</div>
+    </div>
+  </div>
+  <div class="pg">04 / 07</div>
+</div>
+
+<!-- ═══════ CARD 5 ═══════ -->
+<div class="card c5">
+  <div class="c5-glow"></div>
+
+  <div class="section-eyebrow" style="position:relative; color:rgba(168,85,247,0.8)">Feature 04</div>
+  <div class="big-head" style="position:relative;">뉴스 편향<br><span style="background:linear-gradient(90deg,#a855f7,#ff2d78);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AI가 라벨링</span></div>
+  <div class="sub-head" style="position:relative;">조선·한겨레·YTN 등 12개 언론사 실시간 수집<br>AI가 진보·보수·중립으로 자동 분류한다</div>
+
+  <div style="position:relative; width:100%;">
+    <div class="news-item">
+      <div class="news-accent prog"></div>
+      <div class="news-content">
+        <div class="news-title">서울시장 후보 TV토론 날선 공방<br>부동산·교통 정책 격돌</div>
+        <div class="news-tag prog">진보 논점</div>
+      </div>
+    </div>
+    <div class="news-item">
+      <div class="news-accent neut"></div>
+      <div class="news-content">
+        <div class="news-title">교육감 선거, 역대 최저 투표율 예상<br>무관심 경고음</div>
+        <div class="news-tag neut">중립 보도</div>
+      </div>
+    </div>
+    <div class="news-item">
+      <div class="news-accent cons"></div>
+      <div class="news-content">
+        <div class="news-title">경기지사 세금 공약 "퍼주기" vs<br>"복지 투자" 논란</div>
+        <div class="news-tag cons">보수 논점</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="source-row">
+    <div class="src-chip">조선일보</div>
+    <div class="src-chip">한겨레</div>
+    <div class="src-chip">YTN</div>
+    <div class="src-chip">MBC</div>
+    <div class="src-chip">경향신문</div>
+    <div class="src-chip">+ 7개 더</div>
+  </div>
+  <div class="pg">05 / 07</div>
+</div>
+
+<!-- ═══════ CARD 6 ═══════ -->
+<div class="card c6">
+  <div class="c6-glow"></div>
+
+  <div class="section-eyebrow" style="position:relative; color:rgba(255,45,120,0.8)">Feature 05</div>
+  <div class="big-head" style="position:relative;">같은 지역<br><span style="background:linear-gradient(90deg,#ff2d78,#ff7a00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">유권자 커뮤니티</span></div>
+  <div class="sub-head" style="position:relative;">후보 평가·의원 성적표·투표 고민을<br>같은 동네 사람들과 나눈다</div>
+
+  <div style="position:relative; width:100%;">
+    <div class="post-card fire-post">
+      <div class="post-user">
+        <div class="user-ava ua-1">🔥</div>
+        <div class="post-txt">
+          <div class="pt">우리 동네 시의원 출석률 63%... 이번엔 꼭 낙선시켜야</div>
+          <div class="pm">강남구 · 45분 전</div>
+        </div>
+      </div>
+      <div class="post-stats">
+        <div class="pst">💬 89</div>
+        <div class="pst">❤️ 742</div>
+      </div>
+    </div>
+    <div class="post-card">
+      <div class="post-user">
+        <div class="user-ava ua-2">🤔</div>
+        <div class="post-txt">
+          <div class="pt">강남구 후보 공약 비교해봤는데 생각보다 차이 없네요</div>
+          <div class="pm">강남구 · 2시간 전</div>
+        </div>
+      </div>
+      <div class="post-stats">
+        <div class="pst">💬 38</div>
+        <div class="pst">❤️ 124</div>
+      </div>
+    </div>
+    <div class="post-card">
+      <div class="post-user">
+        <div class="user-ava ua-3">😱</div>
+        <div class="post-txt">
+          <div class="pt">교육감 후보 이력 봤는데 진짜 충격... 이게 맞나요?</div>
+          <div class="pm">마포구 · 3시간 전</div>
+        </div>
+      </div>
+      <div class="post-stats">
+        <div class="pst">💬 61</div>
+        <div class="pst">❤️ 203</div>
+      </div>
+    </div>
+    <div class="post-card">
+      <div class="post-user">
+        <div class="user-ava ua-4">🙏</div>
+        <div class="post-txt">
+          <div class="pt">처음 투표인데 앱 덕분에 고민 해결됨ㅠ 진심 감사</div>
+          <div class="pm">성동구 · 어제</div>
+        </div>
+      </div>
+      <div class="post-stats">
+        <div class="pst">💬 22</div>
+        <div class="pst">❤️ 511</div>
+      </div>
+    </div>
+  </div>
+  <div class="pg">06 / 07</div>
+</div>
+
+<!-- ═══════ CARD 7 ═══════ -->
+<div class="card c7">
+  <div class="c7-bg"></div>
+  <div class="c7-lines">
+    <div class="c7-line" style="top:25%"></div>
+    <div class="c7-line" style="top:50%"></div>
+    <div class="c7-line" style="top:75%"></div>
+  </div>
+
+  <div class="c7-dday">
+    <div class="dd-label">D-Day</div>
+    <div class="dd-num">10</div>
+    <div class="dd-sub">2026.06.03</div>
+  </div>
+
+  <div class="c7-headline">6월 3일,<br><span class="grad">이유 있게</span><br>투표하자</div>
+  <div class="c7-sub">
+    <strong>후보 비교</strong> · <strong>공약 AI 분석</strong><br>
+    <strong>의원 추적</strong> · <strong>뉴스 편향 체크</strong> · <strong>커뮤니티</strong>
+  </div>
+  <div class="c7-btn-wrap">
+    <div class="c7-btn">안티그래비티 열기</div>
+    <div class="c7-btn-ghost">무료</div>
+  </div>
+
+  <div class="pg">07 / 07</div>
+</div>
+
+</body>
+</html>

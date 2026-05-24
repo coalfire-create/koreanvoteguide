@@ -366,8 +366,8 @@ const SLIDES: SlideData[] = [
     bg: "linear-gradient(150deg, #0a1628 0%, #1e3a8a 50%, #2563eb 100%)",
     accent: "#93c5fd",
     tag: "기능 01",
-    title: "내 지역\n후보자 비교",
-    desc: "선택한 지역의 광역·기초단체장 후보들의 공약, 이력, 언론 보도를 한눈에 비교해요.",
+    title: "공약 클릭 시\nAI 정밀 분석",
+    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
     Illustration: CandidateIllus,
   },
   {

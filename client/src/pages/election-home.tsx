@@ -290,6 +290,11 @@ function TopHeader({
               {r.name}
             </button>
           ))}
+          <Link href="/city-select">
+            <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground hover:bg-muted/70 ml-1 shrink-0">
+              <Plus className="w-4 h-4" />
+            </button>
+          </Link>
         </div>
       </div>
 
@@ -454,17 +459,7 @@ function RegionView({
       <div className="px-4 sm:px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
 
-        {/* Region Selector removed from here and moved to TopHeader */}
-        <div className="flex items-center justify-end mb-6 pb-2">
-          <div className="flex items-center pl-4">
-            <Link href="/city-select">
-              <button className="flex items-center gap-1 text-muted-foreground hover:text-primary text-[13px] font-bold px-4 py-2 rounded-full transition-all hover:bg-primary/10 whitespace-nowrap group">
-                관심 지역 설정
-                <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 text-muted-foreground group-hover:text-primary" />
-              </button>
-            </Link>
-          </div>
-        </div>
+
 
         {/* 선거 종류 탭 — 지방선거 / 국회의원 재보궐 */}
         <div className="flex items-center justify-center gap-2 mb-8">
@@ -492,17 +487,7 @@ function RegionView({
                 </h1>
                 <p className="text-muted-foreground text-sm font-medium mt-2 text-center">제9회 전국동시지방선거 · 2026년 6월 3일</p>
                 
-                {/* Next Region Button */}
-                {allRegions.length > 1 && onNextRegion && (
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                    <button 
-                      onClick={onNextRegion}
-                      className="flex items-center gap-2 px-4 py-2 bg-card border border-border/30 rounded-full text-sm font-bold text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 shadow-sm transition-all"
-                    >
-                      다른 지역 보기 <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+
               </div>
 
             </div>

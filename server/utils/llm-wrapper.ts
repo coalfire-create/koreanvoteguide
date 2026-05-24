@@ -209,6 +209,19 @@ async function callOnce(params: InternalCallParams): Promise<string> {
     temperature: params.temperature ?? 0.3,
     max_tokens: params.maxTokens ?? 800,
   });
+
+  // 토큰 사용량 계측 — prompt/completion/total, OpenAI 자동 프롬프트 캐시 적중분(cached) 포함
+  const usage = completion.usage;
+  if (usage) {
+    const cached = (usage as { prompt_tokens_details?: { cached_tokens?: number } })
+      .prompt_tokens_details?.cached_tokens ?? 0;
+    process.stderr.write(
+      `  ◆ [llm:${params.label ?? "anon"}] tokens model=${completion.model}` +
+      ` prompt=${usage.prompt_tokens} completion=${usage.completion_tokens}` +
+      ` total=${usage.total_tokens}${cached ? ` cached=${cached}` : ""}\n`
+    );
+  }
+
   return completion.choices[0]?.message?.content ?? "";
 }
 

@@ -69,7 +69,7 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.insert(users).values({
       ...insertUser,
       phoneVerified: true,
-      badges: ["first_post"] as any,
+      badges: [] as any,
     } as any).returning();
     return user;
   }
@@ -118,8 +118,6 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select({ badges: users.badges, postCount: users.postCount, phoneVerified: users.phoneVerified }).from(users).where(eq(users.id, userId));
     if (!user) return [];
     const badges = (user.badges as string[]) ?? [];
-    // 실명 인증 뱃지 자동 부여 (휴대폰 인증 완료자)
-    if (user.phoneVerified && !badges.includes("real_name_verified")) badges.push("real_name_verified");
     // 활동 배지 자동 부여
     if (user.postCount >= 50 && !badges.includes("veteran")) badges.push("veteran");
     else if (user.postCount >= 10 && !badges.includes("active")) badges.push("active");
@@ -226,7 +224,6 @@ export class DatabaseStorage implements IStorage {
         .where(inArray(users.id, userIds));
       for (const u of authorRows) {
         const b = (u.badges as string[]) ?? [];
-        if (u.phoneVerified && !b.includes("real_name_verified")) b.push("real_name_verified");
         if (u.postCount >= 50 && !b.includes("veteran")) b.push("veteran");
         else if (u.postCount >= 10 && !b.includes("active")) b.push("active");
         authorBadgeMap.set(u.id, b);
@@ -480,12 +477,9 @@ export class DatabaseStorage implements IStorage {
 
   async verifyRealName(userId: string, realName: string): Promise<User> {
     const currentBadges = await this.getUserBadges(userId);
-    const newBadges = currentBadges.includes("real_name_verified")
-      ? currentBadges
-      : [...currentBadges, "real_name_verified"];
     const [updated] = await db
       .update(users)
-      .set({ realNameVerified: true, realName, badges: newBadges as any })
+      .set({ realNameVerified: true, realName, badges: currentBadges as any })
       .where(eq(users.id, userId))
       .returning();
     if (!updated) throw new Error("사용자를 찾을 수 없습니다");
