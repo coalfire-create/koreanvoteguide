@@ -367,7 +367,7 @@ const SLIDES: SlideData[] = [
     accent: "#93c5fd",
     tag: "기능 01",
     title: "공약 클릭 시\nAI 정밀 분석",
-    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
+    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
     Illustration: CandidateIllus,
   },
   {

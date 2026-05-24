@@ -544,7 +544,7 @@ export default function CandidateDetail() {
                   <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[13px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
-                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 AI가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
+                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
