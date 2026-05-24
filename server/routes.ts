@@ -57,6 +57,18 @@ import crypto from "crypto";
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// 인물 탭 타임라인 — 사용자별 60초 메모리 캐시 (팔로우/트렌딩/법안은 분 단위로 변함)
+const timelineCache = new Map<string, { payload: any; cachedAt: number }>();
+const TIMELINE_CACHE_TTL = 60 * 1000;
+
+export function clearTimelineCacheForUser(userId: number) {
+  for (const key of timelineCache.keys()) {
+    if (key.startsWith(`${userId}:`)) {
+      timelineCache.delete(key);
+    }
+  }
+}
+
 // ===== AI 평가 (POST /api/ai/evaluate) — 타입 + Strict-Neutrality 프롬프트 =====
 //
 // 본 프롬프트는 "데이터 기반 객관 분석"만 허용한다. 외부 지식·주관 형용사 사용 금지.
@@ -4139,6 +4151,8 @@ export async function registerRoutes(
           .where(eq(legislators.monaCd, politicianId as string));
       }
 
+      clearTimelineCacheForUser(userId);
+
       res.json({ following: true });
     } catch (error) {
       console.error("follow error:", error);
@@ -4171,6 +4185,8 @@ export async function registerRoutes(
           .set({ followerCount: dsql`GREATEST(${legislators.followerCount} - 1, 0)` })
           .where(eq(legislators.monaCd, pid));
       }
+
+      clearTimelineCacheForUser(userId);
 
       res.json({ following: false });
     } catch (error) {
@@ -4285,9 +4301,6 @@ export async function registerRoutes(
   // ===== Instagram-style 통합 타임라인 =====
   // 팔로우 의원 활동 + 트렌딩 의원 활동(추천)을 시간순으로 섞어서 반환.
   // 비로그인 사용자도 전부 추천 피드로 사용 가능.
-  // 인물 탭 타임라인 — 사용자별 60초 메모리 캐시 (팔로우/트렌딩/법안은 분 단위로 변함)
-  const timelineCache = new Map<string, { payload: any; cachedAt: number }>();
-  const TIMELINE_CACHE_TTL = 60 * 1000;
 
   app.get("/api/feed/timeline", async (req, res) => {
     try {
