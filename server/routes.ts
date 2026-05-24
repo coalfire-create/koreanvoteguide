@@ -1,4 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
+import express from "express";
 import { type Server } from "http";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -46,6 +47,12 @@ import {
   exchangeCodeForToken as exchangeGoogleCodeForToken,
   fetchGoogleProfile,
 } from "./utils/google-oauth";
+import {
+  loadAppleConfig,
+  buildAuthorizeUrl as buildAppleAuthorizeUrl,
+  exchangeCodeForToken as exchangeAppleCodeForToken,
+  verifyIdToken as verifyAppleIdToken,
+} from "./utils/apple-oauth";
 import { isPollPublicationBlackout } from "./utils/election-blackout";
 import { pollResults } from "@shared/schema";
 import { eq, desc, asc, gte, inArray, and, sql as dsql, count, notInArray, or, ilike, like, isNull, gt } from "drizzle-orm";
@@ -61,7 +68,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const timelineCache = new Map<string, { payload: any; cachedAt: number }>();
 const TIMELINE_CACHE_TTL = 60 * 1000;
 
-export function clearTimelineCacheForUser(userId: number) {
+export function clearTimelineCacheForUser(userId: string) {
   for (const key of timelineCache.keys()) {
     if (key.startsWith(`${userId}:`)) {
       timelineCache.delete(key);
@@ -601,6 +608,8 @@ declare module "express-session" {
     naverOAuthState?: string;
     // Google OAuth CSRF 방지용 state 토큰.
     googleOAuthState?: string;
+    // Apple OAuth CSRF 방지용 state 토큰.
+    appleOAuthState?: string;
     // 로그인 성공 후 돌아갈 경로 (소셜 로그인 공통).
     oauthNext?: string;
   }
@@ -1514,6 +1523,122 @@ export async function registerRoutes(
       res.redirect(`/login?error=${encodeURIComponent("구글 로그인 처리 중 오류가 발생했습니다.")}`);
     }
   });
+
+  // ===== Sign in with Apple (애플 심사 4.8 필수) — Google/Kakao/Naver와 동일 흐름 =====
+  //   1) FE /api/auth/apple → CSRF state 생성·세션 저장 → 애플 인증창 redirect
+  //   2) 동의 후 애플이 /api/auth/apple/callback 으로 form_post(POST) — code/state 전달
+  //   3) state 검증 → code↔token 교환 → id_token(JWT)을 애플 공개키로 검증 → sub/email 추출
+  //   4) appleId(sub)로 기존 사용자 찾거나 새로 INSERT (realNameVerified=true)
+  //   5) req.session.userId 세팅 → 홈으로 redirect
+  app.get("/api/auth/apple", authLimiter, (req, res) => {
+    const config = loadAppleConfig();
+    if (!config) {
+      return res.status(503).json({
+        error: "Apple 로그인이 설정되지 않았습니다. (APPLE_SERVICE_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, APPLE_REDIRECT_URI 환경변수 필요)",
+      });
+    }
+    const state = randomBytes(16).toString("hex");
+    req.session.appleOAuthState = state;
+    req.session.oauthNext = safeNextUrl(req.query.next);
+    req.session.save((err) => {
+      if (err) {
+        console.error("[apple] session save failed:", err);
+        return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
+      }
+      res.redirect(buildAppleAuthorizeUrl(config, state));
+    });
+  });
+
+  // 애플은 scope 요청 시 콜백을 form_post(POST)로 보낸다 → urlencoded 파싱 필요.
+  app.post(
+    "/api/auth/apple/callback",
+    authLimiter,
+    express.urlencoded({ extended: false }),
+    async (req, res) => {
+      const config = loadAppleConfig();
+      if (!config) return res.status(503).send("Apple 로그인이 설정되지 않았습니다.");
+
+      const { code, state, error: appleError } = req.body as Record<string, string | undefined>;
+      if (appleError) {
+        console.warn(`[apple] callback error: ${appleError}`);
+        return res.redirect(`/login?error=${encodeURIComponent(appleError)}`);
+      }
+      if (!code || typeof code !== "string") {
+        return res.status(400).send("Apple 인증 코드가 누락되었습니다.");
+      }
+      const expectedState = req.session.appleOAuthState;
+      if (!expectedState || expectedState !== state) {
+        return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
+      }
+      req.session.appleOAuthState = undefined;
+
+      try {
+        const tokenRes = await exchangeAppleCodeForToken(config, code);
+        const profile = await verifyAppleIdToken(config, tokenRes.id_token);
+
+        const appleIdStr = profile.sub;
+        const email = profile.email ?? null;
+        // 애플은 이름을 최초 1회 form_post의 user 필드(JSON)로만 보낸다. 있으면 활용.
+        let profileNickname = `apple_${appleIdStr.slice(-6)}`;
+        const userField = (req.body as Record<string, string | undefined>).user;
+        if (userField) {
+          try {
+            const parsed = JSON.parse(userField) as { name?: { firstName?: string; lastName?: string } };
+            const full = `${parsed.name?.lastName ?? ""}${parsed.name?.firstName ?? ""}`.trim();
+            if (full) profileNickname = full;
+          } catch { /* user 파싱 실패 시 기본 닉네임 유지 */ }
+        }
+
+        const [existing] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.appleId, appleIdStr))
+          .limit(1);
+
+        let userId: string;
+        if (existing) {
+          userId = existing.id;
+          await db
+            .update(users)
+            .set({
+              email,
+              realNameVerified: true,
+              realNameProvider: "apple",
+            })
+            .where(eq(users.id, existing.id));
+        } else {
+          const username = `apple_${appleIdStr}`;
+          const [created] = await db
+            .insert(users)
+            .values({
+              username,
+              password: "",
+              phone: "",
+              phoneHash: null,
+              name: profileNickname,
+              email,
+              appleId: appleIdStr,
+              realNameVerified: true,
+              realNameProvider: "apple",
+              phoneVerified: false,
+              tosAcceptedAt: new Date(),
+              privacyAcceptedAt: new Date(),
+            })
+            .returning({ id: users.id });
+          userId = created.id;
+        }
+
+        req.session.userId = userId;
+        const next = safeNextUrl(req.session.oauthNext);
+        req.session.oauthNext = undefined;
+        console.log(`[apple] login userId=${userId}`);
+        redirectWithLoginSuccess(res, next);
+      } catch (error: any) {
+        console.error("[apple] callback failed:", error?.response?.data ?? error?.message ?? error);
+        res.redirect(`/login?error=${encodeURIComponent("애플 로그인 처리 중 오류가 발생했습니다.")}`);
+      }
+    },
+  );
 
   app.get("/api/candidates/:id/rating", async (req, res) => {
     try {

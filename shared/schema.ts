@@ -37,6 +37,8 @@ export const users = pgTable("users", {
   kakaoId: text("kakao_id"),
   // googleId: Google 사용자 고유 식별자. 같은 사용자 재로그인 시 lookup 키.
   googleId: text("google_id"),
+  // appleId: Sign in with Apple 의 고유 식별자(id_token의 sub). 같은 사용자 재로그인 시 lookup 키.
+  appleId: text("apple_id"),
   // email: Kakao account_email scope에서 받은 이메일. 사용자 동의 시에만 채워짐.
   email: text("email"),
   // profileImageUrl: Kakao 프로필 이미지. 카카오톡 프로필 변경시 자동 반영되지 않음 — 로그인 때마다 갱신.
@@ -62,6 +64,8 @@ export const users = pgTable("users", {
   kakaoIdUniq: uniqueIndex("users_kakao_id_uniq").on(table.kakaoId),
   // Google 사용자 재로그인용 lookup 키. NULL은 비-Google 계정.
   googleIdUniq: uniqueIndex("users_google_id_uniq").on(table.googleId),
+  // Apple 사용자 재로그인용 lookup 키. NULL은 비-Apple 계정.
+  appleIdUniq: uniqueIndex("users_apple_id_uniq").on(table.appleId),
   ageGroupIdx: index("users_age_group_idx").on(table.ageGroup),
 }));
 

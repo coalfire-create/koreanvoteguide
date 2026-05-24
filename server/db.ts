@@ -39,3 +39,13 @@ pool.query(`
     console.warn("[db] community_posts has_poll 컬럼 생성 경고:", err.message);
   }
 });
+
+// users 테이블에 apple_id 컬럼 자동 추가 (Sign in with Apple 재로그인 lookup 키)
+pool.query(`
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_apple_id_uniq ON users (apple_id);
+`).catch((err: any) => {
+  if (err.code !== 'ECONNREFUSED') {
+    console.warn("[db] users apple_id 컬럼 생성 경고:", err.message);
+  }
+});
