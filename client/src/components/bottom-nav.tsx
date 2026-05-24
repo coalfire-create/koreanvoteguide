@@ -16,7 +16,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] pb-safe"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]"
       data-testid="nav-bottom"
     >
       <div className="flex items-center justify-around h-[64px] max-w-lg mx-auto px-2">
