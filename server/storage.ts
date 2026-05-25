@@ -297,12 +297,13 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`UPDATE community_posts SET view_count = view_count + 1 WHERE id = ${postId}`);
   }
 
-  async getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[] })[]> {
+  async getComments(postId: string): Promise<(CommunityComment & { authorBadges: string[]; likes: number })[]> {
     const comments = await db
       .select()
       .from(communityComments)
       .where(and(eq(communityComments.postId, postId), isNull(communityComments.deletedAt)))
       .orderBy(communityComments.createdAt);
+
     const userIds = Array.from(new Set(comments.map((c) => c.userId)));
     const authorBadgeMap = new Map<string, string[]>();
     if (userIds.length > 0) {
@@ -317,13 +318,27 @@ export class DatabaseStorage implements IStorage {
         authorBadgeMap.set(u.id, b);
       }
     }
-    return comments.map((c) => ({ ...c, authorBadges: authorBadgeMap.get(c.userId) ?? [] }));
+
+    // 댓글 좋아요 집계
+    const commentIds = comments.map((c) => c.id);
+    const likesMap = new Map<string, number>();
+    if (commentIds.length > 0) {
+      const { reactions } = await import("@shared/schema");
+      const likesData = await db
+        .select({ targetId: reactions.targetId, count: sql<number>`count(*)::int` })
+        .from(reactions)
+        .where(and(eq(reactions.targetType, "comment"), eq(reactions.type, "like"), inArray(reactions.targetId, commentIds)))
+        .groupBy(reactions.targetId);
+      likesData.forEach((ld) => likesMap.set(ld.targetId, ld.count));
+    }
+
+    return comments.map((c) => ({ ...c, authorBadges: authorBadgeMap.get(c.userId) ?? [], likes: likesMap.get(c.id) ?? 0 }));
   }
 
-  async createComment(postId: string, userId: string, content: string, anonNickname: string, authorType = "anonymous", displayName?: string | null, isVerified = false): Promise<CommunityComment & { authorBadges: string[] }> {
-    const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname, authorType, displayName: displayName ?? null, isVerified }).returning();
+  async createComment(postId: string, userId: string, content: string, anonNickname: string, authorType = "anonymous", displayName?: string | null, isVerified = false, parentId?: string | null): Promise<CommunityComment & { authorBadges: string[]; likes: number }> {
+    const [comment] = await db.insert(communityComments).values({ postId, userId, content, anonNickname, authorType, displayName: displayName ?? null, isVerified, parentId: parentId ?? null }).returning();
     const badges = await this.getUserBadges(userId);
-    return { ...comment, authorBadges: badges };
+    return { ...comment, authorBadges: badges, likes: 0 };
   }
 
   // 단일 댓글 조회 — 소유자 검증용. 삭제된 댓글은 반환하지 않는다.

@@ -1640,6 +1640,69 @@ export async function registerRoutes(
     },
   );
 
+  // ===== Apple Native Sign In (expo-apple-authentication) =====
+  // 네이티브 앱에서 identityToken(JWT)을 직접 받아 검증 후 세션 발급.
+  // audience = Bundle ID (com.coalfireant.antigravity), web OAuth와 다름.
+  app.post("/api/auth/apple/native", authLimiter, async (req, res) => {
+    const { identityToken, fullName } = req.body as {
+      identityToken?: string;
+      fullName?: { familyName?: string | null; givenName?: string | null } | null;
+    };
+    if (!identityToken || typeof identityToken !== "string") {
+      return res.status(400).json({ error: "identityToken이 누락되었습니다." });
+    }
+    const BUNDLE_ID = "com.antigravity.iyu";
+    try {
+      const { jwtVerify, createRemoteJWKSet } = await import("jose");
+      const appleJwks = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+      const { payload } = await jwtVerify(identityToken, appleJwks, {
+        issuer: "https://appleid.apple.com",
+        audience: BUNDLE_ID,
+      });
+      const appleIdStr = String(payload.sub);
+      const email = typeof payload.email === "string" ? payload.email : null;
+      let nickname = `apple_${appleIdStr.slice(-6)}`;
+      if (fullName) {
+        const full = `${fullName.familyName ?? ""}${fullName.givenName ?? ""}`.trim();
+        if (full) nickname = full;
+      }
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.appleId, appleIdStr))
+        .limit(1);
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+        await db.update(users).set({ email, realNameVerified: true, realNameProvider: "apple" }).where(eq(users.id, existing.id));
+      } else {
+        const [created] = await db.insert(users).values({
+          username: `apple_${appleIdStr}`,
+          password: "",
+          phone: "",
+          phoneHash: null,
+          name: nickname,
+          email,
+          appleId: appleIdStr,
+          realNameVerified: true,
+          realNameProvider: "apple",
+          phoneVerified: false,
+          tosAcceptedAt: new Date(),
+          privacyAcceptedAt: new Date(),
+        }).returning({ id: users.id });
+        userId = created.id;
+      }
+      req.session.userId = userId;
+      req.session.save((err) => {
+        if (err) return res.status(500).json({ error: "세션 저장 실패" });
+        res.json({ ok: true });
+      });
+    } catch (error: any) {
+      console.error("[apple/native]", error?.message ?? error);
+      res.status(401).json({ error: "Apple 인증 토큰 검증에 실패했습니다." });
+    }
+  });
+
   app.get("/api/candidates/:id/rating", async (req, res) => {
     try {
       const { id } = req.params;
@@ -4029,7 +4092,8 @@ export async function registerRoutes(
       if (!safeContent) {
         return res.status(400).json({ error: "댓글 내용을 입력하세요" });
       }
-      const comment = await storage.createComment(post.id, userId, safeContent, anonNickname, authorType, displayName, isVerified);
+      const parentId = typeof req.body.parentId === "string" && req.body.parentId ? req.body.parentId : null;
+      const comment = await storage.createComment(post.id, userId, safeContent, anonNickname, authorType, displayName, isVerified, parentId);
       res.json(sanitizeComment(comment, post.userId, userId));
     } catch (error) {
       console.error("Create comment error:", error);
@@ -5014,7 +5078,7 @@ export async function registerRoutes(
         // 키 이름은 LLM에 주입하는 스키마와 일치(snake_case)
         feasibility_critique:
           "이행방법·재원조달방안·이행기간이 모두 '기재 안 됨' 상태로, 예산 확보 경로와 권한 범위를 확인할 수 없어 실현가능성이 불투명함.",
-        voterTip: "후보 측에 (1) 어떤 권한으로 (2) 얼마의 세입으로 (3) 언제까지 실행할지 직접 확인하세요.",
+        voterTip: "지자체 예산서 및 조례 발의 내역을 검색하여 예산 편성 타당성과 법적 실행 권한을 직접 검증하십시오.",
         detailedAxes: {
           internalConsistency: { score: 1, analysis: "AI 분석 서버 연결 지연으로 정합성을 검증할 수 없습니다." },
           planSpecificity: { score: 1, analysis: "구체적 이행계획을 파악하기 어렵습니다." },
@@ -5063,10 +5127,11 @@ export async function registerRoutes(
         "• 의도·비전·필요성에 가산점 금지. strengths에는 검증 가능한 실행 메커니즘만 적는다.",
         "• 후보 경력·정당·현직은 가산점 사유가 아니다. 정당명·이념·인신을 평가 근거로 쓰지 않는다.",
         "• feasibilityLabel은 점수와 엄격히 연동: 75+ '높음', 55-74 '중간', 35-54 '보통', 0-34 '낮음'.",
+        "• voterTip에는 유권자가 후보에게 질문하는 형식을 사용하지 마십시오. 대신, 이 공약의 실현 가능성을 유권자가 직접 검증/행동할 수 있는 구체적인 행동 방안(예: 정보공개청구, 선관위 자료 확인, 지자체 예산안/조례 검색 등)을 1~2문장으로 제시하십시오.",
         "• keyVulnerability에는 이 공약의 가장 큰 구조적 약점을 2~3문장으로 적는다.",
         "",
         "[출력 — 아래 JSON 스키마와 정확히 동일한 키만 사용. 코드펜스·접두어·설명문 금지.]",
-        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 후보에게 추가로 물을 가장 핵심 질문 1문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"2~3문장"},"planSpecificity":{"score":<1-5>,"analysis":"2~3문장"},"financialFeasibility":{"score":<1-5>,"analysis":"2~3문장"},"economicViability":{"score":<1-5>,"analysis":"2~3문장"},"precedentVerification":{"score":<1-5>,"analysis":"2~3문장"}}}',
+        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 이 공약의 실현 여부를 검증/감시할 수 있는 구체적인 감시 및 행동 방안 1~2문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"2~3문장"},"planSpecificity":{"score":<1-5>,"analysis":"2~3문장"},"financialFeasibility":{"score":<1-5>,"analysis":"2~3문장"},"economicViability":{"score":<1-5>,"analysis":"2~3문장"},"precedentVerification":{"score":<1-5>,"analysis":"2~3문장"}}}',
       ].join("\n");
 
       // 사용자 명시 포맷 — [공약 1] {title} / - 이행방법 / - 재원조달 / - 이행기간
@@ -5283,7 +5348,7 @@ export async function registerRoutes(
           strength: c.pledge !== "정보 없음" ? c.pledge : "공약 데이터 미등록",
           comparison: "추가 분석 정보가 잠시 후 표시됩니다",
         })),
-        voterTip: "잠시 후 다시 시도해 주세요.",
+        voterTip: "지자체 예산 집행 현황과 법정 계획 수립 여부를 조회하여 각 후보의 공약 실현 기반을 직접 검증하십시오.",
       };
 
       const result = await callLLMJsonOrFallback<object>(
@@ -5293,7 +5358,7 @@ export async function registerRoutes(
             "입력값 중 일부는 '정보 없음' 으로 표시될 수 있습니다. 그 경우 해당 항목은 분석에서 제외하고 다른 정보로 판단하세요. " +
             "반드시 아래 JSON 스키마와 정확히 동일한 키만 사용하여 출력하세요. 다른 텍스트(설명, 코드펜스 포함)는 절대 포함하지 마세요. " +
             "candidateAnalyses 배열의 길이와 순서는 입력된 후보자 순서와 동일해야 합니다.\n" +
-            '{"summary":"공약 구도 2-3문장","candidateAnalyses":[{"name":"이름","party":"정당","strength":"핵심 장점 1-2문장","comparison":"차별점 1-2문장"}],"voterTip":"유권자 고려 포인트 1문장"}',
+            '{"summary":"공약 구도 2-3문장","candidateAnalyses":[{"name":"이름","party":"정당","strength":"핵심 장점 1-2문장","comparison":"차별점 1-2문장"}],"voterTip":"유권자가 각 후보 공약의 실현 가능성을 직접 비교/검증하기 위한 구체적인 검증 및 행동 방안 1~2문장 (질문하는 대신 구체적인 정보 조회처, 조례 및 조세 확인 방식 등 실천적인 검증법 제시)"}',
           user: `${topic} 분야 후보자 공약 비교:\n\n${candidatesText}`,
           temperature: 0.3,
           maxTokens: 1000,

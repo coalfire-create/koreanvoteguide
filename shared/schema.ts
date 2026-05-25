@@ -303,6 +303,7 @@ export const communityComments = pgTable("community_comments", {
   authorType: text("author_type").default("anonymous").notNull(),
   displayName: text("display_name"),
   isVerified: boolean("is_verified").default(false).notNull(),
+  parentId: varchar("parent_id"),
   hiddenAt: timestamp("hidden_at"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
