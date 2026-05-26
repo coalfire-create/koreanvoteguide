@@ -11,7 +11,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강남구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 강남구",
@@ -72,7 +72,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 강동구",
@@ -133,7 +133,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 강북구",
@@ -194,7 +194,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-관악구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 관악구",
@@ -255,7 +255,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-광진구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 광진구",
@@ -316,7 +316,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-구로구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 구로구",
@@ -377,7 +377,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-금천구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 금천구",
@@ -438,7 +438,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-노원구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 노원구",
@@ -499,7 +499,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-도봉구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 도봉구",
@@ -560,7 +560,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동대문구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 동대문구",
@@ -621,7 +621,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동작구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 동작구",
@@ -682,7 +682,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-마포구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 마포구",
@@ -743,7 +743,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-서대문구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 서대문구",
@@ -804,7 +804,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-서초구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 서초구",
@@ -865,7 +865,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-성동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 성동구",
@@ -926,7 +926,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-성북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 성북구",
@@ -987,7 +987,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-송파구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 송파구",
@@ -1048,7 +1048,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양천구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 양천구",
@@ -1109,7 +1109,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영등포구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 영등포구",
@@ -1170,7 +1170,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-용산구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 용산구",
@@ -1231,7 +1231,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-은평구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 은평구",
@@ -1292,7 +1292,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-종로구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 종로구",
@@ -1353,7 +1353,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 중구",
@@ -1414,7 +1414,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중랑구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서울특별시 중랑구",
@@ -1475,7 +1475,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-금정구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 금정구",
@@ -1536,7 +1536,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-기장군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 기장군",
@@ -1597,7 +1597,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 남구",
@@ -1658,7 +1658,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 동구",
@@ -1719,7 +1719,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동래구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 동래구",
@@ -1780,7 +1780,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-부산진구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 부산진구",
@@ -1841,7 +1841,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 북구",
@@ -1902,7 +1902,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-사상구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 사상구",
@@ -1963,7 +1963,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-사하구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 사하구",
@@ -2024,7 +2024,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-수영구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 수영구",
@@ -2085,7 +2085,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-연제구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 연제구",
@@ -2146,7 +2146,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영도구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 영도구",
@@ -2207,7 +2207,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부산광역시 중구",
@@ -2268,7 +2268,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-군위군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 군위군",
@@ -2329,7 +2329,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 남구",
@@ -2390,7 +2390,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-달성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 달성군",
@@ -2451,7 +2451,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 동구",
@@ -2512,7 +2512,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 북구",
@@ -2573,7 +2573,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대구광역시 중구",
@@ -2634,7 +2634,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강화군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 강화군",
@@ -2695,7 +2695,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-계양구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 계양구",
@@ -2756,7 +2756,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 동구",
@@ -2817,7 +2817,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-미추홀구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 미추홀구",
@@ -2878,7 +2878,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-부평구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 부평구",
@@ -2939,7 +2939,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-연수구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 연수구",
@@ -3000,7 +3000,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-옹진군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 옹진군",
@@ -3061,7 +3061,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인천광역시 중구",
@@ -3122,7 +3122,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-광산구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광주광역시 광산구",
@@ -3183,7 +3183,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광주광역시 남구",
@@ -3244,7 +3244,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광주광역시 동구",
@@ -3305,7 +3305,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광주광역시 북구",
@@ -3366,7 +3366,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-대덕구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대전광역시 대덕구",
@@ -3427,7 +3427,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대전광역시 동구",
@@ -3488,7 +3488,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-유성구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대전광역시 유성구",
@@ -3549,7 +3549,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "대전광역시 중구",
@@ -3610,7 +3610,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울산광역시 남구",
@@ -3671,7 +3671,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울산광역시 동구",
@@ -3732,7 +3732,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-북구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울산광역시 북구",
@@ -3793,7 +3793,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-울주군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울산광역시 울주군",
@@ -3854,7 +3854,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-중구-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울산광역시 중구",
@@ -3915,7 +3915,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-가평군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "가평군",
@@ -3976,7 +3976,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고양시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고양시",
@@ -4037,7 +4037,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-과천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "과천시",
@@ -4098,7 +4098,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-광명시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광명시",
@@ -4159,7 +4159,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-광주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광주시",
@@ -4220,7 +4220,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-구리시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "구리시",
@@ -4281,7 +4281,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-군포시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "군포시",
@@ -4342,7 +4342,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-김포시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "김포시",
@@ -4403,7 +4403,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남양주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "남양주시",
@@ -4464,7 +4464,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동두천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "동두천시",
@@ -4525,7 +4525,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-부천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부천시",
@@ -4586,7 +4586,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-시흥시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "시흥시",
@@ -4647,7 +4647,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-안산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "안산시",
@@ -4708,7 +4708,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-안성시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "안성시",
@@ -4769,7 +4769,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-안양시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "안양시",
@@ -4830,7 +4830,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "양주시",
@@ -4891,7 +4891,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양평군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "양평군",
@@ -4952,7 +4952,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-여주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "여주시",
@@ -5013,7 +5013,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-연천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "연천군",
@@ -5074,7 +5074,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-오산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "오산시",
@@ -5135,7 +5135,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-의왕시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "의왕시",
@@ -5196,7 +5196,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-의정부시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "의정부시",
@@ -5257,7 +5257,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-이천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "이천시",
@@ -5318,7 +5318,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-파주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "파주시",
@@ -5379,7 +5379,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-평택시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "평택시",
@@ -5440,7 +5440,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-포천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "포천시",
@@ -5501,7 +5501,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-하남시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "하남시",
@@ -5562,7 +5562,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-화성시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "화성시",
@@ -5623,7 +5623,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강릉시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "강릉시",
@@ -5684,7 +5684,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고성군",
@@ -5745,7 +5745,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-동해시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "동해시",
@@ -5806,7 +5806,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-삼척시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "삼척시",
@@ -5867,7 +5867,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-속초시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "속초시",
@@ -5928,7 +5928,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양구군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "양구군",
@@ -5989,7 +5989,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "양양군",
@@ -6050,7 +6050,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영월군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영월군",
@@ -6111,7 +6111,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-원주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "원주시",
@@ -6172,7 +6172,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-인제군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "인제군",
@@ -6233,7 +6233,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-정선군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "정선군",
@@ -6294,7 +6294,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-철원군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "철원군",
@@ -6355,7 +6355,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-춘천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "춘천시",
@@ -6416,7 +6416,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-태백시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "태백시",
@@ -6477,7 +6477,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-평창군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "평창군",
@@ -6538,7 +6538,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-홍천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "홍천군",
@@ -6599,7 +6599,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-화천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "화천군",
@@ -6660,7 +6660,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-횡성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "횡성군",
@@ -6721,7 +6721,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-괴산군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "괴산군",
@@ -6782,7 +6782,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-단양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "단양군",
@@ -6843,7 +6843,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-보은군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "보은군",
@@ -6904,7 +6904,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영동군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영동군",
@@ -6965,7 +6965,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-옥천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "옥천군",
@@ -7026,7 +7026,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-음성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "음성군",
@@ -7087,7 +7087,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-제천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "제천시",
@@ -7148,7 +7148,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-증평군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "증평군",
@@ -7209,7 +7209,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-진천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "진천군",
@@ -7270,7 +7270,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-청주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "청주시",
@@ -7331,7 +7331,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-충주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "충주시",
@@ -7392,7 +7392,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-계룡시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "계룡시",
@@ -7453,7 +7453,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-공주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "공주시",
@@ -7514,7 +7514,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-금산군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "금산군",
@@ -7575,7 +7575,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-논산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "논산시",
@@ -7636,7 +7636,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-당진시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "당진시",
@@ -7697,7 +7697,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-보령시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "보령시",
@@ -7758,7 +7758,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-부여군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부여군",
@@ -7819,7 +7819,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-서산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서산시",
@@ -7880,7 +7880,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-서천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "서천군",
@@ -7941,7 +7941,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-아산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "아산시",
@@ -8002,7 +8002,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-예산군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "예산군",
@@ -8063,7 +8063,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-천안시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "천안시",
@@ -8124,7 +8124,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-청양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "청양군",
@@ -8185,7 +8185,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-태안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "태안군",
@@ -8246,7 +8246,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-홍성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "홍성군",
@@ -8307,7 +8307,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고창군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고창군",
@@ -8368,7 +8368,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-군산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "군산시",
@@ -8429,7 +8429,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-김제시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "김제시",
@@ -8490,7 +8490,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남원시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "남원시",
@@ -8551,7 +8551,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-무주군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "무주군",
@@ -8612,7 +8612,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-부안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "부안군",
@@ -8673,7 +8673,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-순창군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "순창군",
@@ -8734,7 +8734,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-완주군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "완주군",
@@ -8795,7 +8795,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-익산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "익산시",
@@ -8856,7 +8856,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-임실군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "임실군",
@@ -8917,7 +8917,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-장수군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "장수군",
@@ -8978,7 +8978,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-전주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "전주시",
@@ -9039,7 +9039,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-정읍시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "정읍시",
@@ -9100,7 +9100,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-진안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "진안군",
@@ -9161,7 +9161,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-강진군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "강진군",
@@ -9222,7 +9222,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고흥군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고흥군",
@@ -9283,7 +9283,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-곡성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "곡성군",
@@ -9344,7 +9344,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-광양시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "광양시",
@@ -9405,7 +9405,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-구례군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "구례군",
@@ -9466,7 +9466,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-나주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "나주시",
@@ -9527,7 +9527,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-담양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "담양군",
@@ -9588,7 +9588,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-목포시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "목포시",
@@ -9649,7 +9649,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-무안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "무안군",
@@ -9710,7 +9710,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-보성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "보성군",
@@ -9771,7 +9771,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-순천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "순천시",
@@ -9832,7 +9832,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-신안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "신안군",
@@ -9893,7 +9893,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-여수시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "여수시",
@@ -9954,7 +9954,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영광군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영광군",
@@ -10015,7 +10015,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영암군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영암군",
@@ -10076,7 +10076,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-완도군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "완도군",
@@ -10137,7 +10137,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-장성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "장성군",
@@ -10198,7 +10198,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-장흥군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "장흥군",
@@ -10259,7 +10259,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-진도군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "진도군",
@@ -10320,7 +10320,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-함평군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "함평군",
@@ -10381,7 +10381,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-해남군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "해남군",
@@ -10442,7 +10442,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-화순군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "화순군",
@@ -10503,7 +10503,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-경산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "경산시",
@@ -10564,7 +10564,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-경주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "경주시",
@@ -10625,7 +10625,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고령군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고령군",
@@ -10686,7 +10686,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-구미시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "구미시",
@@ -10747,7 +10747,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-김천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "김천시",
@@ -10808,7 +10808,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-문경시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "문경시",
@@ -10869,7 +10869,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-봉화군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "봉화군",
@@ -10930,7 +10930,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-상주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "상주시",
@@ -10991,7 +10991,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-성주군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "성주군",
@@ -11052,7 +11052,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-안동시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "안동시",
@@ -11113,7 +11113,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영덕군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영덕군",
@@ -11174,7 +11174,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영양군",
@@ -11235,7 +11235,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-영주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "영주시",
@@ -11296,7 +11296,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-예천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "예천군",
@@ -11357,7 +11357,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-울릉군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울릉군",
@@ -11418,7 +11418,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-울진군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "울진군",
@@ -11479,7 +11479,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-의성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "의성군",
@@ -11540,7 +11540,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-청도군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "청도군",
@@ -11601,7 +11601,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-청송군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "청송군",
@@ -11662,7 +11662,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-칠곡군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "칠곡군",
@@ -11723,7 +11723,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-포항시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "포항시",
@@ -11784,7 +11784,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-거제시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "거제시",
@@ -11845,7 +11845,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-거창군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "거창군",
@@ -11906,7 +11906,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-고성군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "고성군",
@@ -11967,7 +11967,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-김해시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "김해시",
@@ -12028,7 +12028,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-남해군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "남해군",
@@ -12089,7 +12089,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-밀양시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "밀양시",
@@ -12150,7 +12150,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-사천시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "사천시",
@@ -12211,7 +12211,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-산청군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "산청군",
@@ -12272,7 +12272,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-양산시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "양산시",
@@ -12333,7 +12333,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-의령군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "의령군",
@@ -12394,7 +12394,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-진주시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "진주시",
@@ -12455,7 +12455,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-창녕군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "창녕군",
@@ -12516,7 +12516,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-통영시-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "통영시",
@@ -12577,7 +12577,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-하동군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "하동군",
@@ -12638,7 +12638,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-함안군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "함안군",
@@ -12699,7 +12699,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-함양군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "함양군",
@@ -12760,7 +12760,7 @@ export const MUNICIPAL_RACES: MayorRace[] = [
       {
         "id": "cand-합천군-1",
         "name": "더불어민주당 후보",
-        "party": "더불어민주당",
+        "party": "민주당",
         "slogan": "민생 중심, 새로운 변화",
         "photo": null,
         "region": "합천군",

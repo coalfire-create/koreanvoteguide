@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { SplashScreen } from "@capacitor/splash-screen";
 
 // Google Analytics (GA4) 동적 연동
 // gtag 초기화는 인라인 <script> 주입 대신 번들 모듈('self') 안에서 직접 실행한다.
@@ -23,3 +24,4 @@ if (gaId) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+SplashScreen.hide();

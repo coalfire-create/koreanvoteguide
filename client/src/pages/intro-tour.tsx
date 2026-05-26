@@ -1,10 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
+import { getDaysUntilElection } from "@/lib/election-config";
 
 // ─── Illustration: Welcome ───────────────────────────────────────────────────
 function WelcomeIllus() {
+  const [dDay, setDDay] = useState(getDaysUntilElection);
+
+  useEffect(() => {
+    const id = setInterval(() => setDDay(getDaysUntilElection()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const features = [
     { icon: "🗺️", label: "후보자 비교" },
     { icon: "📊", label: "표결 추적"  },
@@ -30,8 +38,8 @@ function WelcomeIllus() {
             transition={{ duration: 2, delay: n * 0.5, repeat: Infinity, ease: "easeOut" }}
           />
         ))}
-        <div className="w-28 h-28 rounded-[32px] bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/30">
-          <span className="text-white font-black text-4xl tracking-tight">이유</span>
+        <div className="w-28 h-28 rounded-[32px] overflow-hidden shadow-2xl border border-white/30">
+          <img src="/app-icon.png" alt="이유" className="w-full h-full object-cover" />
         </div>
       </motion.div>
 
@@ -43,7 +51,7 @@ function WelcomeIllus() {
         className="flex items-center gap-2 bg-white/15 backdrop-blur-sm text-white text-[13px] font-bold px-4 py-2 rounded-full border border-white/20"
       >
         <span className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
-        2026 지방선거 D-15
+        2026 지방선거 D-{dDay}
       </motion.div>
 
       {/* Feature chips row */}
@@ -73,7 +81,7 @@ function WelcomeIllus() {
 // ─── Illustration: Candidates ─────────────────────────────────────────────────
 function CandidateIllus() {
   const items = [
-    { initials: "김", name: "김민준", party: "더불어민주당", color: "#3A6BFF", pct: 38 },
+    { initials: "김", name: "김민준", party: "민주당", color: "#3A6BFF", pct: 38 },
     { initials: "이", name: "이수현", party: "국민의힘",     color: "#FF3B3B", pct: 34 },
     { initials: "박", name: "박지우", party: "개혁신당",     color: "#f97316", pct: 18 },
   ];
@@ -130,7 +138,7 @@ function CandidateIllus() {
 
 // ─── Illustration: Vote record ────────────────────────────────────────────────
 function VoteIllus() {
-  const member = { name: "홍길동", party: "더불어민주당", pColor: "#3A6BFF" };
+  const member = { name: "홍길동", party: "민주당", pColor: "#3A6BFF" };
   const bills = [
     { name: "민생회복지원금법",  vote: "찬성", yes: true  },
     { name: "반도체클러스터특별법", vote: "반대", yes: false },
@@ -511,9 +519,9 @@ export default function IntroTour() {
 
       {/* ── Bottom sheet ── */}
       <div className="relative z-10 w-full bg-white rounded-t-[32px] shadow-[0_-8px_48px_rgba(0,0,0,0.18)]">
-        <div className="w-full max-w-[480px] mx-auto px-6 pt-5 pb-10">
+        <div className="w-full max-w-[480px] mx-auto px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px)+0.75rem)]">
           {/* Drag handle */}
-          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
 
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -527,7 +535,7 @@ export default function IntroTour() {
             >
               {/* Tag */}
               <div
-                className="inline-flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-3 border"
+                className="inline-flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-2 border"
                 style={{ color: slide.accent === "#fde68a" ? "#b45309" : slide.accent.replace("fd", "8"), background: slide.accent + "18", borderColor: slide.accent + "33" }}
               >
                 <span
@@ -538,12 +546,12 @@ export default function IntroTour() {
               </div>
 
               {/* Headline */}
-              <h2 className="text-[36px] font-black text-gray-900 leading-[1.1] tracking-tight mb-3 whitespace-pre-line">
+              <h2 className="text-[28px] font-black text-gray-900 leading-[1.15] tracking-tight mb-2 whitespace-pre-line">
                 {slide.title}
               </h2>
 
               {/* Description */}
-              <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
+              <p className="text-[13px] text-gray-500 leading-relaxed mb-4">
                 {slide.desc}
               </p>
             </motion.div>

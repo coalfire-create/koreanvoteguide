@@ -90,7 +90,7 @@ export default function AssemblyElection() {
     const pick = (p: string) => sorted.find((c) => c.party?.includes(p));
     const used = new Set<string>();
     const v: AssemblyCandidate[] = [];
-    for (const p of ["더불어민주당", "국민의힘"]) { const c = pick(p); if (c) { v.push(c); used.add(c.id); } }
+    for (const p of ["민주당", "국민의힘"]) { const c = pick(p); if (c) { v.push(c); used.add(c.id); } }
     for (const c of sorted) { if (v.length >= 2) break; if (!used.has(c.id)) { v.push(c); used.add(c.id); } }
     return { vs: v, minor: sorted.filter((c) => !used.has(c.id)) };
   }, [active]);

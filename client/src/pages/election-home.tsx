@@ -247,7 +247,7 @@ function normalizePledges(raw: any[]): { id: string; title: string; description:
 // PLEDGE_TOPIC_LABELS 제거됨 — 실 공약 데이터 기반 렌더링으로 전환
 
 const getPartyColor = (party: string) => {
-  if (party?.includes("더불어민주당")) return "bg-[#3A6BFF]";
+  if (party?.includes("민주당")) return "bg-[#3A6BFF]";
   if (party?.includes("국민의힘")) return "bg-[#FF3B3B]";
   if (party?.includes("조국혁신당")) return "bg-blue-800";
   if (party?.includes("개혁신당")) return "bg-[#FF8C00]";
@@ -405,7 +405,7 @@ function RegionView({
   // VS / minor 분할 — useMemo로 묶어 region 변경 시 즉시 빈 배열 리턴, 렌더 블로킹 없음.
   const { vsCandidates, minorCandidates } = useMemo(() => {
     const pickByParty = (party: string) => displayCandidates.find((c) => c.party?.includes(party));
-    const dem = pickByParty("더불어민주당");
+    const dem = pickByParty("민주당");
     const ppp = pickByParty("국민의힘");
     const used = new Set<string>();
     const vs: any[] = [];
@@ -924,7 +924,7 @@ function RegionView({
                           ? `팔로워 ${m.followerCount}명`
                           : "주목 의원";
                       const partyColor =
-                        m.party === "더불어민주당" ? "#3A6BFF"
+                        m.party === "민주당" ? "#3A6BFF"
                         : m.party === "국민의힘" ? "#FF3B3B"
                         : m.party === "조국혁신당" ? "#1e3a8a"
                         : m.party === "개혁신당" ? "#f97316"

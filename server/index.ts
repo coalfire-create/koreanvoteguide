@@ -35,6 +35,7 @@ app.use(
   helmet({
     contentSecurityPolicy: isProduction
       ? {
+          useDefaults: false,
           directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
@@ -64,7 +65,6 @@ app.use(
             frameAncestors: ["'none'"],
             baseUri: ["'self'"],
             formAction: ["'self'"],
-            upgradeInsecureRequests: [],
           },
         }
       : false,

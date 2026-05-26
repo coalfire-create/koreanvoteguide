@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PARTY_COLOR: Record<string, string> = {
-  "더불어민주당": "#3A6BFF",
+  "민주당": "#3A6BFF",
   "국민의힘": "#FF3B3B",
   "조국혁신당": "#1e3a8a",
   "개혁신당": "#f97316",
@@ -26,7 +26,7 @@ function getPartyText(party: string) {
 
 function abbrevParty(party: string): string {
   const MAP: Record<string, string> = {
-    "더불어민주당": "민주당",
+    "민주당": "민주당",
     "국민의힘": "국민의힘",
     "조국혁신당": "조국혁신당",
     "개혁신당": "개혁신당",

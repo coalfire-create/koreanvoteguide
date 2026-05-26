@@ -27,7 +27,7 @@ export function timeAgo(dateStr: string): string {
 
 /** 정당명 → 차트/SVG 용 hex 색상 */
 export function getPartyHex(party: string): string {
-  if (party?.includes("더불어민주당")) return "#3A6BFF";
+  if (party?.includes("민주당")) return "#3A6BFF";
   if (party?.includes("국민의힘")) return "#FF3B3B";
   if (party?.includes("조국혁신당")) return "#1e3a8a";
   if (party?.includes("개혁신당")) return "#FF8C00";
@@ -38,7 +38,7 @@ export function getPartyHex(party: string): string {
 /** 정당명 → Tailwind 텍스트+배경 클래스 (인라인 배지용) */
 export function getPartyTextBg(party: string | null | undefined): string {
   if (!party) return "text-gray-500 bg-gray-50";
-  if (party.includes("더불어민주당")) return "text-[#3A6BFF] bg-blue-50";
+  if (party.includes("민주당")) return "text-[#3A6BFF] bg-blue-50";
   if (party.includes("국민의힘")) return "text-[#FF3B3B] bg-red-50";
   if (party.includes("조국혁신당")) return "text-blue-800 bg-blue-50";
   if (party.includes("개혁신당")) return "text-[#FF8C00] bg-orange-50";

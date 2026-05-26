@@ -54,7 +54,7 @@ interface NewsItem {
 // ─── 당색 ──────────────────────────────────────────────────────────────────
 function partyChip(party: string | null | undefined): string {
   const p = party ?? "";
-  if (p.includes("더불어민주당")) return "bg-blue-50 text-blue-600 border-blue-100";
+  if (p.includes("민주당")) return "bg-blue-50 text-blue-600 border-blue-100";
   if (p.includes("국민의힘")) return "bg-red-50 text-red-600 border-red-100";
   if (p.includes("조국혁신당")) return "bg-indigo-50 text-indigo-700 border-indigo-100";
   if (p.includes("개혁신당")) return "bg-orange-50 text-orange-600 border-orange-100";

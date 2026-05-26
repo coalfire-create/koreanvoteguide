@@ -4,7 +4,7 @@ export const assemblyMembers: AssemblyMember[] = [
   {
     id: "m1",
     name: "김정호",
-    party: "더불어민주당",
+    party: "민주당",
     district: "서울 강남구 갑",
     photo: "",
     electedYear: 2020,
@@ -58,7 +58,7 @@ export const assemblyMembers: AssemblyMember[] = [
   {
     id: "m3",
     name: "이민재",
-    party: "더불어민주당",
+    party: "민주당",
     district: "경기 수원시 정",
     photo: "",
     electedYear: 2024,
@@ -141,7 +141,7 @@ export const assemblyMembers: AssemblyMember[] = [
   {
     id: "m6",
     name: "정서윤",
-    party: "더불어민주당",
+    party: "민주당",
     district: "광주 북구 갑",
     photo: "",
     electedYear: 2020,
@@ -171,7 +171,7 @@ export const candidates: Candidate[] = [
   {
     id: "c1",
     name: "이재명",
-    party: "더불어민주당",
+    party: "민주당",
     photo: "",
     electionType: "presidential",
     background: "前 경기도지사, 제20대 대통령선거 후보. 성남시장 재직 시 청년배당, 무상교복 등 보편적 복지 정책을 추진하며 전국적 주목을 받음. 경기도지사로서 기본소득 정책의 전국 확대를 주도.",
@@ -257,12 +257,12 @@ export const bills: Bill[] = [
     proposer: "김정호",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "반대" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "반대" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -273,12 +273,12 @@ export const bills: Bill[] = [
     proposer: "이민재",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "반대" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "불출석" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -289,12 +289,12 @@ export const bills: Bill[] = [
     proposer: "박수연",
     status: "계류",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "반대" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "반대" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "찬성" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "반대" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "반대" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "찬성" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "반대" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "반대" },
     ],
   },
   {
@@ -305,12 +305,12 @@ export const bills: Bill[] = [
     proposer: "정서윤",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "반대" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "미참석" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -321,12 +321,12 @@ export const bills: Bill[] = [
     proposer: "이민재",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "찬성" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "찬성" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "불출석" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "불출석" },
     ],
   },
   {
@@ -337,12 +337,12 @@ export const bills: Bill[] = [
     proposer: "정서윤",
     status: "계류",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "불출석" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "불출석" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "찬성" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "반대" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -353,12 +353,12 @@ export const bills: Bill[] = [
     proposer: "한도영",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "반대" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "불출석" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "불출석" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "미참석" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -369,12 +369,12 @@ export const bills: Bill[] = [
     proposer: "김정호",
     status: "폐기",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "반대" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "반대" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "찬성" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "반대" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "반대" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "찬성" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "반대" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "반대" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "반대" },
     ],
   },
   {
@@ -385,12 +385,12 @@ export const bills: Bill[] = [
     proposer: "이민재",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "불출석" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "찬성" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -401,12 +401,12 @@ export const bills: Bill[] = [
     proposer: "박수연",
     status: "계류",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "찬성" },
       { memberId: "m2", memberName: "박수연", party: "국민의힘", vote: "찬성" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m4", memberName: "최은비", party: "국민의힘", vote: "불출석" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -417,10 +417,10 @@ export const bills: Bill[] = [
     proposer: "한도영",
     status: "통과",
     votes: [
-      { memberId: "m1", memberName: "김정호", party: "더불어민주당", vote: "미참석" },
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m1", memberName: "김정호", party: "민주당", vote: "미참석" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
       { memberId: "m5", memberName: "한도영", party: "조국혁신당", vote: "찬성" },
-      { memberId: "m6", memberName: "정서윤", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m6", memberName: "정서윤", party: "민주당", vote: "찬성" },
     ],
   },
   {
@@ -431,14 +431,14 @@ export const bills: Bill[] = [
     proposer: "이민재",
     status: "통과",
     votes: [
-      { memberId: "m3", memberName: "이민재", party: "더불어민주당", vote: "찬성" },
+      { memberId: "m3", memberName: "이민재", party: "민주당", vote: "찬성" },
     ],
   },
 ];
 
 export function getPartyColor(party: string): string {
   switch (party) {
-    case "더불어민주당": return "bg-blue-500 dark:bg-blue-600";
+    case "민주당": return "bg-blue-500 dark:bg-blue-600";
     case "국민의힘": return "bg-red-500 dark:bg-red-600";
     case "조국혁신당": return "bg-indigo-500 dark:bg-indigo-600";
     case "개혁신당": return "bg-orange-500 dark:bg-orange-600";
@@ -449,7 +449,7 @@ export function getPartyColor(party: string): string {
 }
 
 export const PARTY_RANK: Record<string, number> = {
-  "더불어민주당": 1,
+  "민주당": 1,
   "국민의힘": 2,
   "조국혁신당": 3,
   "개혁신당": 4,
@@ -470,7 +470,7 @@ export function getPartyRank(partyName: string): number {
 
 export function getPartyTextColor(party: string): string {
   switch (party) {
-    case "더불어민주당": return "text-blue-600 dark:text-blue-400";
+    case "민주당": return "text-blue-600 dark:text-blue-400";
     case "국민의힘": return "text-red-600 dark:text-red-400";
     case "조국혁신당": return "text-indigo-600 dark:text-indigo-400";
     case "개혁신당": return "text-orange-600 dark:text-orange-400";

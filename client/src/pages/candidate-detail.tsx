@@ -77,7 +77,7 @@ function formatTime(pubDate: string): string {
 
 // ─── 당색 텍스트 변환 ─────────────────────────────────────────────────────────
 function partyTextColor(party: string): string {
-  if (party.includes("더불어민주당")) return "text-blue-600";
+  if (party.includes("민주당")) return "text-blue-600";
   if (party.includes("국민의힘")) return "text-red-500";
   if (party.includes("조국혁신당")) return "text-blue-800";
   if (party.includes("개혁신당")) return "text-orange-500";

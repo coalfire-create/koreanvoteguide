@@ -602,15 +602,14 @@ declare module "express-session" {
     // req.sessionID 는 매 요청 바뀌므로, 익명 좋아요/댓글 중복방지·작성자판별·
     // 닉네임 고정을 위해 첫 익명 액션 시 1회 생성해 세션에 저장(쿠키 고정).
     anonId?: string;
-    // Kakao OAuth CSRF 방지용 state 토큰. authorize 단계에서 set, callback에서 검증·삭제.
     kakaoOAuthState?: string;
-    // Naver OAuth CSRF 방지용 state 토큰.
     naverOAuthState?: string;
-    // Google OAuth CSRF 방지용 state 토큰.
     googleOAuthState?: string;
-    // Apple OAuth CSRF 방지용 state 토큰.
     appleOAuthState?: string;
-    // 로그인 성공 후 돌아갈 경로 (소셜 로그인 공통).
+    // 동적 redirect URI — authorize 단계에서 저장, callback에서 토큰 교환 시 재사용
+    kakaoRedirectUri?: string;
+    googleRedirectUri?: string;
+    appleRedirectUri?: string;
     oauthNext?: string;
   }
 }
@@ -1296,16 +1295,24 @@ export async function registerRoutes(
     res.redirect(url.pathname + url.search);
   }
 
+  // 요청 host에서 동적 redirect URI를 계산 — 로컬 개발과 프로덕션 모두 동작
+  function buildDynamicRedirectUri(req: Request, path: string): string {
+    const proto = (req.get("x-forwarded-proto") as string) || (req.socket && (req.socket as any).encrypted ? "https" : "http");
+    const host = req.get("host") || "localhost:3000";
+    return `${proto}://${host}${path}`;
+  }
+
   app.get("/api/auth/kakao", authLimiter, (req, res) => {
     const config = loadKakaoConfig();
     if (!config) {
       return res.status(503).json({
-        error: "Kakao 로그인이 설정되지 않았습니다. (KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI 환경변수 필요)",
+        error: "Kakao 로그인이 설정되지 않았습니다. (KAKAO_REST_API_KEY 환경변수 필요)",
       });
     }
-    // CSRF — 랜덤 state를 세션에 저장하고 callback에서 일치 확인
+    config.redirectUri = buildDynamicRedirectUri(req, "/api/auth/kakao/callback");
     const state = randomBytes(16).toString("hex");
     req.session.kakaoOAuthState = state;
+    req.session.kakaoRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
     const url = buildAuthorizeUrl(config, state);
     req.session.save((err) => {
@@ -1335,14 +1342,16 @@ export async function registerRoutes(
     }
     const expectedState = req.session.kakaoOAuthState;
     if (!expectedState || expectedState !== state) {
-      // CSRF 의심 또는 세션 만료
       return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
     }
-    // state는 1회용
     req.session.kakaoOAuthState = undefined;
+    // 토큰 교환 시 authorize와 동일한 redirect URI 필요
+    if (req.session.kakaoRedirectUri) {
+      config.redirectUri = req.session.kakaoRedirectUri;
+      req.session.kakaoRedirectUri = undefined;
+    }
 
     try {
-      // 1) code → access_token
       const tokenRes = await exchangeCodeForToken(config, code);
       // 2) /v2/user/me
       const profile = await fetchKakaoProfile(tokenRes.access_token);
@@ -1429,11 +1438,13 @@ export async function registerRoutes(
     const config = loadGoogleConfig();
     if (!config) {
       return res.status(503).json({
-        error: "Google 로그인이 설정되지 않았습니다. (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 환경변수 필요)",
+        error: "Google 로그인이 설정되지 않았습니다. (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET 환경변수 필요)",
       });
     }
+    config.redirectUri = buildDynamicRedirectUri(req, "/api/auth/google/callback");
     const state = randomBytes(16).toString("hex");
     req.session.googleOAuthState = state;
+    req.session.googleRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
     req.session.save((err) => {
       if (err) {
@@ -1463,6 +1474,10 @@ export async function registerRoutes(
       return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
     }
     req.session.googleOAuthState = undefined;
+    if (req.session.googleRedirectUri) {
+      config.redirectUri = req.session.googleRedirectUri;
+      req.session.googleRedirectUri = undefined;
+    }
 
     try {
       const tokenRes = await exchangeGoogleCodeForToken(config, code);
@@ -1536,11 +1551,13 @@ export async function registerRoutes(
     const config = loadAppleConfig();
     if (!config) {
       return res.status(503).json({
-        error: "Apple 로그인이 설정되지 않았습니다. (APPLE_SERVICE_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, APPLE_REDIRECT_URI 환경변수 필요)",
+        error: "Apple 로그인이 설정되지 않았습니다. (APPLE_SERVICE_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY 환경변수 필요)",
       });
     }
+    config.redirectUri = buildDynamicRedirectUri(req, "/api/auth/apple/callback");
     const state = randomBytes(16).toString("hex");
     req.session.appleOAuthState = state;
+    req.session.appleRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
     req.session.save((err) => {
       if (err) {
@@ -1573,6 +1590,10 @@ export async function registerRoutes(
         return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
       }
       req.session.appleOAuthState = undefined;
+      if (req.session.appleRedirectUri) {
+        config.redirectUri = req.session.appleRedirectUri;
+        req.session.appleRedirectUri = undefined;
+      }
 
       try {
         const tokenRes = await exchangeAppleCodeForToken(config, code);
@@ -6009,7 +6030,7 @@ export async function registerRoutes(
         raw && /^https?:\/\/info\.nec\.go\.kr\//.test(raw)
           ? `/api/photo/nec?url=${encodeURIComponent(raw)}`
           : raw || null;
-      const PARTY_ORDER = ["더불어민주당", "국민의힘", "조국혁신당", "개혁신당", "진보당"];
+      const PARTY_ORDER = ["민주당", "국민의힘", "조국혁신당", "개혁신당", "진보당"];
       const partyRank = (p: string) => {
         const i = PARTY_ORDER.findIndex((x) => (p || "").includes(x));
         return i < 0 ? 99 : i;

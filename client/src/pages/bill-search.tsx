@@ -564,7 +564,7 @@ export default function BillSearch() {
                         </div>
                         <p className="text-[11px] font-semibold text-foreground text-center truncate w-full">{member.name}</p>
                         <p className="text-[10px] text-muted-foreground text-center truncate w-full -mt-0.5">
-                          {(member.party || "").replace("더불어민주당", "민주").replace("국민의힘", "국힘")}
+                          {(member.party || "").replace("민주당", "민주").replace("국민의힘", "국힘")}
                         </p>
                       </Link>
                     ))

@@ -9,7 +9,7 @@ import { ThemeProvider } from "next-themes";
 import { BottomNav } from "@/components/bottom-nav";
 import { SideNav } from "@/components/side-nav";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -153,7 +153,7 @@ function MainApp() {
         <div className="flex-1 w-full relative z-0">
           <Router />
         </div>
-        <BottomNav />
+        {!hideHeaderNav && <BottomNav />}
       </main>
       <Toaster />
       <LoginSuccessToast />

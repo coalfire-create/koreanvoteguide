@@ -60,7 +60,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-seoul-2",
         name: "정원오",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "생활밀착형 스마트 행정",
         photo: null,
         region: "서울특별시",
@@ -102,7 +102,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-busan-2",
         name: "전재수",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "시민이 행복한 부산",
         photo: null,
         region: "부산광역시",
@@ -143,7 +143,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-daegu-2",
         name: "김부겸",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "대구의 새로운 도약, 화합의 리더십",
         photo: null,
         region: "대구광역시",
@@ -185,7 +185,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-incheon-2",
         name: "박찬대",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "인천의 확실한 변화",
         photo: null,
         region: "인천광역시",
@@ -210,7 +210,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gwangju-1",
         name: "강기정",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "AI 중심도시 광주",
         photo: null,
         region: "광주광역시",
@@ -269,7 +269,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-daejeon-2",
         name: "허태정",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "다시 뛰는 대전",
         photo: null,
         region: "대전광역시",
@@ -311,7 +311,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-ulsan-2",
         name: "김상욱",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "젊고 활기찬 노동존중 울산",
         photo: null,
         region: "울산광역시",
@@ -353,7 +353,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-sejong-2",
         name: "이춘희",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "세종의 자치를 높이다",
         photo: null,
         region: "세종특별자치시",
@@ -378,7 +378,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gyeonggi-1",
         name: "추미애",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "뚝심 있는 경기도의 변화",
         photo: null,
         region: "경기도",
@@ -436,7 +436,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-chungbuk-2",
         name: "노영민",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "도민과 함께하는 충북",
         photo: null,
         region: "충청북도",
@@ -478,7 +478,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-chungnam-2",
         name: "박수현",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "도민과 소통하는 충남",
         photo: null,
         region: "충청남도",
@@ -503,7 +503,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-jeonbuk-1",
         name: "김관영",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "전북의 르네상스",
         photo: null,
         region: "전라북도",
@@ -545,7 +545,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-jeonnam-1",
         name: "김영록",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "전남의 내일, 희망의 빛",
         photo: null,
         region: "전라남도",
@@ -604,7 +604,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gyeongbuk-2",
         name: "오중기",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "새로운 경북",
         photo: null,
         region: "경상북도",
@@ -646,7 +646,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gyeongnam-2",
         name: "김경수",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "완전히 새로운 경남, 다시 시작",
         photo: null,
         region: "경상남도",
@@ -671,7 +671,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-jeju-1",
         name: "오영훈",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "제주의 새로운 미래",
         photo: null,
         region: "제주특별자치도",
@@ -730,7 +730,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gangwon-2",
         name: "우상호",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "강원특별자치도의 든든한 힘",
         photo: null,
         region: "강원특별자치도",
@@ -789,7 +789,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-yeongcheon-3",
         name: "이정훈",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "시민 중심의 따뜻한 행정",
         photo: null,
         region: "영천시",
@@ -831,7 +831,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-seongnam-2",
         name: "김병욱",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "실력 있는 경제 시장",
         photo: null,
         region: "성남시",
@@ -856,7 +856,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-suwon-1",
         name: "이재준",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "수원의 미래를 설계하다",
         photo: null,
         region: "수원시",
@@ -915,7 +915,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-yongin-2",
         name: "이언주",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "정의로운 변화, 똑똑한 용인",
         photo: null,
         region: "용인시",
@@ -957,7 +957,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-changwon-2",
         name: "허성무",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "다시 뛰는 경제 창원",
         photo: null,
         region: "창원시",
@@ -999,7 +999,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-haeundae-2",
         name: "홍순헌",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "다시 일하고 싶은 구청장",
         photo: null,
         region: "부산 해운대구",
@@ -1041,7 +1041,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-suseong-2",
         name: "조용성",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "민생을 돌보는 수성",
         photo: null,
         region: "대구 수성구",
@@ -1083,7 +1083,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-namdong-2",
         name: "이병래",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "남동의 실속있는 변화",
         photo: null,
         region: "인천 남동구",
@@ -1125,7 +1125,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-daejeonseo-2",
         name: "장종태",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "서구의 가치를 높이다",
         photo: null,
         region: "대전 서구",
@@ -1167,7 +1167,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-gangnam-2",
         name: "김한나",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "포용과 혁신의 강남",
         photo: null,
         region: "서울 강남구",
@@ -1209,7 +1209,7 @@ export const MAYOR_RACES: MayorRace[] = ([
       {
         id: "mayor-songpa-2",
         name: "박성수",
-        party: "더불어민주당",
+        party: "민주당",
         slogan: "행복 도시 송파의 완성",
         photo: null,
         region: "서울 송파구",
