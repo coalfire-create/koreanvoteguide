@@ -19,6 +19,9 @@ interface AuthUser {
   favorites: string[];
   favoriteRegions: { code: string; name: string }[];
   isAdmin?: boolean;
+  exp?: number | null;
+  attendanceStreak?: number | null;
+  lastAttendanceDate?: string | null;
 }
 
 interface RegisterPayload {

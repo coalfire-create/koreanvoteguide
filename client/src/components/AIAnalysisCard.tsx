@@ -115,7 +115,7 @@ export default function AIAnalysisCard({
   // ── 초기 상태: 분석 시작 버튼 ──
   if (!data && !mutation.isPending && !mutation.isError) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-3xl glass-card p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-full bg-purple-50 p-2">
             <Sparkles className="w-5 h-5 text-purple-600" />
@@ -188,7 +188,7 @@ export default function AIAnalysisCard({
         className="space-y-4"
       >
         {/* 헤더 + 요약 */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-3xl glass-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-purple-600" />
             <h3 className="text-[14px] font-semibold text-gray-900">
@@ -206,7 +206,7 @@ export default function AIAnalysisCard({
         </div>
 
         {/* 평가 축 */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+        <div className="rounded-3xl glass-card p-5 space-y-4">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-600" />
             <h4 className="text-[13px] font-semibold text-gray-900">정치 성향</h4>
@@ -229,7 +229,7 @@ export default function AIAnalysisCard({
 
         {/* 관심 분야 */}
         {data.topInterests.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl glass-card p-5">
             <h4 className="text-[13px] font-semibold text-gray-900 mb-3">
               관심 분야 TOP {data.topInterests.length}
             </h4>

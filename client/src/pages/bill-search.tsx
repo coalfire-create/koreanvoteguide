@@ -11,18 +11,15 @@ import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
 import { useAuth } from "@/lib/auth";
 
 const SOURCE_COLORS: Record<string, string> = {
-  yna:      "bg-red-50 text-red-600 border-red-100",
-  kbs:      "bg-blue-50 text-blue-600 border-blue-100",
-  mbc:      "bg-purple-50 text-purple-600 border-purple-100",
-  sbs:      "bg-pink-50 text-pink-600 border-pink-100",
-  jtbc:     "bg-orange-50 text-orange-600 border-orange-100",
-  ytn:      "bg-sky-50 text-sky-600 border-sky-100",
-  hani:     "bg-green-50 text-green-600 border-green-100",
-  khan:     "bg-teal-50 text-teal-600 border-teal-100",
-  chosun:   "bg-slate-50 text-slate-600 border-slate-100",
-  joongang: "bg-amber-50 text-amber-600 border-amber-100",
-  donga:    "bg-indigo-50 text-indigo-600 border-indigo-100",
-  news1:    "bg-rose-50 text-rose-600 border-rose-100",
+  yna:        "bg-red-50 text-red-600 border-red-100",
+  sbs:        "bg-pink-50 text-pink-600 border-pink-100",
+  hani:       "bg-green-50 text-green-600 border-green-100",
+  khan:       "bg-teal-50 text-teal-600 border-teal-100",
+  chosun:     "bg-slate-50 text-slate-600 border-slate-100",
+  donga:      "bg-indigo-50 text-indigo-600 border-indigo-100",
+  newsis:     "bg-sky-50 text-sky-600 border-sky-100",
+  ohmynews:   "bg-orange-50 text-orange-600 border-orange-100",
+  mediatoday: "bg-purple-50 text-purple-600 border-purple-100",
 };
 
 function newsTimeAgo(pubDate: string) {
@@ -450,25 +447,46 @@ export default function BillSearch() {
                       idx === 1 ? "text-foreground/70 font-black" :
                       idx === 2 ? "text-foreground/50 font-bold" :
                       "text-muted-foreground/40 font-semibold";
+                    const matchedNews: any[] = bill.matchedNews ?? [];
                     return (
                       <div key={bill.billId}>
                         <div
                           onClick={() => navigate(`/bills/${bill.billId}/vote`)}
-                          className="px-4 py-3 flex items-center gap-3 cursor-pointer active:opacity-70"
+                          className="px-4 pt-3 pb-2 flex items-start gap-3 cursor-pointer active:opacity-70"
                         >
-                          <span className={`text-[13px] font-black w-4 text-center shrink-0 ${rankColor}`}>{idx + 1}</span>
+                          <span className={`text-[13px] font-black w-4 text-center shrink-0 mt-0.5 ${rankColor}`}>{idx + 1}</span>
                           <span className="text-lg w-8 text-center shrink-0">{getBillEmoji(bill.billName, bill.committee)}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.billName}</p>
                             <p className="text-[11px] mt-0.5">
                               <span className={`font-bold ${sc}`}>{sl}</span>
                               {bill.committee && <span className="text-muted-foreground"> · {bill.committee}</span>}
-                              {(bill.newsMentionCount ?? bill.mediaMentionCount ?? 0) > 0 && (
-                                <span className="text-muted-foreground"> · 뉴스 {bill.newsMentionCount ?? bill.mediaMentionCount}건</span>
-                              )}
                             </p>
+                            {/* 관련 뉴스 인라인 */}
+                            {matchedNews.length > 0 && (
+                              <div className="mt-2 flex flex-col gap-1.5">
+                                {matchedNews.map((n: any) => (
+                                  <a
+                                    key={n.link}
+                                    href={n.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1.5 group"
+                                  >
+                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black border shrink-0 ${SOURCE_COLORS[n.sourceCode] ?? "bg-gray-50 text-gray-500 border-gray-100"}`}>
+                                      {n.source}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground line-clamp-1 flex-1 group-hover:text-foreground transition-colors">
+                                      {n.title}
+                                    </span>
+                                    <ExternalLink className="w-3 h-3 text-muted-foreground/30 shrink-0" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5" />
                         </div>
                         {idx < hotSlice.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[72px]" />}
                       </div>

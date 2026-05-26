@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   // 로컬 테스트용 IP 주소로 임시 변경 (테스트 후 원상복구 필요)
   server: {
-    url: 'http://192.168.63.194:3000',
+    url: 'http://localhost:3000',
     cleartext: true,
   },
   ios: {

@@ -21,7 +21,7 @@ import {
   CandidateNotFoundError,
   InsufficientDataError,
 } from "./candidate-report";
-import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments, announcements, insertAnnouncementSchema } from "@shared/schema";
+import { legislators, assemblyBills, assemblyVotes, electionCandidates, candidateStatements, statementFactChecks, candidateSupportVotes, reactions, pollComments, billOpinionVotes, searchHistory, communityPosts, communityComments, users, userFollows, electionSchedules, insertElectionScheduleSchema, pledgeRatings, pledgeComments, announcements, insertAnnouncementSchema, dailyPolls, dailyPollVotes } from "@shared/schema";
 import { scrapeNewsArticle, analyzeNewsWithAI } from "./api/news-analyzer";
 import { crawlNesdcPolls, getLatestPolls } from "./nesdc-crawler";
 import { getTrendingMembersWithCache, clearTrendingMembersCache } from "./trending-members-crawler";
@@ -285,33 +285,35 @@ interface NewsGroup {
 
 // 방송사별 색상 및 코드
 const SOURCE_META: Record<string, { label: string; code: string; color: string }> = {
-  "연합뉴스":  { label: "연합",  code: "yna",    color: "bg-red-100 text-red-700 border-red-200" },
-  "KBS":      { label: "KBS",   code: "kbs",    color: "bg-blue-100 text-blue-700 border-blue-200" },
-  "MBC":      { label: "MBC",   code: "mbc",    color: "bg-purple-100 text-purple-700 border-purple-200" },
-  "SBS":      { label: "SBS",   code: "sbs",    color: "bg-pink-100 text-pink-700 border-pink-200" },
-  "JTBC":     { label: "JTBC",  code: "jtbc",   color: "bg-orange-100 text-orange-700 border-orange-200" },
-  "YTN":      { label: "YTN",   code: "ytn",    color: "bg-sky-100 text-sky-700 border-sky-200" },
-  "한겨레":   { label: "한겨레", code: "hani",   color: "bg-green-100 text-green-700 border-green-200" },
-  "경향신문": { label: "경향",   code: "khan",   color: "bg-teal-100 text-teal-700 border-teal-200" },
-  "조선일보": { label: "조선",   code: "chosun", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  "중앙일보": { label: "중앙",   code: "joongang", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  "동아일보": { label: "동아",   code: "donga",  color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
-  "뉴스1":    { label: "뉴스1",  code: "news1",  color: "bg-rose-100 text-rose-700 border-rose-200" },
+  "연합뉴스":  { label: "연합",   code: "yna",       color: "bg-red-100 text-red-700 border-red-200" },
+  "SBS":      { label: "SBS",    code: "sbs",       color: "bg-pink-100 text-pink-700 border-pink-200" },
+  "한겨레":   { label: "한겨레",  code: "hani",      color: "bg-green-100 text-green-700 border-green-200" },
+  "경향신문": { label: "경향",    code: "khan",      color: "bg-teal-100 text-teal-700 border-teal-200" },
+  "조선일보": { label: "조선",    code: "chosun",    color: "bg-slate-100 text-slate-700 border-slate-200" },
+  "동아일보": { label: "동아",    code: "donga",     color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  "뉴시스":   { label: "뉴시스",  code: "newsis",    color: "bg-sky-100 text-sky-700 border-sky-200" },
+  "오마이뉴스": { label: "오마이", code: "ohmynews", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  "미디어오늘": { label: "미디어오늘", code: "mediatoday", color: "bg-purple-100 text-purple-700 border-purple-200" },
+};
+
+// User-Agent: 주요 언론사 차단 우회용 브라우저 헤더
+const RSS_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "application/rss+xml, application/xml, text/xml, */*",
+  "Accept-Language": "ko-KR,ko;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
 };
 
 const RSS_FEEDS = [
-  { url: "https://www.yna.co.kr/rss/politics.xml",                                                       source: "연합뉴스",  limit: 10 },
-  { url: "https://news.kbs.co.kr/rss/rss.do?cId=02",                                                     source: "KBS",      limit: 10 },
-  { url: "https://imnews.imbc.com/rss/politics.xml",                                                     source: "MBC",      limit: 10 },
-  { url: "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER",                   source: "SBS",      limit: 10 },
-  { url: "https://news.jtbc.co.kr/rss/politics.xml",                                                     source: "JTBC",     limit: 10 },
-  { url: "https://www.ytn.co.kr/_pn/0101_rss.xml",                                                       source: "YTN",      limit: 10 },
-  { url: "https://www.hani.co.kr/rss/politics/",                                                          source: "한겨레",   limit: 8  },
-  { url: "https://www.khan.co.kr/rss/rssdata/politic_news.xml",                                           source: "경향신문", limit: 8  },
-  { url: "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml",               source: "조선일보", limit: 8  },
-  { url: "https://rss.joins.com/joins_news_list.xml",                                                    source: "중앙일보", limit: 8  },
-  { url: "https://rss.donga.com/politics.xml",                                                           source: "동아일보", limit: 8  },
-  { url: "https://feeds.feedburner.com/news1Korea-politics",                                              source: "뉴스1",    limit: 8  },
+  { url: "https://www.yna.co.kr/rss/politics.xml",                                                source: "연합뉴스",   limit: 15 },
+  { url: "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER",            source: "SBS",       limit: 10 },
+  { url: "https://www.hani.co.kr/rss/politics",                                                   source: "한겨레",    limit: 10 },
+  { url: "https://www.khan.co.kr/rss/rssdata/politic_news.xml",                                   source: "경향신문",  limit: 10 },
+  { url: "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml",        source: "조선일보",  limit: 10 },
+  { url: "https://rss.donga.com/politics.xml",                                                    source: "동아일보",  limit: 10 },
+  { url: "https://www.newsis.com/RSS/politics.xml",                                               source: "뉴시스",    limit: 10 },
+  { url: "https://rss.ohmynews.com/rss/politics.xml",                                             source: "오마이뉴스", limit: 8 },
+  { url: "https://www.mediatoday.co.kr/rss/allArticle.xml",                                       source: "미디어오늘", limit: 8 },
 ];
 
 function extractText(val: any): string {
@@ -431,8 +433,10 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
     RSS_FEEDS.map(async (feed) => {
       try {
         const res = await axios.get(feed.url, {
-          timeout: 8000,
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)" },
+          timeout: 10000,
+          headers: RSS_HEADERS,
+          maxRedirects: 5,
+          decompress: true,
         });
         const parsed = parser.parse(res.data);
         const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
@@ -2505,7 +2509,39 @@ export async function registerRoutes(
         })
       );
 
-      res.json(rowsWithNames);
+      // ── 5. 법안명 키워드로 관련 뉴스 매칭 ──
+      const NEWS_STOPWORDS = new Set([
+        "관한", "법률", "법안", "개정", "일부", "전부", "제정", "특례", "위한",
+        "관련", "및", "등", "에", "의", "을", "를", "이", "가", "로", "으로",
+        "시행", "촉진", "지원", "육성", "강화", "보호", "설치", "운영", "확보",
+      ]);
+      function extractBillKeywords(name: string): string[] {
+        return (name ?? "")
+          .replace(/일부개정법률안|전부개정법률안|제정법률안|법률안|법안|개정안/g, "")
+          .replace(/에 관한.*$/g, "")
+          .split(/[\s·,]+/)
+          .map((w) => w.trim())
+          .filter((w) => w.length >= 2 && !NEWS_STOPWORDS.has(w));
+      }
+      const cachedNewsItems = newsCache?.items ?? [];
+      const withNews = rowsWithNames.map((bill: any) => {
+        if (!bill.billName || cachedNewsItems.length === 0) return { ...bill, matchedNews: [] };
+        const kws = extractBillKeywords(bill.billName);
+        if (kws.length === 0) return { ...bill, matchedNews: [] };
+        const matched = cachedNewsItems
+          .filter((n) => kws.some((kw) => n.title.includes(kw)))
+          .slice(0, 3)
+          .map((n) => ({
+            title: n.title,
+            link: n.link,
+            source: n.source,
+            sourceCode: n.sourceCode,
+            pubDate: n.pubDate,
+          }));
+        return { ...bill, matchedNews: matched };
+      });
+
+      res.json(withNews);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -6877,7 +6913,7 @@ export async function registerRoutes(
       const rawVotes = await db
         .select({
           optionId: dailyPollVotes.optionId,
-          count: sql<number>`count(*)::int`,
+          count: dsql<number>`count(*)::int`,
         })
         .from(dailyPollVotes)
         .where(eq(dailyPollVotes.pollId, poll.id))
@@ -6905,13 +6941,13 @@ export async function registerRoutes(
     
     try {
       await db.insert(dailyPollVotes).values({
-        pollId: req.params.id,
+        pollId: String(req.params.id),
         userId: sessionUser.id,
-        optionId,
+        optionId: String(optionId),
       });
       // 투표 참여 보상 지급 (예: 50 exp)
       await db.update(users)
-        .set({ exp: sql`exp + 50` })
+        .set({ exp: dsql`exp + 50` })
         .where(eq(users.id, sessionUser.id));
         
       return res.json({ success: true, reward: 50 });
@@ -6952,7 +6988,7 @@ export async function registerRoutes(
         .set({ 
           lastAttendanceDate: today,
           attendanceStreak: newStreak,
-          exp: sql`exp + ${rewardExp}`
+          exp: dsql`exp + ${rewardExp}`
         })
         .where(eq(users.id, sessionUser.id));
         

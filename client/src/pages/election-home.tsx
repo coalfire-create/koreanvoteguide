@@ -276,12 +276,53 @@ function TopHeader({
 
   return (
     <div>
-      <header className="w-full bg-white/90 dark:bg-black/80 backdrop-blur-2xl sticky top-0 z-50 pt-[env(safe-area-inset-top)]">
-      <div className="h-[52px] flex items-center justify-between px-4">
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Region Tabs in Header — mobile only */}
-        <div className="flex md:hidden items-center overflow-x-auto scrollbar-hide flex-1 min-w-0 gap-0.5">
-          {allRegions.map((r, idx) => {
+      <header className="w-full bg-gradient-to-r from-indigo-600 via-primary to-purple-600 sticky top-0 z-50 pt-[env(safe-area-inset-top)] shadow-sm">
+        {/* 상단 로고/유저 영역 */}
+        <div className="h-[56px] flex items-center justify-between px-5 relative overflow-hidden">
+          {/* 장식용 글로우 */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+          <div className="absolute top-0 -left-10 w-24 h-24 bg-white/5 rounded-full blur-xl" />
+          
+          <div className="flex items-center gap-2 relative z-10">
+            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
+              <span className="text-white font-black text-sm tracking-tighter">이유</span>
+            </div>
+            <h1 className="text-white font-bold text-[18px] tracking-tight">지방선거 가이드</h1>
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0 relative z-10">
+            <button
+              onClick={() => setNotifOpen(true)}
+              className="text-white/90 relative active:opacity-70 p-1.5 bg-white/10 rounded-full backdrop-blur-md border border-white/10"
+            >
+              <Bell className="w-4 h-4" />
+              {hasUnread && (
+                <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-400 rounded-full border border-primary" />
+              )}
+            </button>
+            <div className="flex items-center gap-2">
+              {user ? (
+                <Link href="/more">
+                  <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-black text-sm active:opacity-70">
+                    {user.name.charAt(0)}
+                  </div>
+                </Link>
+              ) : (
+                <button
+                  className="text-white text-[13px] font-bold bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-md border border-white/20 active:bg-white/30 transition-colors"
+                  onClick={() => setLocation("/login")}
+                >
+                  로그인
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* 지역 탭 영역 */}
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-t-2xl shadow-[0_-4px_10px_rgba(0,0,0,0.02)] border-b border-border/50">
+          <div className="flex md:hidden items-center overflow-x-auto scrollbar-hide px-4 py-2 gap-1">
+            {allRegions.map((r, idx) => {
             const isActive = currentRegionCode === r.code;
             return (
               <button
@@ -300,42 +341,13 @@ function TopHeader({
               </button>
             );
           })}
-          <Link href="/city-select">
-            <button className="ml-2 shrink-0 active:opacity-60 text-[12px] font-semibold text-muted-foreground/40 whitespace-nowrap">
-              + 지역
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 shrink-0">
-        <button
-          onClick={() => setNotifOpen(true)}
-          className="text-muted-foreground relative active:opacity-70"
-        >
-          <Bell className="w-5 h-5" />
-          {hasUnread && (
-            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full" />
-          )}
-        </button>
-        <div className="flex items-center gap-2">
-          {user ? (
-            <Link href="/more">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-sm active:opacity-70">
-                {user.name.charAt(0)}
-              </div>
+            <Link href="/city-select">
+              <button className="ml-2 shrink-0 active:opacity-60 text-[12px] font-semibold text-muted-foreground/40 whitespace-nowrap bg-muted/50 px-2.5 py-1 rounded-full">
+                + 지역
+              </button>
             </Link>
-          ) : (
-            <button
-              className="text-primary font-bold text-sm active:opacity-70"
-              onClick={() => setLocation("/login")}
-            >
-              로그인
-            </button>
-          )}
+          </div>
         </div>
-      </div>
-      </div>
       </header>
 
       <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />

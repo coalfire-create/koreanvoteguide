@@ -124,8 +124,9 @@ export function DailyPollWidget() {
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
-          {poll.options.map((opt) => {
+          {(() => {
             const hasVoted = !!userVote;
+            return poll.options.map((opt) => {
             const isSelected = userVote === opt.id;
             const voteCount = results[opt.id] || 0;
             const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
@@ -171,10 +172,11 @@ export function DailyPollWidget() {
                 )}
               </button>
             );
-          })}
+          });
+          })()}
         </div>
-        
-        {hasVoted && (
+
+        {!!userVote && (
           <div className="text-right mt-1">
             <span className="text-[10px] text-slate-400">총 {totalVotes.toLocaleString()}명 참여</span>
           </div>

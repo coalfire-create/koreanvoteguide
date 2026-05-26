@@ -16,7 +16,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 dark:bg-black/80 backdrop-blur-2xl pb-[env(safe-area-inset-bottom)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-nav pb-[env(safe-area-inset-bottom)]"
       data-testid="nav-bottom"
     >
       <div className="flex items-center justify-around h-[64px] max-w-lg mx-auto px-2">
@@ -28,7 +28,7 @@ export function BottomNav() {
               key={item.url}
               href={item.url}
               data-testid={`link-nav-${item.url.replace("/", "") || "home"}`}
-              className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300 ${
+              className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300 active:scale-95 ${
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

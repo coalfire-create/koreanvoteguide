@@ -9,66 +9,66 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   
-  /* Lyu Unified System Light Colors */
-  --background: 240 100% 99%; /* #f9f9ff */
-  --foreground: 217 30% 12%; /* #151c27 */
+  /* Premium System Light Colors */
+  --background: 0 0% 98%; /* #fafafa */
+  --foreground: 220 20% 10%; /* #16181c */
   --card: 0 0% 100%;
-  --card-foreground: 217 30% 12%;
+  --card-foreground: 220 20% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 217 30% 12%;
+  --popover-foreground: 220 20% 10%;
   
-  --primary: 263 70% 50%; /* #6D28D9 */
+  --primary: 226 100% 55%; /* #1a56ff */
   --primary-foreground: 0 0% 100%; /* #ffffff */
   
-  --secondary: 27 96% 61%; /* #FB923C */
-  --secondary-foreground: 0 0% 100%; /* #ffffff */
+  --secondary: 220 14% 96%; /* #f1f3f5 */
+  --secondary-foreground: 220 20% 10%; /* #16181c */
   
-  --muted: 226 100% 95%; /* #e7eefe (surface-container) */
-  --muted-foreground: 261 11% 30%; /* #4a4455 (on-surface-variant) */
+  --muted: 220 14% 96%; 
+  --muted-foreground: 220 10% 45%; 
   
-  --accent: 25 97% 62%; /* #fd933d (secondary-container) */
-  --accent-foreground: 29 100% 21%; /* #693300 (on-secondary-container) */
+  --accent: 220 14% 96%; 
+  --accent-foreground: 220 20% 10%; 
   
-  --destructive: 0 75% 42%; /* #ba1a1a */
+  --destructive: 0 84% 60%; 
   --destructive-foreground: 0 0% 100%;
   
-  --border: 264 6% 50%; /* #7b7486 (outline) */
-  --input: 267 17% 80%; /* #ccc3d7 (outline-variant) */
-  --ring: 263 70% 50%;
+  --border: 220 13% 91%; /* #e2e4e8 */
+  --input: 220 13% 91%; 
+  --ring: 226 100% 55%;
   
-  /* Additional Lyu System Tokens */
-  --surface-tint: 263 76% 53%; /* #7331df */
-  --surface-dim: 222 36% 87%; /* #d3daea */
+  /* Additional System Tokens */
+  --surface-tint: 226 100% 55%; 
+  --surface-dim: 220 14% 92%; 
   
-  --sidebar: 240 100% 99%;
-  --sidebar-foreground: 217 30% 12%;
-  --sidebar-border: 264 6% 50%;
-  --sidebar-primary: 263 70% 50%;
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 220 20% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-primary: 226 100% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 226 100% 95%;
-  --sidebar-accent-foreground: 217 30% 12%;
-  --sidebar-ring: 263 70% 50%;
+  --sidebar-accent: 220 14% 96%;
+  --sidebar-accent-foreground: 220 20% 10%;
+  --sidebar-ring: 226 100% 55%;
 
-  --chart-1: 263 70% 50%; /* primary */
+  --chart-1: 226 100% 55%; /* primary */
   --chart-2: 27 96% 61%; /* accent/coral */
   --chart-3: 322 84% 27%; /* tertiary */
   --chart-4: 0 75% 42%; /* error */
   --chart-5: 226 100% 95%;
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
   --font-serif: 'Noto Serif KR', Georgia, serif;
   --font-mono: 'JetBrains Mono', Menlo, monospace;
   
-  --radius: 1rem; /* 16px radius for global system */
+  --radius: 1.25rem; /* 20px radius for premium soft corners */
   
-  --shadow-2xs: 0px 2px 0px 0px hsl(230 15% 15% / 0.02);
-  --shadow-xs: 0px 4px 6px -1px hsl(230 15% 15% / 0.04);
-  --shadow-sm: 0 2px 8px -2px hsl(230 15% 15% / 0.05), 0 1px 3px -1px hsl(230 15% 15% / 0.03);
-  --shadow: 0 4px 12px 0px hsl(0 0% 0% / 0.05); /* Soft, diffused shadow per design guidelines */
-  --shadow-md: 0 10px 20px -5px hsl(230 15% 15% / 0.1), 0 4px 8px -4px hsl(230 15% 15% / 0.1);
-  --shadow-lg: 0 20px 30px -8px hsl(230 15% 15% / 0.12), 0 8px 12px -6px hsl(230 15% 15% / 0.1);
-  --shadow-xl: 0 30px 40px -10px hsl(230 15% 15% / 0.15), 0 12px 16px -8px hsl(230 15% 15% / 0.1);
-  --shadow-2xl: 0px 40px 50px -12px hsl(230 15% 15% / 0.18);
+  --shadow-2xs: 0px 1px 2px 0px hsl(220 20% 10% / 0.03);
+  --shadow-xs: 0px 2px 4px 0px hsl(220 20% 10% / 0.04);
+  --shadow-sm: 0 4px 12px -2px hsl(220 20% 10% / 0.05), 0 2px 4px -1px hsl(220 20% 10% / 0.03);
+  --shadow: 0 8px 24px -4px hsl(220 20% 10% / 0.06), 0 4px 8px -2px hsl(220 20% 10% / 0.04);
+  --shadow-md: 0 16px 32px -4px hsl(220 20% 10% / 0.08), 0 8px 16px -4px hsl(220 20% 10% / 0.06);
+  --shadow-lg: 0 24px 48px -8px hsl(220 20% 10% / 0.1), 0 12px 24px -6px hsl(220 20% 10% / 0.08);
+  --shadow-xl: 0 32px 64px -12px hsl(220 20% 10% / 0.12), 0 16px 32px -8px hsl(220 20% 10% / 0.1);
+  --shadow-2xl: 0px 48px 80px -16px hsl(220 20% 10% / 0.15);
   --tracking-normal: -0.015em;
   --spacing: 0.25rem;
 
@@ -89,56 +89,57 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .08);
 
-  /* Instagram-like Pure Black System Colors */
-  --background: 0 0% 0%; /* Pure black #000000 */
-  --foreground: 0 0% 98%; /* Off-white #f5f5f5 */
-  --card: 0 0% 4%; /* Extremely dark grey #0a0a0a */
+  /* Premium Deep Dark Colors */
+  --background: 0 0% 0%; /* Pure black */
+  --foreground: 0 0% 98%; 
+  --card: 0 0% 6%; /* #0f0f0f */
   --card-foreground: 0 0% 98%;
-  --popover: 0 0% 6%; /* Very dark grey #0f0f0f */
+  --popover: 0 0% 6%; 
   --popover-foreground: 0 0% 98%;
 
-  --primary: 263 80% 65%; /* Vibrant violet to pop on pure black */
+  --primary: 226 100% 65%; /* Soft vivid blue for dark mode */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 25 100% 68%; /* Vibrant warm orange */
-  --secondary-foreground: 0 0% 10%;
+  --secondary: 0 0% 12%; /* #1f1f1f */
+  --secondary-foreground: 0 0% 98%;
 
-  --muted: 0 0% 8%; /* Dark surface for list items #141414 */
-  --muted-foreground: 0 0% 65%; /* Soft grey text */
+  --muted: 0 0% 12%; 
+  --muted-foreground: 0 0% 65%; 
 
-  --accent: 0 0% 12%; /* #1f1f1f hover state surface */
+  --accent: 0 0% 15%; 
   --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 85% 60%; /* Vivid red for error / danger */
+  --destructive: 0 85% 60%; 
   --destructive-foreground: 0 0% 100%;
 
-  --border: 0 0% 15%; /* Sleek thin borders #262626 */
-  --input: 0 0% 12%; /* Input dark fill #1f1f1f */
-  --ring: 263 80% 65%;
+  --border: 0 0% 15%; 
+  --input: 0 0% 15%; 
+  --ring: 226 100% 65%;
 
-  --sidebar: 0 0% 0%; /* Pure black sidebar */
+  --sidebar: 0 0% 0%;
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 15%; /* #262626 border */
-  --sidebar-primary: 263 80% 65%;
+  --sidebar-border: 0 0% 15%;
+  --sidebar-primary: 226 100% 65%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 0 0% 8%;
   --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 263 80% 65%;
+  --sidebar-ring: 226 100% 65%;
 
-  --chart-1: 263 80% 65%;
+  --chart-1: 226 100% 65%;
   --chart-2: 25 100% 68%;
   --chart-3: 333 100% 80%;
   --chart-4: 0 85% 60%;
   --chart-5: 0 0% 12%;
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 2px 4px -1px hsl(0 0% 0% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 4px 6px -1px hsl(0 0% 0% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 8px 10px -1px hsl(0 0% 0% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
+  /* Dark mode shadow (mostly subtle glow) */
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.5);
+  --shadow-xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.5);
+  --shadow-sm: 0px 4px 12px 0px hsl(0 0% 0% / 0.5);
+  --shadow: 0px 8px 24px 0px hsl(0 0% 0% / 0.5);
+  --shadow-md: 0px 16px 32px 0px hsl(0 0% 0% / 0.5);
+  --shadow-lg: 0px 24px 48px 0px hsl(0 0% 0% / 0.5);
+  --shadow-xl: 0px 32px 64px 0px hsl(0 0% 0% / 0.5);
+  --shadow-2xl: 0px 48px 80px 0px hsl(0 0% 0% / 0.5);
 
   /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -212,6 +213,15 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl border border-border/40;
+  }
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-xl border border-border/50 shadow-sm transition-all duration-300;
+  }
+  .glass-nav {
+    @apply bg-background/80 backdrop-blur-2xl border-t border-border/30;
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {

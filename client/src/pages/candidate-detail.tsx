@@ -367,13 +367,44 @@ export default function CandidateDetail() {
       {/* ── 탭 컨텐츠 ── */}
       <div className="px-4 -mt-12 relative z-20 w-full max-w-6xl mx-auto">
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden divide-y divide-gray-100 border border-black/5">
-          {/* ── 객관 평가 리포트 (맨 위로 이동) ── */}
-          <section className="px-6 pt-6 pb-2">
-            <CandidateEvaluationReport
-              candidateName={candidate.name}
-              party={candidate.party || undefined}
-            />
+
+          {/* ── 핵심 공약 ── */}
+          <section className="p-6 space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-[16px] font-black text-gray-900">핵심 공약</h3>
+              </div>
+              <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200">{candidate.promises.length}개</Badge>
+            </div>
+            {candidate.promises.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
+                <p className="text-[14px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
+                <p className="text-[12px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm animate-pulse">
+                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[13px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
+                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+                  {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
+                    <PledgeCard
+                      key={promise.id}
+                      candidateId={String(candidate.id)}
+                      promise={promise}
+                      onClick={() => setSelectedPledge(promise)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </section>
+
           {/* ── 요약 및 기본 정보 ── */}
           <section className="p-6 space-y-4">
             <div className="flex items-center justify-between mb-4">
@@ -541,42 +572,7 @@ export default function CandidateDetail() {
             )}
           </section>
 
-          {/* ── 핵심 공약 ── */}
-          <section className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-[16px] font-black text-gray-900">핵심 공약</h3>
-              </div>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200">{candidate.promises.length}개</Badge>
-            </div>
-            {candidate.promises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
-                <p className="text-[14px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
-                <p className="text-[12px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
-              </div>
-            ) : (
-              <>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm animate-pulse">
-                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[13px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
-                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
-                  {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
-                    <PledgeCard
-                      key={promise.id}
-                      candidateId={String(candidate.id)}
-                      promise={promise}
-                      onClick={() => setSelectedPledge(promise)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
+
 
           {/* ── 활동 이력 ── */}
           <section className="p-6 space-y-6">
@@ -712,6 +708,13 @@ export default function CandidateDetail() {
             )}
           </section>
 
+          {/* ── 객관 평가 리포트 ── */}
+          <section className="px-6 py-6 bg-gray-50/50">
+            <CandidateEvaluationReport
+              candidateName={candidate.name}
+              party={candidate.party || undefined}
+            />
+          </section>
 
         </div>
 

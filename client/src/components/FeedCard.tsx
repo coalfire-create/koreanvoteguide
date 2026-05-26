@@ -68,7 +68,7 @@ export function FeedCard({ item }: { item: FeedItem }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="bg-card rounded-2xl border border-border/30 shadow-[0_2px_12px_rgb(0,0,0,0.03)] overflow-hidden text-foreground"
+      className="glass-card rounded-3xl overflow-hidden text-foreground hover:-translate-y-0.5"
     >
       {/* === Header: avatar + name + party + time === */}
       <header className="flex items-center gap-3 px-5 pt-4 pb-3">

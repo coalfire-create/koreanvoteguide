@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { ChevronRight, MapPin, Search, Map, BarChart2, Newspaper, MessageCircle, X } from "lucide-react";
+import { ChevronRight, MapPin, Search, Map as MapIcon, BarChart2, Newspaper, MessageCircle, X, Landmark } from "lucide-react";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const PARTY_COLOR: Record<string, string> = {
   "민주당": "#3A6BFF",
@@ -35,7 +36,7 @@ function abbrevParty(party: string): string {
 }
 
 const FEATURES = [
-  { icon: Map,           color: "#6D28D9", title: "지역별 후보자 비교",    desc: "내 지역 후보들의 공약·이력·뉴스를 한눈에" },
+  { icon: MapIcon,       color: "#6D28D9", title: "지역별 후보자 비교",    desc: "내 지역 후보들의 공약·이력·뉴스를 한눈에" },
   { icon: BarChart2,     color: "#2563EB", title: "국회의원 표결 추적",    desc: "어떤 법안에 어떻게 투표했는지 확인" },
   { icon: Newspaper,     color: "#059669", title: "AI 정치 뉴스 분석",     desc: "12개 언론사 뉴스를 AI가 핵심만 전달" },
   { icon: MessageCircle, color: "#EA580C", title: "유권자 커뮤니티",       desc: "이웃들과 지역 현안과 정치를 이야기" },
@@ -186,6 +187,27 @@ export default function CitySelect() {
     return "welcome";
   });
 
+  const [electionTab, setElectionTab] = useState<"local" | "assembly">("local");
+
+  // 보궐선거 후보 데이터
+  const { data: assemblyRaw = [] } = useQuery<any[]>({
+    queryKey: ["/api/election/assembly"],
+    queryFn: () => fetch("/api/election/assembly").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const assemblyDistricts = useMemo(() => {
+    const map = new Map<string, { code: string; sd: string; dist: string; candidates: any[] }>();
+    for (const c of assemblyRaw) {
+      const key = `${c.sdName}_${c.districtName}`;
+      if (!map.has(key)) {
+        map.set(key, { code: key, sd: c.sdName, dist: c.districtName, candidates: [] });
+      }
+      map.get(key)!.candidates.push(c);
+    }
+    return [...map.values()].sort((a, b) => a.sd.localeCompare(b.sd) || a.dist.localeCompare(b.dist));
+  }, [assemblyRaw]);
+
   const [selectedRegions, setSelectedRegions] = useState<{ code: string; name: string; level: string }[]>(() => {
     if (user?.favoriteRegions && Array.isArray(user.favoriteRegions) && user.favoriteRegions.length > 0) {
       return user.favoriteRegions;
@@ -282,13 +304,38 @@ export default function CitySelect() {
             </div>
 
             <h1 className="text-[28px] font-black text-gray-900 leading-[1.25] tracking-tight mb-2">
-              어느 지역<br />
-              <span className="text-[#6D28D9]">지방 선거</span>가 궁금하세요?
+              어느 선거가<br />
+              <span className="text-[#6D28D9]">궁금하세요?</span>
             </h1>
-            <p className="text-[13px] text-gray-500 leading-relaxed mb-5">
-              광역단체장 후보를 최대 3개 지역까지 선택할 수 있어요.<br />
-              선택 순서가 홈 화면 우선순위가 됩니다.
+            <p className="text-[13px] text-gray-500 leading-relaxed mb-4">
+              최대 3개 지역을 선택하면 맞춤 후보 정보를 바로 볼 수 있어요.
             </p>
+
+            {/* 선거 탭 */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setElectionTab("local")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-black transition-all ${
+                  electionTab === "local"
+                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/25"
+                    : "bg-white text-gray-500 border border-gray-200"
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                지방선거
+              </button>
+              <button
+                onClick={() => setElectionTab("assembly")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-black transition-all ${
+                  electionTab === "assembly"
+                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/25"
+                    : "bg-white text-gray-500 border border-gray-200"
+                }`}
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                보궐선거
+              </button>
+            </div>
 
             {/* Search */}
             <div className="relative w-full">
@@ -297,7 +344,7 @@ export default function CitySelect() {
               </div>
               <input
                 type="text"
-                placeholder="지역명 검색 (서울, 부산, 경기...)"
+                placeholder={electionTab === "local" ? "지역명 검색 (서울, 부산, 경기...)" : "선거구 검색 (계양구, 안산시...)"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-11 pl-11 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6D28D9] focus:outline-none transition-all text-[16px] font-medium placeholder:text-gray-400 shadow-sm"
@@ -311,90 +358,123 @@ export default function CitySelect() {
           {/* ─── Region Cards ─── */}
           <div className="w-full max-w-[760px] mx-auto px-4 pb-36">
             <motion.div
+              key={electionTab}
               variants={container}
               initial="hidden"
               animate="show"
               className="grid grid-cols-1 sm:grid-cols-2 gap-3"
             >
-              {MAYOR_RACES.filter(
-                (r) => r.region.includes(searchQuery) || r.regionShort.includes(searchQuery),
-              ).map((race) => {
-                const [candA, candB, candC] = race.candidates;
-                const isSelected = selectedRegions.some((r) => r.code === race.regionCode);
-                const selectedIndex = selectedRegions.findIndex((r) => r.code === race.regionCode);
+              {electionTab === "local" ? (
+                // ── 지방선거 카드 ──
+                MAYOR_RACES.filter(
+                  (r) => r.region.includes(searchQuery) || r.regionShort.includes(searchQuery),
+                ).map((race) => {
+                  const [candA, candB, candC] = race.candidates;
+                  const isSelected = selectedRegions.some((r) => r.code === race.regionCode);
+                  const selectedIndex = selectedRegions.findIndex((r) => r.code === race.regionCode);
 
-                return (
-                  <motion.button
-                    key={race.regionCode}
-                    variants={item}
-                    onClick={() => handleSelect(race.regionCode, race.regionShort, race.level || "metropolitan")}
-                    className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 focus:outline-none active:scale-[0.97] shadow-sm ${
-                      isSelected
-                        ? "border-[#6D28D9] bg-white shadow-md shadow-[#6D28D9]/10 scale-[1.01]"
-                        : "bg-white border-gray-100 hover:border-[#6D28D9]/40 hover:shadow-md"
-                    }`}
-                  >
-                    {/* Card header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-1 mb-1">
-                          <MapPin className="w-3 h-3 text-[#6D28D9]/50" />
-                          <span className="text-[10px] font-bold text-gray-400 tracking-tight">
-                            {race.positionLabel}
-                          </span>
+                  return (
+                    <motion.button
+                      key={race.regionCode}
+                      variants={item}
+                      onClick={() => handleSelect(race.regionCode, race.regionShort, race.level || "metropolitan")}
+                      className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 focus:outline-none active:scale-[0.97] shadow-sm ${
+                        isSelected
+                          ? "border-[#6D28D9] bg-white shadow-md shadow-[#6D28D9]/10 scale-[1.01]"
+                          : "bg-white border-gray-100 hover:border-[#6D28D9]/40 hover:shadow-md"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-1 mb-1">
+                            <MapPin className="w-3 h-3 text-[#6D28D9]/50" />
+                            <span className="text-[10px] font-bold text-gray-400 tracking-tight">{race.positionLabel}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-[20px] font-black text-gray-900 leading-none">{race.regionShort}</h3>
+                            {isSelected && (
+                              <span className="inline-flex w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] items-center justify-center font-black shrink-0">
+                                {selectedIndex + 1}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-[20px] font-black text-gray-900 leading-none">{race.regionShort}</h3>
-                          {isSelected && (
-                            <span className="inline-flex w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] items-center justify-center font-black shrink-0">
-                              {selectedIndex + 1}
-                            </span>
-                          )}
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#6D28D9] border-[#6D28D9]" : "border-gray-200 bg-white"}`}>
+                          {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                         </div>
                       </div>
-                      {/* Check circle */}
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
-                          isSelected ? "bg-[#6D28D9] border-[#6D28D9]" : "border-gray-200 bg-white"
+                      <div className="space-y-1.5">
+                        {([candA, candB, candC] as typeof candA[]).filter(Boolean).map((cand, idx) => (
+                          <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: getPartyBg(cand.party) }}>
+                            <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border-[1.5px]" style={{ borderColor: `${getPartyText(cand.party)}66` }}>
+                              <PoliticianPhoto name={cand.name} photo={cand.photo} context={cand.party} avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black" />
+                            </div>
+                            <span className="text-[12px] font-black text-gray-900 truncate flex-1">{cand.name}</span>
+                            <span className="text-[10px] font-bold shrink-0" style={{ color: getPartyText(cand.party) }}>{abbrevParty(cand.party)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.button>
+                  );
+                })
+              ) : (
+                // ── 보궐선거 카드 ──
+                assemblyDistricts.length === 0 ? (
+                  <div className="col-span-2 py-16 text-center text-gray-400 text-[13px]">보궐선거 후보 정보를 불러오는 중...</div>
+                ) : (
+                  assemblyDistricts.filter(
+                    (d) => d.sd.includes(searchQuery) || d.dist.includes(searchQuery),
+                  ).map((district) => {
+                    const isSelected = selectedRegions.some((r) => r.code === district.code);
+                    const selectedIndex = selectedRegions.findIndex((r) => r.code === district.code);
+                    const shortName = district.dist;
+
+                    return (
+                      <motion.button
+                        key={district.code}
+                        variants={item}
+                        onClick={() => handleSelect(district.code, shortName, "assembly")}
+                        className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 focus:outline-none active:scale-[0.97] shadow-sm ${
+                          isSelected
+                            ? "border-[#6D28D9] bg-white shadow-md shadow-[#6D28D9]/10 scale-[1.01]"
+                            : "bg-white border-gray-100 hover:border-[#6D28D9]/40 hover:shadow-md"
                         }`}
                       >
-                        {isSelected && (
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Candidates — one row per candidate */}
-                    <div className="space-y-1.5">
-                      {([candA, candB, candC] as typeof candA[]).filter(Boolean).map((cand, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 rounded-xl px-2.5 py-1.5"
-                          style={{ background: getPartyBg(cand.party) }}
-                        >
-                          <div
-                            className="w-5 h-5 rounded-full overflow-hidden shrink-0 border-[1.5px]"
-                            style={{ borderColor: `${getPartyText(cand.party)}66` }}
-                          >
-                            <PoliticianPhoto
-                              name={cand.name}
-                              photo={cand.photo}
-                              context={cand.party}
-                              avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black"
-                            />
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-1 mb-1">
+                              <Landmark className="w-3 h-3 text-[#6D28D9]/50" />
+                              <span className="text-[10px] font-bold text-gray-400 tracking-tight">국회의원 보궐선거 · {district.sd}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-[18px] font-black text-gray-900 leading-tight">{shortName}</h3>
+                              {isSelected && (
+                                <span className="inline-flex w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] items-center justify-center font-black shrink-0">
+                                  {selectedIndex + 1}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[12px] font-black text-gray-900 truncate flex-1">{cand.name}</span>
-                          <span className="text-[10px] font-bold shrink-0" style={{ color: getPartyText(cand.party) }}>
-                            {abbrevParty(cand.party)}
-                          </span>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#6D28D9] border-[#6D28D9]" : "border-gray-200 bg-white"}`}>
+                            {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </motion.button>
-                );
-              })}
+                        <div className="space-y-1.5">
+                          {district.candidates.slice(0, 3).map((cand, idx) => (
+                            <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: getPartyBg(cand.party) }}>
+                              <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border-[1.5px]" style={{ borderColor: `${getPartyText(cand.party)}66` }}>
+                                <PoliticianPhoto name={cand.name} photo={cand.photo ?? null} context={cand.party} avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black" />
+                              </div>
+                              <span className="text-[12px] font-black text-gray-900 truncate flex-1">{cand.name}</span>
+                              <span className="text-[10px] font-bold shrink-0" style={{ color: getPartyText(cand.party) }}>{abbrevParty(cand.party)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.button>
+                    );
+                  })
+                )
+              )}
             </motion.div>
           </div>
 
@@ -422,6 +502,7 @@ export default function CitySelect() {
                         <span className="w-4 h-4 bg-[#6D28D9] text-white rounded-full text-[9px] flex items-center justify-center font-black shrink-0">
                           {i + 1}
                         </span>
+                        {r.level === "assembly" && <Landmark className="w-3 h-3 opacity-60" />}
                         {r.name}
                         <X className="w-3 h-3 opacity-50" />
                       </motion.button>

@@ -91,7 +91,7 @@ export function SideNav() {
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Trophy className="w-3 h-3 text-amber-500" />
                   <span className="font-medium">{(user.exp ?? 0).toLocaleString()} P</span>
-                  {user.attendanceStreak > 0 && (
+                  {(user.attendanceStreak ?? 0) > 0 && (
                     <>
                       <span className="mx-1">•</span>
                       <span className="text-orange-500 font-bold">{user.attendanceStreak}일 연속</span>
