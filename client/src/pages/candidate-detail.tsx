@@ -321,11 +321,16 @@ export default function CandidateDetail() {
       className="w-full pb-24"
     >
       {/* ── 헤더 ── */}
-      <div className={`${partyBg} px-4 pt-10 pb-16 relative`}>
-        <div className="max-w-4xl mx-auto relative">
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
+      <div className={`relative ${partyBg} overflow-hidden px-4 pt-12 pb-24`}>
+        {/* 세련된 배경 효과 */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent mix-blend-overlay" />
+        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute top-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-2xl" />
+
+        <div className="max-w-4xl mx-auto relative z-10">
+          <div className="flex items-center justify-between mb-6">
             <Link href="/">
-              <button className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
+              <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors border border-white/20">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
             </Link>
@@ -333,30 +338,42 @@ export default function CandidateDetail() {
               title={`${candidate.name} 후보 - 이유있는 투표`}
               text={`${candidate.name}(${candidate.party}) 후보의 공약과 정보를 확인하세요`}
               variant="icon"
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 backdrop-blur-md border border-white/20"
             />
           </div>
-          <div className="flex flex-col items-center gap-3 mt-6">
-            <div className="w-24 h-24 rounded-full bg-white/20 border-4 border-white/60 overflow-hidden shadow-lg">
+          <div className="flex flex-row items-center gap-5 mt-2 bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/20 shadow-2xl">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-2xl bg-white border-2 border-white overflow-hidden shadow-inner">
               <PoliticianPhoto
                 name={candidate.name}
                 photo={candidate.photo}
                 monaCd={String(candidate.id)}
                 context={candidate.party}
-                avatarClassName="w-full h-full flex items-center justify-center text-white font-black text-3xl"
+                avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-2xl bg-gray-100"
               />
             </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-black text-white">{candidate.name}</h1>
-              <p className="text-white/80 text-sm mt-1 font-medium">{candidate.party}</p>
+            <div className="flex flex-col justify-center flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-white text-[11px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md">
+                  {verification.job || "후보자"}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">{candidate.name}</h1>
+              <p className="text-white/90 text-[13px] sm:text-[14px] mt-1 font-bold truncate">{candidate.party}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── 탭 컨텐츠 ── */}
-      <div className="px-4 -mt-6 relative z-10 w-full max-w-6xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden divide-y divide-gray-100">
+      <div className="px-4 -mt-12 relative z-20 w-full max-w-6xl mx-auto">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden divide-y divide-gray-100 border border-black/5">
+          {/* ── 객관 평가 리포트 (맨 위로 이동) ── */}
+          <section className="px-6 pt-6 pb-2">
+            <CandidateEvaluationReport
+              candidateName={candidate.name}
+              party={candidate.party || undefined}
+            />
+          </section>
           {/* ── 요약 및 기본 정보 ── */}
           <section className="p-6 space-y-4">
             <div className="flex items-center justify-between mb-4">
@@ -366,7 +383,7 @@ export default function CandidateDetail() {
               </h3>
               <Link href={`/community/write?tagType=candidate&tagId=${decodedId}&tagName=${candidate.name}`}>
                 <Button size="sm" className="h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[11px] font-black rounded-full px-4 border-none shadow-none">
-                  <PenSquare className="w-3 h-3 mr-1" /> 토론하기
+                  <PenSquare className="w-3 h-3 mr-1" /> 글쓰기
                 </Button>
               </Link>
             </div>
@@ -559,14 +576,6 @@ export default function CandidateDetail() {
                 </div>
               </>
             )}
-          </section>
-
-          {/* ── 객관 평가 리포트 (앱 실데이터 기반) ── */}
-          <section className="px-6 pb-2">
-            <CandidateEvaluationReport
-              candidateName={candidate.name}
-              party={candidate.party || undefined}
-            />
           </section>
 
           {/* ── 활동 이력 ── */}
