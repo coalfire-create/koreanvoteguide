@@ -4,16 +4,16 @@ const config: CapacitorConfig = {
   appId: 'com.antigravity.iyu',
   appName: '이유',
   webDir: 'dist/public',
-  // 프로덕션 서버 URL — 앱은 번들을 직접 서빙하지 않고 배포된 서버에서 로드
+  // 로컬 테스트용 IP 주소로 임시 변경 (테스트 후 원상복구 필요)
   server: {
-    url: 'https://이유.com',
-    cleartext: false,
+    url: 'http://192.168.63.194:3000',
+    cleartext: true,
   },
   ios: {
     backgroundColor: '#6D28D9',
     contentInset: 'always',
     scrollEnabled: true,
-    limitsNavigationsToAppBoundDomains: true,
+    limitsNavigationsToAppBoundDomains: false,
   },
   plugins: {
     SplashScreen: {

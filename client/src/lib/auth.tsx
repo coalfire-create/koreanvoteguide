@@ -25,6 +25,7 @@ interface RegisterPayload {
   username: string;
   password: string;
   name: string;
+  nickname?: string;
   phone: string;
   verificationCode: string;
   birthYear: number;

@@ -201,9 +201,9 @@ export default function BillVote() {
   const disagreePercent = totalVotes > 0 ? 100 - agreePercent : 50;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000]">
       {/* 헤더 */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto flex items-center gap-4 px-4 py-3">
           <button
             onClick={() => navigate("/bills")}
@@ -219,66 +219,142 @@ export default function BillVote() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6 pb-[calc(80px+env(safe-area-inset-bottom))]">
 
         {/* 법안 정보 카드 */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          {/* 상단 배너 */}
-          <div className="bg-gradient-to-r from-[#6D28D9] to-[#7C3AED] p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-16 -mt-16 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-8 -mb-8 pointer-events-none" />
-
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2.5 py-1 bg-white/20 text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 backdrop-blur-sm">
-                  <Flame className="w-3 h-3" /> 인기 법안
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              {bill && (
+                <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md ${getStatusColor(bill.result)}`}>
+                  {getStatusLabel(bill.result)}
                 </span>
-                {bill && (
-                  <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full ${getStatusColor(bill.result)}`}>
-                    {getStatusLabel(bill.result)}
-                  </span>
-                )}
-              </div>
-
-              {bill ? (
-                <>
-                  <h1 className="text-[20px] font-extrabold text-white leading-snug mb-2 flex items-start gap-2">
-                    <span className="shrink-0">{getBillEmoji(bill.billName, bill.committee)}</span>
-                    {bill.billName}
-                  </h1>
-                  <p className="text-indigo-200 text-[13px] font-medium">
-                    {bill.committee && `${bill.committee} · `}
-                    {bill.proposer && `${bill.proposer.split("(")[0].trim()} 대표발의`}
-                    {bill.proposeDate && ` · ${bill.proposeDate}`}
-                  </p>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <Skeleton className="h-7 w-3/4 bg-white/20 rounded-lg" />
-                  <Skeleton className="h-4 w-1/2 bg-white/20 rounded-lg" />
-                </div>
               )}
             </div>
+
+            {bill ? (
+              <>
+                <h1 className="text-[18px] font-bold text-foreground leading-snug mb-2">
+                  {bill.billName}
+                </h1>
+                <p className="text-[12px] text-muted-foreground">
+                  {bill.committee && `${bill.committee} · `}
+                  {bill.proposer && `${bill.proposer.split("(")[0].trim()} 대표발의`}
+                  {bill.proposeDate && ` · ${bill.proposeDate}`}
+                </p>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-3/4 rounded-lg" />
+                <Skeleton className="h-4 w-1/2 rounded-lg" />
+              </div>
+            )}
           </div>
 
           {/* 통계 */}
           {bill && (
             <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
               <div className="px-4 py-4 text-center">
-                <div className="text-[11px] font-bold text-slate-400 mb-1">공동발의</div>
-                <div className="text-[22px] font-extrabold text-[#6D28D9]">{bill.coProposerCount ?? 0}<span className="text-[13px] ml-0.5">명</span></div>
+                <div className="text-[11px] text-slate-400 mb-1">공동발의</div>
+                <div className="text-[20px] font-bold text-foreground">{bill.coProposerCount ?? 0}<span className="text-[12px] font-normal text-muted-foreground ml-0.5">명</span></div>
               </div>
               <div className="px-4 py-4 text-center">
-                <div className="text-[11px] font-bold text-slate-400 mb-1">뉴스 언급</div>
-                <div className="text-[22px] font-extrabold text-[#FB923C]">{bill.newsMentionCount ?? bill.mediaMentionCount ?? 0}<span className="text-[13px] ml-0.5">회</span></div>
+                <div className="text-[11px] text-slate-400 mb-1">뉴스 언급</div>
+                <div className="text-[20px] font-bold text-foreground">{bill.newsMentionCount ?? bill.mediaMentionCount ?? 0}<span className="text-[12px] font-normal text-muted-foreground ml-0.5">회</span></div>
               </div>
               <div className="px-4 py-4 text-center">
-                <div className="text-[11px] font-bold text-slate-400 mb-1">시민 투표</div>
-                <div className="text-[22px] font-extrabold text-slate-800">{totalVotes.toLocaleString()}<span className="text-[13px] ml-0.5">명</span></div>
+                <div className="text-[11px] text-slate-400 mb-1">시민 투표</div>
+                <div className="text-[20px] font-bold text-foreground">{totalVotes.toLocaleString()}<span className="text-[12px] font-normal text-muted-foreground ml-0.5">명</span></div>
               </div>
             </div>
           )}
         </section>
+
+        {/* AI 심층 분석 */}
+        {bill && (
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <h2 className="text-[15px] font-bold text-foreground">AI 분석</h2>
+              <span className="ml-auto text-[10px] text-muted-foreground">AI 생성</span>
+            </div>
+
+            {analysisLoading ? (
+              <div className="px-6 py-6 space-y-4">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-4 w-full rounded-full" />
+                <Skeleton className="h-4 w-2/3 rounded-full" />
+                <p className="text-center text-[12px] text-slate-400 pt-2">
+                  AI가 이 법안의 배경 and 영향을 분석 중입니다...
+                </p>
+              </div>
+            ) : analysisError || !analysis ? (
+              <div className="px-6 py-6 flex items-center gap-3 text-[13px] text-slate-500">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                AI 분석을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {/* 발의 배경 */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    <p className="text-[12px] font-extrabold text-slate-900">왜 이 법안이 나왔나</p>
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.background}</p>
+                </div>
+
+                {/* 수혜자 */}
+                <div className="px-6 py-5 bg-emerald-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <p className="text-[12px] font-extrabold text-emerald-800">누구에게 좋은가</p>
+                  </div>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.beneficiaries}</p>
+                </div>
+
+                {/* 부담/불리한 측 */}
+                <div className="px-6 py-5 bg-rose-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" />
+                    <p className="text-[12px] font-extrabold text-rose-800">누구에게 부담인가</p>
+                  </div>
+                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.drawbacks}</p>
+                </div>
+
+                {/* 예상 영향 */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-4 h-4 text-[#6D28D9]" />
+                    <p className="text-[12px] font-extrabold text-slate-900">어떤 영향이 예상되나</p>
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.impact}</p>
+                </div>
+
+                {/* 핵심 포인트 */}
+                {analysis.keyPoints && analysis.keyPoints.length > 0 && (
+                  <div className="px-6 py-5 bg-indigo-50/40">
+                    <p className="text-[12px] font-extrabold text-[#6D28D9] mb-3">핵심 포인트</p>
+                    <ul className="space-y-2">
+                      {analysis.keyPoints.map((point, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px] text-slate-700 leading-relaxed">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#6D28D9] mt-0.5 shrink-0" />
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="px-6 py-3">
+                  <p className="text-[11px] text-slate-400 italic">
+                    * AI가 법안명·메타데이터를 기반으로 자동 생성한 분석입니다. 참고용으로만 활용하세요.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 법안 상세 정보 */}
         {bill && (
@@ -361,94 +437,6 @@ export default function BillVote() {
                 </div>
               </div>
             </div>
-          </section>
-        )}
-
-        {/* AI 심층 분석 */}
-        {bill && (
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#6D28D9] to-[#7C3AED] flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-              </div>
-              <h2 className="text-[15px] font-bold text-slate-900">AI 심층 분석</h2>
-              <span className="ml-auto text-[10px] font-bold text-slate-300 uppercase tracking-wider">AI 생성</span>
-            </div>
-
-            {analysisLoading ? (
-              <div className="px-6 py-6 space-y-4">
-                <Skeleton className="h-4 w-3/4 rounded-full" />
-                <Skeleton className="h-4 w-full rounded-full" />
-                <Skeleton className="h-4 w-2/3 rounded-full" />
-                <p className="text-center text-[12px] text-slate-400 pt-2">
-                  AI가 이 법안의 배경과 영향을 분석 중입니다...
-                </p>
-              </div>
-            ) : analysisError || !analysis ? (
-              <div className="px-6 py-6 flex items-center gap-3 text-[13px] text-slate-500">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-                AI 분석을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {/* 발의 배경 */}
-                <div className="px-6 py-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-4 h-4 text-amber-500" />
-                    <p className="text-[12px] font-extrabold text-slate-900">왜 이 법안이 나왔나</p>
-                  </div>
-                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.background}</p>
-                </div>
-
-                {/* 수혜자 */}
-                <div className="px-6 py-5 bg-emerald-50/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <p className="text-[12px] font-extrabold text-emerald-800">누구에게 좋은가</p>
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.beneficiaries}</p>
-                </div>
-
-                {/* 부담/불리한 측 */}
-                <div className="px-6 py-5 bg-rose-50/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-500" />
-                    <p className="text-[12px] font-extrabold text-rose-800">누구에게 부담인가</p>
-                  </div>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">{analysis.drawbacks}</p>
-                </div>
-
-                {/* 예상 영향 */}
-                <div className="px-6 py-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap className="w-4 h-4 text-[#6D28D9]" />
-                    <p className="text-[12px] font-extrabold text-slate-900">어떤 영향이 예상되나</p>
-                  </div>
-                  <p className="text-[13px] text-slate-600 leading-relaxed">{analysis.impact}</p>
-                </div>
-
-                {/* 핵심 포인트 */}
-                {analysis.keyPoints && analysis.keyPoints.length > 0 && (
-                  <div className="px-6 py-5 bg-indigo-50/40">
-                    <p className="text-[12px] font-extrabold text-[#6D28D9] mb-3">핵심 포인트</p>
-                    <ul className="space-y-2">
-                      {analysis.keyPoints.map((point, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[13px] text-slate-700 leading-relaxed">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#6D28D9] mt-0.5 shrink-0" />
-                          <span>{point}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="px-6 py-3">
-                  <p className="text-[11px] text-slate-400 italic">
-                    * AI가 법안명·메타데이터를 기반으로 자동 생성한 분석입니다. 참고용으로만 활용하세요.
-                  </p>
-                </div>
-              </div>
-            )}
           </section>
         )}
 
@@ -553,53 +541,43 @@ export default function BillVote() {
             <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
               <MessageSquare className="w-4 h-4 text-[#FB923C]" />
             </div>
-            <h2 className="text-[16px] font-bold text-slate-900">시민 토론</h2>
+            <h2 className="text-[16px] font-bold text-slate-900">법안에 대한 의견</h2>
             <span className="ml-auto text-[12px] font-bold text-slate-400">{comments.length}개의 댓글</span>
           </div>
 
-          {/* 댓글 입력 — 로그인 사용자만 */}
-          {user ? (
-            <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-100">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!commentText.trim()) return;
-                  commentMutation.mutate(commentText.trim());
-                }}
-              >
-                <textarea
-                  className="w-full bg-transparent resize-none text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none min-h-[80px]"
-                  placeholder="이 법안에 대한 의견을 자유롭게 작성해주세요..."
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  maxLength={500}
-                />
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[11px] text-slate-400">{commentText.length}/500</span>
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || commentMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#6D28D9] text-white rounded-xl text-[13px] font-bold hover:bg-[#5B21B6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {commentMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    등록
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <Link href="/login">
-              <div className="bg-slate-50 rounded-xl p-5 mb-5 border border-dashed border-slate-200 text-center cursor-pointer hover:bg-slate-100 transition-colors">
-                <MessageSquare className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                <p className="text-[13px] font-medium text-slate-500">로그인 후 댓글을 남길 수 있습니다.</p>
-                <p className="text-[11px] text-[#6D28D9] font-bold mt-1">로그인 / 회원가입 →</p>
+          {/* 댓글 입력 — 익명 허용 */}
+          <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-100">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!commentText.trim()) return;
+                commentMutation.mutate(commentText.trim());
+              }}
+            >
+              <textarea
+                className="w-full bg-transparent resize-none text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none min-h-[80px]"
+                placeholder={user ? "이 법안에 대한 의견을 자유롭게 작성해주세요..." : "이 법안에 대한 의견을 작성해주세요. (비로그인 시 익명으로 등록됩니다)"}
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                maxLength={500}
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-slate-400">{commentText.length}/500</span>
+                <button
+                  type="submit"
+                  disabled={!commentText.trim() || commentMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#6D28D9] text-white rounded-xl text-[13px] font-bold active:opacity-70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {commentMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  등록
+                </button>
               </div>
-            </Link>
-          )}
+            </form>
+          </div>
 
           {/* 댓글 목록 */}
           {commentsLoading ? (
@@ -659,17 +637,17 @@ export default function BillVote() {
               <h2 className="text-[16px] font-bold text-slate-900">국회 표결 결과</h2>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-blue-50 rounded-xl p-4 text-center">
-                <div className="text-[11px] font-bold text-blue-500 mb-1">찬성</div>
-                <div className="text-[24px] font-extrabold text-blue-700">{bill.yesCount}</div>
+              <div className="bg-black/[0.03] rounded-xl p-4 text-center">
+                <div className="text-[11px] text-muted-foreground mb-1">찬성</div>
+                <div className="text-[22px] font-bold text-foreground">{bill.yesCount}</div>
               </div>
-              <div className="bg-red-50 rounded-xl p-4 text-center">
-                <div className="text-[11px] font-bold text-red-500 mb-1">반대</div>
-                <div className="text-[24px] font-extrabold text-red-700">{bill.noCount}</div>
+              <div className="bg-black/[0.03] rounded-xl p-4 text-center">
+                <div className="text-[11px] text-muted-foreground mb-1">반대</div>
+                <div className="text-[22px] font-bold text-foreground">{bill.noCount}</div>
               </div>
-              <div className="bg-slate-50 rounded-xl p-4 text-center">
-                <div className="text-[11px] font-bold text-slate-500 mb-1">기권</div>
-                <div className="text-[24px] font-extrabold text-slate-700">{bill.abstainCount}</div>
+              <div className="bg-black/[0.03] rounded-xl p-4 text-center">
+                <div className="text-[11px] text-muted-foreground mb-1">기권</div>
+                <div className="text-[22px] font-bold text-foreground">{bill.abstainCount}</div>
               </div>
             </div>
           </section>

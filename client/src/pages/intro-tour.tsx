@@ -367,7 +367,7 @@ const SLIDES: SlideData[] = [
     accent: "#93c5fd",
     tag: "기능 01",
     title: "공약 클릭 시\nAI 정밀 분석",
-    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
+    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
     Illustration: CandidateIllus,
   },
   {
@@ -445,7 +445,7 @@ export default function IntroTour() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col select-none overflow-hidden"
+      className="relative z-0 min-h-screen w-full flex flex-col select-none overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -453,7 +453,7 @@ export default function IntroTour() {
       <AnimatePresence>
         <motion.div
           key={index + "-bg"}
-          className="fixed inset-0 -z-10"
+          className="absolute inset-0 -z-10"
           style={{ background: slide.bg }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -463,8 +463,8 @@ export default function IntroTour() {
       </AnimatePresence>
 
       {/* Decorative ambient glows */}
-      <div className="fixed top-0 right-0 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none -z-10" />
-      <div className="fixed bottom-48 left-0 w-56 h-56 rounded-full bg-white/5 blur-2xl pointer-events-none -z-10" />
+      <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-48 left-0 w-56 h-56 rounded-full bg-white/5 blur-2xl pointer-events-none -z-10" />
 
       {/* ── Top bar ── */}
       <div className="relative z-10 flex items-center justify-between px-6 pt-12 pb-0 w-full max-w-[480px] mx-auto">

@@ -1088,6 +1088,13 @@ export default function MemberDetail() {
             공개 활동
           </TabsTrigger>
           <TabsTrigger
+            value="feed"
+            className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
+            data-testid="tab-feed"
+          >
+            활동 피드
+          </TabsTrigger>
+          <TabsTrigger
             value="news"
             className="rounded-xl px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-b-4 data-[state=active]:border-primary border-b-4 border-transparent font-bold transition-all duration-300 whitespace-nowrap shadow-sm hover:bg-muted/50"
             data-testid="tab-news"
@@ -1095,6 +1102,89 @@ export default function MemberDetail() {
             관련 뉴스
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="feed" className="mt-0">
+          <Card className="border-none shadow-none bg-transparent">
+            <CardContent className="p-0 flex flex-col gap-6">
+              <div className="bg-white dark:bg-black p-5 rounded-2xl border border-border/40 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-[16px] text-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-rose-500" /> 
+                    활동량 주가 차트
+                  </h3>
+                  <span className="text-[12px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">▲ 3.2% 이번주</span>
+                </div>
+                
+                {/* Mock Chart Area */}
+                <div className="h-[140px] w-full bg-slate-50 dark:bg-slate-900 rounded-xl relative overflow-hidden flex items-end px-4 pb-4">
+                  <div className="absolute inset-0 bg-gradient-to-t from-rose-500/10 to-transparent" />
+                  <svg className="w-full h-full absolute inset-0 preserve-3d" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path d="M0,100 L0,80 L20,75 L40,85 L60,50 L80,60 L100,20 L100,100 Z" fill="rgba(244, 63, 94, 0.1)" />
+                    <path d="M0,80 L20,75 L40,85 L60,50 L80,60 L100,20" fill="none" stroke="#f43f5e" strokeWidth="2.5" />
+                  </svg>
+                  <div className="relative z-10 w-full flex justify-between text-[9px] font-bold text-slate-400">
+                    <span>월</span>
+                    <span>화</span>
+                    <span>수</span>
+                    <span>목</span>
+                    <span>금</span>
+                    <span>토</span>
+                    <span>일</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SNS Feed Style Post */}
+              <div className="bg-white dark:bg-black rounded-2xl border border-border/40 shadow-sm overflow-hidden">
+                <div className="p-4 flex items-center gap-3 border-b border-border/20">
+                  <div className="w-10 h-10 rounded-full border border-border/40 overflow-hidden bg-muted flex items-center justify-center relative">
+                    {member.photo ? (
+                      <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5 text-muted-foreground/50" />
+                    )}
+                    {member.party && (
+                      <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border border-white ${getPartyColor(member.party)}`} />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[14px] text-foreground">{member.name}</span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">{member.district || member.party} • 2시간 전</span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="text-[14px] leading-relaxed text-foreground">
+                    오늘 국회 본회의에서 통과된 저출산 대책 법안에 대해 말씀드립니다. 
+                    많은 시민 여러분이 우려하시는 재원 마련 부분에 대해 저희 당은 구체적인 안을 제출했습니다. 
+                    앞으로도 체감할 수 있는 정책으로 보답하겠습니다. 💪
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="text-[12px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">#저출산대책</span>
+                    <span className="text-[12px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">#의정활동</span>
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 flex items-center justify-around border-t border-border/20">
+                  <button className="flex items-center gap-2 text-slate-500 hover:text-rose-500 transition-colors">
+                    <Heart className="w-5 h-5" />
+                    <span className="text-[12px] font-bold">1.2k</span>
+                  </button>
+                  <button className="flex items-center gap-2 text-slate-500 hover:text-blue-500 transition-colors">
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="text-[12px] font-bold">342</span>
+                  </button>
+                  <button className="flex items-center gap-2 text-slate-500 hover:text-indigo-500 transition-colors">
+                    <Share2 className="w-5 h-5" />
+                    <span className="text-[12px] font-bold">공유</span>
+                  </button>
+                </div>
+              </div>
+
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ===== 기본 정보 탭 (선관위 22대 총선 데이터) ===== */}
         <TabsContent value="info">

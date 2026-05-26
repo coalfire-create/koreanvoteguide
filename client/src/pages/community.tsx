@@ -157,78 +157,71 @@ export default function Community() {
   function switchBoard(b: BoardId) { navigate(`/community?board=${b}`); }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] flex flex-col font-sans text-foreground overflow-x-hidden">
       {/* TopAppBar */}
-      <header className="sticky top-0 z-40 h-[60px] md:h-[72px] w-full bg-background/80 backdrop-blur-xl border-b border-border/40 flex justify-between items-center px-4 md:px-8 shadow-sm will-change-transform">
-        <div className="flex items-center gap-6 flex-1 max-w-2xl">
-          <div className="relative w-full group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+      <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-black/80 backdrop-blur-2xl will-change-transform pt-[env(safe-area-inset-top)]">
+        <div className="flex justify-between items-center px-4 py-3">
+        <div className="flex items-center gap-3 flex-1 max-w-2xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
-              className="w-full h-11 bg-muted border border-border/30 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_4px_rgba(var(--primary),0.05)] rounded-[14px] pl-11 pr-4 py-2 text-[14px] transition-all text-foreground outline-none placeholder:text-muted-foreground font-medium"
-              placeholder="토론, 주제 또는 의원 검색..."
+              className="w-full h-9 bg-black/5 dark:bg-white/10 rounded-xl pl-9 pr-4 text-[14px] text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="토론, 주제 검색..."
               value={searchQuery}
               onChange={handleSearchChange}
             />
             {searchQuery && (
-              <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} className="absolute right-4 top-1/2 -translate-y-1/2">
-                <X className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
+              <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 active:opacity-70">
+                <X className="w-4 h-4 text-muted-foreground" />
               </button>
             )}
           </div>
+          <button onClick={() => navigate(`/community/write?board=${board}`)} className="text-primary font-bold text-[13px] active:opacity-60 shrink-0 px-1">
+            글쓰기
+          </button>
         </div>
-        <div className="hidden md:block">
-           <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary hover:opacity-90 text-primary-foreground font-bold px-5 py-2.5 rounded-[12px] transition-all active:scale-95 shadow-sm shadow-indigo-500/20 text-[14px]">
-             글쓰기
-           </button>
         </div>
       </header>
 
       {/* Community Content Container */}
-      <div className="p-3 md:p-8 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 flex-1">
-        
-        {/* Center Column: Tabs and Main Content */}
-        <div className="col-span-1 md:col-span-8 space-y-8">
+      <div className="px-3 py-3 md:p-8 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-8 flex-1 pb-[calc(80px+env(safe-area-inset-bottom))]">
 
-          {/* Mobile Trending — desktop에선 사이드바에 표시 */}
+        {/* Center Column: Tabs and Main Content */}
+        <div className="col-span-1 md:col-span-8 space-y-3">
+
+          {/* Mobile Trending */}
           {topTrending.length > 0 && (
-            <div className="md:hidden bg-card border border-border/30 rounded-[20px] p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-[13px] font-black text-foreground">실시간 인기 급상승 검색어</span>
-              </div>
-              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
-                <ol className="flex gap-2 w-max">
-                  {topTrending.map((item, idx) => (
-                    <li key={item.memberId}>
-                      <button
-                        onClick={() => { setSearchQuery(item.member.name); setDebouncedQuery(item.member.name); }}
-                        className="flex items-center gap-1.5 bg-muted hover:bg-primary/10 hover:text-primary transition-colors px-3 py-2 rounded-full text-[13px] font-bold text-foreground whitespace-nowrap"
-                      >
-                        <span className="text-primary font-black text-[12px]">{idx + 1}</span>
-                        {item.member.name}
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 ml-0.5">
-                          <ArrowUp className="w-2.5 h-2.5 text-red-400" />{item.count}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+            <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
+              <ol className="flex gap-2 w-max">
+                {topTrending.map((item, idx) => (
+                  <li key={item.memberId}>
+                    <button
+                      onClick={() => { setSearchQuery(item.member.name); setDebouncedQuery(item.member.name); }}
+                      className="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1E] shadow-sm px-3 py-1.5 rounded-full text-[12px] font-bold text-foreground whitespace-nowrap active:opacity-70"
+                    >
+                      <span className="text-primary text-[11px]">{idx + 1}</span>
+                      {item.member.name}
+                    </button>
+                  </li>
+                ))}
+              </ol>
             </div>
           )}
 
           {/* Tab Bar */}
           <div className="w-full">
-            <div className="grid grid-cols-4 md:flex md:w-max gap-1 md:gap-2 p-1 md:p-1.5 bg-muted rounded-2xl">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-black/5 dark:bg-white/10 rounded-xl">
               {BOARDS.map(b => (
                 <button
                   key={b.id}
                   onClick={() => switchBoard(b.id)}
-                  className={`px-1.5 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-[11px] md:text-[14px] transition-all whitespace-nowrap text-center leading-tight ${
-                    board === b.id ? "bg-card text-primary shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  className={`py-2 rounded-lg font-bold text-[11px] transition-all whitespace-nowrap text-center leading-tight active:opacity-70 ${
+                    board === b.id
+                      ? "bg-white dark:bg-[#2C2C2E] text-foreground shadow-sm"
+                      : "text-muted-foreground"
                   }`}
                 >
-                  {b.label}
+                  {b.label.replace(' 게시판', '')}
                 </button>
               ))}
             </div>
@@ -236,9 +229,9 @@ export default function Community() {
 
           <DailyPoll key={board} board={board} />
 
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center justify-between">
              <Select value={sort} onValueChange={(v) => { const next = new URLSearchParams(search); next.set("sort", v); navigate(`/community?${next.toString()}`); }}>
-               <SelectTrigger className="w-32 h-10 rounded-full bg-card border-border/30 text-[13px] font-bold shadow-sm">
+               <SelectTrigger className="w-24 h-8 rounded-full bg-white dark:bg-[#1C1C1E] border-none text-[12px] font-bold shadow-sm">
                  <SelectValue />
                </SelectTrigger>
                <SelectContent>
@@ -247,13 +240,6 @@ export default function Community() {
                  <SelectItem value="views">조회순</SelectItem>
                </SelectContent>
              </Select>
-
-             {/* Mobile Write Button */}
-             <div className="md:hidden">
-               <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary text-primary-foreground font-bold px-4 py-2 rounded-[12px] transition-all active:scale-95 shadow-sm text-[13px]">
-                 <Edit className="w-4 h-4 inline-block mr-1" />글쓰기
-               </button>
-             </div>
           </div>
 
           <AnimatePresence>
@@ -286,31 +272,31 @@ export default function Community() {
 
           {/* Empty State */}
           {!postsLoading && filteredPosts.length === 0 && (
-            <div className="bg-card rounded-[24px] p-8 md:p-12 border border-border/30 shadow-sm flex flex-col items-center justify-center text-center space-y-4 md:space-y-6">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                <PenSquare className="text-primary w-8 h-8" />
+            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-8 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
+                <PenSquare className="text-primary w-7 h-7" />
               </div>
-              <div className="space-y-2">
-                <h3 className="text-[18px] font-bold text-foreground">아직 등록된 게시글이 없습니다</h3>
-                <p className="text-[14px] text-muted-foreground max-w-xs mx-auto">첫 번째 의견을 나누고 커뮤니티와 대화를 시작해 보세요.</p>
+              <div className="space-y-1">
+                <h3 className="text-[16px] font-bold text-foreground">아직 등록된 게시글이 없습니다</h3>
+                <p className="text-[13px] text-muted-foreground">첫 번째 의견을 나눠보세요.</p>
               </div>
-              <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary/15 text-primary hover:bg-primary/20 font-bold px-8 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95">
+              <button onClick={() => navigate(`/community/write?board=${board}`)} className="bg-primary text-primary-foreground font-bold px-6 py-2.5 rounded-full flex items-center gap-2 active:opacity-70">
                 <Edit className="w-4 h-4" /> 글쓰기
               </button>
             </div>
           )}
 
           {/* Posts List */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             {postsLoading ? (
-              Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 bg-card rounded-[24px] border border-border/30 animate-pulse" />)
+              Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-28 bg-white dark:bg-[#1C1C1E] rounded-2xl animate-pulse shadow-sm" />)
             ) : (
               filteredPosts.map(post => (
-                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-card border border-border/30 rounded-[20px] p-4 md:p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-primary/20 transition-all cursor-pointer flex flex-col gap-2 md:gap-3 group">
+                <div key={post.id} onClick={() => setSelectedPostId(post.id)} className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-sm active:opacity-70 transition-opacity cursor-pointer flex flex-col gap-2">
                   <div className="flex justify-between items-start">
-                     <h3 className="text-[14px] md:text-[16px] font-extrabold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">{post.title}</h3>
+                     <h3 className="text-[14px] font-bold text-foreground line-clamp-2 leading-snug">{post.title}</h3>
                      {post.tagName && (
-                        <span className="shrink-0 ml-4 inline-flex items-center px-2 py-1 rounded-md bg-muted text-[11px] font-bold text-muted-foreground border border-border/30">
+                        <span className="shrink-0 ml-3 inline-flex items-center px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-[10px] font-bold text-muted-foreground">
                            {post.tagName}
                         </span>
                      )}
@@ -328,7 +314,7 @@ export default function Community() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mt-2 md:mt-3 pt-3 md:pt-4 border-t border-border/30">
+                  <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-white/10">
                      <div className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
                         <AuthorDisplay displayName={post.displayName} authorType={post.authorType} isVerified={post.isVerified} />
                         <span>·</span>
@@ -347,7 +333,7 @@ export default function Community() {
                             });
                             quickReactMutation.mutate({ postId: post.id, type: "like" });
                           }}
-                          className={`flex items-center gap-1 text-[12px] font-bold transition-colors ${likedPosts.has(post.id) ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                          className={`flex items-center gap-1 text-[12px] font-bold active:opacity-70 ${likedPosts.has(post.id) ? "text-primary" : "text-muted-foreground"}`}
                         >
                           <ThumbsUp className={`w-4 h-4 transition-all ${likedPosts.has(post.id) ? "fill-primary text-primary scale-110" : ""}`} />
                           {(post.likes ?? 0) + (likedPosts.has(post.id) ? 1 : 0)}

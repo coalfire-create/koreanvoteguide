@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useState, useMemo } from "react";
 import {
   Search, Users, ChevronDown, FileText, Vote, Sparkles,
-  UserPlus, UserCheck, Heart, Compass, Rss, TrendingUp,
+  UserPlus, UserCheck, Heart, Compass, Rss, TrendingUp, Newspaper,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAssemblyMembers } from "@/lib/api-data";
@@ -41,6 +41,16 @@ interface FollowsResponse {
   follows: { id: string; name: string }[];
 }
 
+interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+  sourceCode: string;
+  thumbnail?: string;
+  summary?: string;
+}
+
 // ─── 당색 ──────────────────────────────────────────────────────────────────
 function partyChip(party: string | null | undefined): string {
   const p = party ?? "";
@@ -65,11 +75,8 @@ function voteColor(result?: string): string {
 function FeedCard({ item, index }: { item: FeedItem; index: number }) {
   const isVote = item.type === "vote";
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.3) }}
-      className="bg-card rounded-3xl border border-border/30 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+    <article
+      className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden"
     >
       {/* 헤더: 작성자 */}
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
@@ -116,8 +123,8 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
       </div>
 
       {/* 본문 */}
-      <div className="px-5 pb-4">
-        <div className="bg-muted/70 rounded-2xl p-4 border border-border/30">
+      <div className="px-4 pb-4">
+        <div className="bg-[#F2F2F7] dark:bg-[#2C2C2E] rounded-xl p-3.5">
           <p className="text-[14px] font-bold text-foreground leading-snug line-clamp-2">
             {item.title}
           </p>
@@ -140,28 +147,28 @@ function FeedCard({ item, index }: { item: FeedItem; index: number }) {
       </div>
 
       {/* 푸터 */}
-      <div className="flex items-center border-t border-border/30">
+      <div className="flex items-center border-t border-black/5 dark:border-white/10">
         <Link
           href={`/members/${item.politicianId}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-semibold text-muted-foreground active:bg-black/5 dark:active:bg-white/5 transition-colors"
         >
           <Users className="w-3.5 h-3.5" /> 의원 프로필
         </Link>
-        <div className="w-px h-5 bg-border/30" />
+        <div className="w-px h-5 bg-black/5 dark:bg-white/10" />
         <Link
           href={`/bills?q=${encodeURIComponent(item.title)}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-bold text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[12px] font-semibold text-muted-foreground active:bg-black/5 dark:active:bg-white/5 transition-colors"
         >
           <FileText className="w-3.5 h-3.5" /> 법안 보기
         </Link>
       </div>
-    </motion.article>
+    </article>
   );
 }
 
 function FeedSkeleton() {
   return (
-    <div className="bg-card rounded-3xl border border-border/30 p-5 space-y-4">
+    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 space-y-4 shadow-sm">
       <div className="flex items-center gap-3">
         <Skeleton className="w-11 h-11 rounded-full" />
         <div className="flex-1 space-y-2">
@@ -202,6 +209,15 @@ export default function Members() {
   const { data: timeline, isLoading: feedLoading } = useQuery<TimelineResponse>({
     queryKey: ["/api/feed/timeline"],
     queryFn: () => fetch("/api/feed/timeline?limit=30").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 팔로우 없을 때 보여줄 국회의원 뉴스
+  const followCount = timeline?.followCount ?? 0;
+  const { data: memberNewsData } = useQuery<{ items: NewsItem[] }>({
+    queryKey: ["/api/news", "member"],
+    queryFn: () => fetch("/api/news?category=member").then((r) => r.json()),
+    enabled: followCount === 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -269,28 +285,23 @@ export default function Members() {
   const feedItems = timeline?.items ?? [];
 
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground">
+    <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] font-sans text-foreground">
       {/* ── 상단 헤더 ── */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/40">
-        <div className="max-w-2xl mx-auto px-5 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-[26px] font-black text-foreground tracking-tight flex items-center gap-2">
-              <span className="w-9 h-9 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary-foreground" />
-              </span>
-              인물
-            </h1>
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]">
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-[22px] font-bold text-foreground">인물</h1>
             <Link href="/more">
-              <div className="w-9 h-9 rounded-full bg-muted border border-border/30 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors">
+              <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-muted-foreground active:opacity-70">
                 <Heart className="w-4 h-4" />
               </div>
             </Link>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
-              className="w-full h-11 pl-11 pr-4 bg-muted border border-border/30 rounded-2xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
+              className="w-full h-10 pl-10 pr-4 bg-black/5 dark:bg-white/10 rounded-xl text-[14px] outline-none placeholder:text-muted-foreground font-medium text-foreground"
               placeholder="국회의원 이름·정당·지역구 검색"
               value={searchQuery}
               onChange={(e) => {
@@ -302,7 +313,7 @@ export default function Members() {
           </div>
 
           {/* 탭 */}
-          <div className="flex gap-1 mt-4 -mb-3">
+          <div className="flex items-center bg-black/5 dark:bg-white/10 rounded-xl p-1 mt-3">
             {[
               { key: "feed", label: "팔로우 피드", icon: Rss },
               { key: "discover", label: "탐색", icon: Compass },
@@ -312,18 +323,14 @@ export default function Members() {
                 <button
                   key={key}
                   onClick={() => setTab(key as "feed" | "discover")}
-                  className={`relative flex items-center gap-1.5 px-4 py-3 text-[14px] font-bold transition-colors ${
-                    active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-bold transition-all active:opacity-70 ${
+                    active
+                      ? "bg-white dark:bg-[#2C2C2E] text-foreground shadow-sm"
+                      : "text-muted-foreground"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   {label}
-                  {active && (
-                    <motion.div
-                      layoutId="memberTabUnderline"
-                      className="absolute bottom-0 left-3 right-3 h-1 bg-primary rounded-t-full"
-                    />
-                  )}
                 </button>
               );
             })}
@@ -331,7 +338,7 @@ export default function Members() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 pb-28">
+      <main className="max-w-2xl mx-auto px-3 py-4 pb-[calc(80px+env(safe-area-inset-bottom))]">
         <AnimatePresence mode="wait">
           {tab === "feed" ? (
             <motion.div
@@ -353,22 +360,72 @@ export default function Members() {
                   <FeedSkeleton />
                 </div>
               ) : feedItems.length === 0 ? (
-                <div className="bg-card rounded-3xl border border-border/30 py-16 px-6 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto">
-                    <Sparkles className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[16px] font-black text-foreground">아직 피드가 비어있어요</p>
-                    <p className="text-[13px] text-muted-foreground font-medium leading-relaxed">
-                      관심 있는 의원을 팔로우하면<br />법안 발의·표결 활동이 여기에 모입니다.
+                <div className="space-y-4">
+                  {/* 최근 국회 뉴스 스토리 */}
+                  {memberNewsData && memberNewsData.items.length > 0 && (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                        <div className="flex items-center gap-2">
+                          <Newspaper className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-[14px] font-bold text-foreground">최근 국회 뉴스</span>
+                        </div>
+                        <Link href="/news">
+                          <span className="text-[12px] text-muted-foreground">전체보기</span>
+                        </Link>
+                      </div>
+                      {/* 가로 스크롤 스토리 카드 */}
+                      <div className="flex gap-3 overflow-x-auto no-scrollbar px-5 pb-5 -mx-0">
+                        {memberNewsData.items.slice(0, 10).map((item, i) => {
+                          const sourceInitial = item.source.slice(0, 2);
+                          const sourceColors = [
+                            "bg-blue-500", "bg-rose-500", "bg-emerald-500",
+                            "bg-amber-500", "bg-violet-500", "bg-cyan-500",
+                            "bg-orange-500", "bg-teal-500", "bg-fuchsia-500", "bg-lime-600",
+                          ];
+                          const color = sourceColors[i % sourceColors.length];
+                          const diff = Date.now() - new Date(item.pubDate).getTime();
+                          const hours = Math.floor(diff / 3600000);
+                          const timeStr = hours < 1 ? "방금" : hours < 24 ? `${hours}시간 전` : `${Math.floor(hours / 24)}일 전`;
+                          return (
+                            <a
+                              key={i}
+                              href={item.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 w-[140px] flex flex-col gap-2 active:opacity-70 transition-opacity"
+                            >
+                              <div className={`w-full h-[90px] rounded-xl ${color} flex items-center justify-center relative overflow-hidden`}>
+                                {item.thumbnail ? (
+                                  <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-white text-[22px] font-black opacity-90">{sourceInitial}</span>
+                                )}
+                                <div className="absolute bottom-0 left-0 right-0 h-[45px] bg-gradient-to-t from-black/50 to-transparent" />
+                                <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white/90">{item.source}</span>
+                              </div>
+                              <div>
+                                <p className="text-[12px] font-semibold text-foreground leading-snug line-clamp-2">{item.title}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{timeStr}</p>
+                              </div>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {/* 팔로우 유도 */}
+                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm py-8 px-6 text-center space-y-3">
+                    <p className="text-[15px] font-bold text-foreground">관심 의원을 팔로우해보세요</p>
+                    <p className="text-[13px] text-muted-foreground leading-relaxed">
+                      법안 발의·표결 활동이<br />여기 피드에 모입니다.
                     </p>
+                    <button
+                      onClick={() => setTab("discover")}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-full text-[14px] font-bold active:opacity-80"
+                    >
+                      <Compass className="w-4 h-4" /> 의원 탐색하기
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setTab("discover")}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl text-[14px] font-bold hover:opacity-90 transition-colors shadow-lg shadow-indigo-500/20"
-                  >
-                    <Compass className="w-4 h-4" /> 의원 탐색하기
-                  </button>
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -424,30 +481,18 @@ export default function Members() {
                     <span className="text-[11px] text-muted-foreground ml-1">이번 주 급상승</span>
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+                  <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1">
                     {trendingMembers.map((m, i) => {
                       const rankColors = ["#f59e0b", "#94a3b8", "#cd7c43", "#a1a1aa", "#a1a1aa"];
-                      const partyColor =
-                        m.party.includes("더불어민주당") ? "#3A6BFF"
-                        : m.party.includes("국민의힘") ? "#FF3B3B"
-                        : m.party.includes("조국혁신당") ? "#4338ca"
-                        : m.party.includes("개혁신당") ? "#f97316"
-                        : "#6b7280";
                       const trendLabel =
                         m.recentNewsCount > 0 ? `뉴스 ${m.recentNewsCount}건`
                         : m.profileViewCount > 0 ? `조회 ${m.profileViewCount.toLocaleString()}`
                         : m.followerCount > 0 ? `팔로워 ${m.followerCount}명`
                         : "주목 의원";
                       return (
-                        <motion.div
-                          key={m.id}
-                          initial={{ opacity: 0, x: 16 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.06 }}
-                          className="shrink-0"
-                        >
+                        <div key={m.id} className="shrink-0">
                           <Link href={`/members/${m.id}`}>
-                            <div className="w-[110px] bg-card rounded-[20px] border border-border/30 shadow-sm hover:shadow-md hover:border-primary/20 transition-all p-3.5 flex flex-col items-center cursor-pointer active:scale-95">
+                            <div className="w-[100px] bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-3 flex flex-col items-center active:opacity-70 transition-opacity">
                               {/* Rank badge */}
                               <div className="relative w-full flex justify-end mb-1.5">
                                 <span
@@ -480,7 +525,7 @@ export default function Members() {
                                 )}
                               </div>
                               {/* Party */}
-                              <span className="text-[9px] font-bold truncate w-full text-center" style={{ color: partyColor }}>
+                              <span className="text-[9px] font-bold truncate w-full text-center text-muted-foreground">
                                 {m.party.replace("더불어", "").replace("당", "당")}
                               </span>
                               {/* Trend */}
@@ -490,7 +535,7 @@ export default function Members() {
                               </div>
                             </div>
                           </Link>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -498,7 +543,7 @@ export default function Members() {
               )}
 
               {/* 정당 필터 */}
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3">
                 {parties.map((p) => {
                   const active = selectedParty === p;
                   return (
@@ -508,10 +553,10 @@ export default function Members() {
                         setSelectedParty(p);
                         setVisibleCount(12);
                       }}
-                      className={`shrink-0 px-4 py-2 rounded-full text-[12px] font-bold border transition-all ${
+                      className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-all active:opacity-70 ${
                         active
-                          ? "bg-primary text-primary-foreground border-primary shadow-md shadow-indigo-500/20"
-                          : "bg-card text-muted-foreground border-border/30 hover:border-primary/40"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-white dark:bg-[#1C1C1E] text-muted-foreground shadow-sm"
                       }`}
                     >
                       {p}
@@ -521,62 +566,57 @@ export default function Members() {
               </div>
 
               {/* 의원 그리드 */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <div
                       key={i}
-                      className="aspect-[3/4] bg-card rounded-3xl animate-pulse border border-border/30"
+                      className="aspect-[3/4] bg-white dark:bg-[#1C1C1E] rounded-2xl animate-pulse shadow-sm"
                     />
                   ))
                 ) : visibleMembers.length > 0 ? (
                   visibleMembers.map((m, idx) => {
                     const followed = followedSet.has(m.id);
                     return (
-                      <motion.div
+                      <div
                         key={m.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
-                        className="bg-card rounded-3xl border border-border/30 p-5 flex flex-col items-center hover:shadow-lg hover:shadow-indigo-500/5 transition-all"
+                        className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-4 flex flex-col items-center"
                       >
                         <Link
                           href={`/members/${m.id}`}
-                          className="w-20 h-20 rounded-full overflow-hidden mb-3 ring-4 ring-muted shadow-sm"
+                          className="w-18 h-18 rounded-full overflow-hidden mb-2.5 active:opacity-70"
                         >
-                          <PoliticianPhoto
-                            name={m.name}
-                            photo={m.photo}
-                            monaCd={m.id}
-                            context={[m.party, m.district, "국회의원"].filter(Boolean).join(" ")}
-                            className="w-full h-full object-cover"
-                            avatarClassName="text-[22px] font-black bg-muted text-muted-foreground/40"
-                          />
+                          <div className="w-[72px] h-[72px] rounded-full overflow-hidden">
+                            <PoliticianPhoto
+                              name={m.name}
+                              photo={m.photo}
+                              monaCd={m.id}
+                              context={[m.party, m.district, "국회의원"].filter(Boolean).join(" ")}
+                              className="w-full h-full object-cover"
+                              avatarClassName="text-[22px] font-bold bg-muted text-muted-foreground/40"
+                            />
+                          </div>
                         </Link>
                         <Link href={`/members/${m.id}`}>
-                          <h3 className="text-[15px] font-black text-foreground hover:text-primary transition-colors text-center">
+                          <h3 className="text-[14px] font-bold text-foreground text-center">
                             {m.name}
                           </h3>
                         </Link>
-                        <div className="flex flex-col items-center gap-1 mt-1.5 mb-4">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${partyChip(
-                              m.party,
-                            )}`}
-                          >
-                            {m.party}
+                        <div className="flex flex-col items-center gap-0.5 mt-1 mb-3">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${partyChip(m.party)}`}>
+                            {m.party.replace('더불어', '').replace('당', '')}
                           </span>
-                          <span className="text-[11px] font-medium text-muted-foreground text-center line-clamp-1">
+                          <span className="text-[11px] text-muted-foreground text-center line-clamp-1">
                             {m.district}
                           </span>
                         </div>
                         <button
                           onClick={() => handleFollow(m.id)}
                           disabled={followMutation.isPending}
-                          className={`w-full py-2.5 rounded-2xl text-[12.5px] font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-60 ${
+                          className={`w-full py-2 rounded-full text-[12px] font-bold transition-all flex items-center justify-center gap-1.5 active:opacity-70 disabled:opacity-60 ${
                             followed
-                              ? "bg-muted text-muted-foreground border border-border/30"
-                              : "bg-primary text-primary-foreground hover:opacity-90 shadow-md shadow-indigo-500/20"
+                              ? "bg-black/5 dark:bg-white/10 text-muted-foreground"
+                              : "bg-primary text-primary-foreground shadow-sm"
                           }`}
                         >
                           {followed ? (
@@ -589,7 +629,7 @@ export default function Members() {
                             </>
                           )}
                         </button>
-                      </motion.div>
+                      </div>
                     );
                   })
                 ) : (

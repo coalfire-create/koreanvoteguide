@@ -233,6 +233,7 @@ function RegisterForm() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
@@ -349,7 +350,7 @@ function RegisterForm() {
       toast({ title: "휴대폰 인증 필요", description: "휴대폰 번호 인증을 먼저 완료해주세요", variant: "destructive" });
       return;
     }
-    if (!name || !username || !password || !phone || !verificationCode || !birthYear) {
+    if (!name || !nickname || !username || !password || !phone || !verificationCode || !birthYear) {
       toast({ title: "입력 오류", description: "모든 항목을 입력해주세요", variant: "destructive" });
       return;
     }
@@ -369,7 +370,7 @@ function RegisterForm() {
 
     setLoading(true);
     try {
-      await register({ username, password, name, phone, verificationCode, birthYear: birthYearNum, agreeTos, agreePrivacy });
+      await register({ username, password, name, nickname, phone, verificationCode, birthYear: birthYearNum, agreeTos, agreePrivacy });
       toast({ title: "가입 완료", description: "환영합니다!" });
       navigate("/");
     } catch (err: any) {
@@ -397,6 +398,19 @@ function RegisterForm() {
           onChange={(e) => setName(e.target.value)}
           className="w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm"
         />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[12px] font-bold text-slate-700 pl-1">닉네임</label>
+        <Input
+          type="text"
+          placeholder="커뮤니티에서 사용할 닉네임 (2~20자)"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          maxLength={20}
+          className="w-full h-12 bg-slate-50 border-slate-200 focus-visible:bg-white rounded-xl shadow-sm"
+        />
+        <p className="text-[11px] text-slate-400 pl-1">닉네임은 가입 후 7일마다 변경할 수 있어요</p>
       </div>
 
       <div className="space-y-1">

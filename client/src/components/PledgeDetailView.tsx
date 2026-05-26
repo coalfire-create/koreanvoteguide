@@ -905,7 +905,7 @@ function SinglePledgeView({
               <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
             <h3 className="text-[16px] md:text-lg font-black text-gray-900">AI 실현 가능성 분석</h3>
-            <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">Groq AI</span>
+            <span className="text-[10px] font-bold text-[#6D28D9] bg-indigo-50 px-2 py-0.5 rounded-full">자체 AI</span>
             {isLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin ml-1" />}
           </div>
 
@@ -1033,7 +1033,7 @@ function SinglePledgeView({
             )}
 
             <p className="text-[12px] text-gray-400 mt-6 text-center italic font-medium">
-              {ai ? "* Groq AI(LLaMA3)가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다" : "* 공약 텍스트 기반 자동 추정값입니다"}
+              {ai ? "* 자체 AI가 공약 텍스트를 기반으로 중립적으로 분석한 결과입니다" : "* 공약 텍스트 기반 자동 추정값입니다"}
             </p>
           </div>
         </div>
@@ -1182,7 +1182,7 @@ export default function PledgeDetailView({
               <div className="flex items-center justify-between mb-10">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-                  <h3 className="text-xl font-black text-gray-900">시민 토론 광장</h3>
+                  <h3 className="text-xl font-black text-gray-900">공약에 대한 의견</h3>
                 </div>
                 <span className="text-[14px] font-bold text-indigo-600 bg-indigo-50 px-4 py-1.5 rounded-full ring-1 ring-indigo-100">
                   의견 {comments.length}개

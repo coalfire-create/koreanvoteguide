@@ -765,6 +765,7 @@ export async function registerRoutes(
       }
 
       const { username, password, name, phone, verificationCode, birthYear } = result.data;
+      const nickname = (req.body.nickname as string | undefined)?.trim() || undefined;
       const normalizedPhone = phone.replace(/-/g, "");
       const phoneHash = hashPhone(normalizedPhone);
 
@@ -790,6 +791,7 @@ export async function registerRoutes(
         username,
         password: hashedPassword,
         name,
+        nickname: nickname || null,
         phone: normalizedPhone,
         phoneHash,
         birthYear,
@@ -2723,8 +2725,8 @@ export async function registerRoutes(
     }
   });
 
-  // 법안 댓글 작성 (POST /api/bills/:id/comments) — 로그인 필수
-  app.post("/api/bills/:id/comments", requireAuth, async (req, res) => {
+  // 법안 댓글 작성 (POST /api/bills/:id/comments) — 익명 허용
+  app.post("/api/bills/:id/comments", communityWriteLimiter, async (req, res) => {
     try {
       const { id: billId } = req.params;
       const { content, parentId } = req.body;
@@ -2737,8 +2739,8 @@ export async function registerRoutes(
       }
       const safe = sanitizeText(raw, 500);
 
-      const userId = req.session.userId!;
-      const user = await storage.getUser(userId);
+      const userId = getActorId(req);
+      const user = req.session.userId ? await storage.getUser(req.session.userId) : null;
       const displayName = user?.nickname || user?.name || getOrCreateNickname(userId);
       const parsedParent = typeof parentId === "number" ? parentId : (typeof parentId === "string" && /^\d+$/.test(parentId) ? Number(parentId) : null);
 
@@ -6814,8 +6816,139 @@ export async function registerRoutes(
     res.send(result.data);
   });
 
-  // ===== 공지사항 =====
+  // ===== 오늘의 핫이슈 (데일리 폴) =====
+  
+  app.get("/api/daily-polls/today", async (req, res) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      let [poll] = await db
+        .select()
+        .from(dailyPolls)
+        .where(eq(dailyPolls.date, today))
+        .limit(1);
+      
+      if (!poll) {
+        // 임시로 자동 생성 (실제로는 어드민이나 크론에서 생성)
+        const [newPoll] = await db.insert(dailyPolls).values({
+          date: today,
+          title: "오늘의 테스트 투표: 차기 대선 주자 토론회 시청하시나요?",
+          description: "여야 유력 주자들의 첫 TV 토론회가 오늘 저녁 열립니다.",
+          options: [
+            { id: "yes", label: "시청한다" },
+            { id: "no", label: "시청하지 않는다" },
+          ],
+        }).returning();
+        poll = newPoll;
+      }
+      
+      const sessionUser = (req as any).user as { id: string } | undefined;
+      let userVote = null;
+      if (sessionUser) {
+        const [vote] = await db
+          .select()
+          .from(dailyPollVotes)
+          .where(and(eq(dailyPollVotes.pollId, poll.id), eq(dailyPollVotes.userId, sessionUser.id)))
+          .limit(1);
+        if (vote) userVote = vote.optionId;
+      }
+      
+      // 결과 집계
+      const rawVotes = await db
+        .select({
+          optionId: dailyPollVotes.optionId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(dailyPollVotes)
+        .where(eq(dailyPollVotes.pollId, poll.id))
+        .groupBy(dailyPollVotes.optionId);
+        
+      const results: Record<string, number> = {};
+      let totalVotes = 0;
+      for (const rv of rawVotes) {
+        results[rv.optionId] = rv.count;
+        totalVotes += rv.count;
+      }
+      
+      return res.json({ poll, userVote, results, totalVotes });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "서버 오류" });
+    }
+  });
+  
+  app.post("/api/daily-polls/:id/vote", requireAuth, async (req, res) => {
+    const sessionUser = (req as any).user as { id: string } | undefined;
+    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+    const { optionId } = req.body;
+    if (!optionId) return res.status(400).json({ error: "옵션을 선택해주세요." });
+    
+    try {
+      await db.insert(dailyPollVotes).values({
+        pollId: req.params.id,
+        userId: sessionUser.id,
+        optionId,
+      });
+      // 투표 참여 보상 지급 (예: 50 exp)
+      await db.update(users)
+        .set({ exp: sql`exp + 50` })
+        .where(eq(users.id, sessionUser.id));
+        
+      return res.json({ success: true, reward: 50 });
+    } catch (e: any) {
+      if (e.code === '23505') return res.status(400).json({ error: "이미 투표하셨습니다." });
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
+  });
 
+  // ===== 출석 체크 (게이미피케이션) =====
+  
+  app.post("/api/users/attendance", requireAuth, async (req, res) => {
+    const sessionUser = (req as any).user as { id: string } | undefined;
+    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+    
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const [user] = await db.select().from(users).where(eq(users.id, sessionUser.id)).limit(1);
+      
+      if (!user) return res.status(404).json({ error: "유저를 찾을 수 없습니다." });
+      if (user.lastAttendanceDate === today) {
+        return res.json({ success: false, message: "이미 오늘 출석하셨습니다.", currentExp: user.exp, streak: user.attendanceStreak });
+      }
+      
+      let newStreak = 1;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+      
+      if (user.lastAttendanceDate === yesterdayStr) {
+        newStreak = user.attendanceStreak + 1;
+      }
+      
+      const rewardExp = 100 + (newStreak > 1 ? 20 : 0); // 기본 100 + 연속 출석 20 추가
+      
+      await db.update(users)
+        .set({ 
+          lastAttendanceDate: today,
+          attendanceStreak: newStreak,
+          exp: sql`exp + ${rewardExp}`
+        })
+        .where(eq(users.id, sessionUser.id));
+        
+      return res.json({ 
+        success: true, 
+        message: "출석 완료!", 
+        rewardExp, 
+        streak: newStreak,
+        currentExp: user.exp + rewardExp 
+      });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: "서버 오류" });
+    }
+  });
+
+  // ===== 공지사항 =====
   // 가장 최근 활성 공지사항 1건 반환 (모든 사용자)
   app.get("/api/announcements/active", async (req, res) => {
     try {

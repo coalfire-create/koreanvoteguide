@@ -55,6 +55,10 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").default(false).notNull(),
   // 회원 탈퇴 시각 — soft delete. 데이터 비식별화 후 30일 보존.
   deletedAt: timestamp("deleted_at"),
+  // 게이미피케이션 (출석 및 시민 등급)
+  exp: integer("exp").default(0).notNull(),
+  attendanceStreak: integer("attendance_streak").default(0).notNull(),
+  lastAttendanceDate: text("last_attendance_date"), // YYYY-MM-DD
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   phoneHashIdx: uniqueIndex("users_phone_hash_uniq").on(table.phoneHash),
@@ -84,6 +88,32 @@ export const userFollows = pgTable("user_follows", {
 }));
 
 export type UserFollow = typeof userFollows.$inferSelect;
+
+// ===== 오늘의 핫이슈 (데일리 폴) =====
+export const dailyPolls = pgTable("daily_polls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: text("date").notNull().unique(), // YYYY-MM-DD (해당 일자의 투표)
+  title: text("title").notNull(),
+  description: text("description"),
+  // 예: [{ id: "A", label: "찬성" }, { id: "B", label: "반대" }]
+  options: jsonb("options").default([]).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DailyPoll = typeof dailyPolls.$inferSelect;
+
+export const dailyPollVotes = pgTable("daily_poll_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pollId: varchar("poll_id").notNull().references(() => dailyPolls.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  optionId: text("option_id").notNull(), // 선택한 보기 ID
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userPollUniq: uniqueIndex("daily_poll_user_uniq").on(table.userId, table.pollId),
+}));
+
+export type DailyPollVote = typeof dailyPollVotes.$inferSelect;
 
 export const verificationCodes = pgTable("verification_codes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -149,27 +149,13 @@ export function DailyPoll({ board }: DailyPollProps) {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="bg-card rounded-[1.5rem] shadow-sm border border-border/40 overflow-hidden m-4"
     >
-      <div className="bg-gradient-to-r from-indigo-50/80 via-white to-purple-50/50 p-5 pb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <motion.div 
-            initial={{ scale: 0.8, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-            className="flex items-center gap-1.5 bg-orange-100/80 px-2 py-1 rounded-full border border-orange-200/60"
-          >
-            <Flame className="w-3.5 h-3.5 text-orange-600" />
-            <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest pl-0.5 pr-1">Today's Poll</span>
-          </motion.div>
-          <motion.span 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="ml-auto text-[11px] text-indigo-600/80 font-bold bg-indigo-50/50 px-2 py-1 rounded-full"
-          >
-            참여 {totalVotes.toLocaleString()}명
-          </motion.span>
+      <div className="p-5 pb-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">오늘의 투표</span>
+          <span className="text-[11px] text-muted-foreground">참여 {totalVotes.toLocaleString()}명</span>
         </div>
-        
-        <h3 className="text-[16px] font-extrabold text-slate-900 mb-4 leading-snug tracking-tight">
+
+        <h3 className="text-[16px] font-bold text-foreground mb-4 leading-snug">
           {poll.question}
         </h3>
         

@@ -407,9 +407,10 @@ export default function More() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-[calc(80px+env(safe-area-inset-bottom))] text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-border/40">
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
+        <div className="px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">마이페이지</h1>
         {user && (
           <button
@@ -419,6 +420,7 @@ export default function More() {
             <Settings className="w-6 h-6" />
           </button>
         )}
+        </div>
       </header>
 
       <div className="max-w-lg mx-auto px-5 pt-6 space-y-8">

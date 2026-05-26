@@ -149,7 +149,7 @@ export function useAssemblyMembers() {
 }
 
 export function useAssemblyBills() {
-  const query = useQuery<ApiResponse<any[]>>({
+  const query = useQuery<any>({
     queryKey: ["/api/bills"],
     staleTime: 30 * 60 * 1000,
     refetchInterval: 30 * 60 * 1000,
@@ -157,8 +157,13 @@ export function useAssemblyBills() {
   });
 
   const bills = useMemo(() => {
-    const billsData = query.data?.data;
-    const source = query.data?.source;
+    const raw = query.data;
+    if (!raw) return mockBills;
+
+    // /api/bills returns a raw array of DB rows
+    const billsData: any[] | null = Array.isArray(raw) ? raw : (raw?.data ?? null);
+    const source: string = Array.isArray(raw) ? "db" : (raw?.source ?? "db");
+
     let apiBills: Bill[] | null = null;
     if (billsData && billsData.length > 0) {
       apiBills = source === "db" ? transformDbBills(billsData) : transformApiBills(billsData);
@@ -169,7 +174,7 @@ export function useAssemblyBills() {
   return {
     bills,
     isLoading: query.isLoading,
-    isApi: query.data?.data != null && query.data.data.length > 0,
+    isApi: Array.isArray(query.data) ? query.data.length > 0 : (query.data?.data?.length > 0),
   };
 }
 

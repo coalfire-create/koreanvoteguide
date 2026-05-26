@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark } from "lucide-react";
+import { NotificationPanel, useHasUnread } from "@/components/NotificationPanel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { saveCandidateToSession } from "@/pages/candidate-detail";
@@ -13,12 +14,13 @@ import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailVie
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
+import { DailyPollWidget } from "@/components/DailyPollWidget";
 
 // 후보 영역 로딩용 Skeleton — 실제 카드와 같은 골격을 회색 펄스로 그린다.
 // 헤더/사이드 위젯은 그대로 두고 이 부분만 데이터 도착 시 교체된다.
 function CandidatesSkeleton() {
   return (
-    <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden animate-pulse">
+    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden animate-pulse shadow-sm">
       <div className="px-8 pt-8 pb-8">
         <div className="h-6 w-48 bg-muted rounded mb-8" />
         {/* VS Matchup Skeleton */}
@@ -135,7 +137,7 @@ function ScheduleWidget({ regionName }: { regionName?: string }) {
   const headlineDday = items.length > 0 ? calculateDDay(items[0].eventDate) : null;
 
   return (
-    <div className="bg-card rounded-[1.5rem] p-6 shadow-sm border border-border/30">
+    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-foreground text-[15px]">선거 주요 일정</h3>
         {headlineDday !== null && (
@@ -207,7 +209,7 @@ function ScheduleWidget({ regionName }: { regionName?: string }) {
 
 function EmptyState({ regionName }: { regionName: string }) {
   return (
-    <div className="bg-card rounded-[2.5rem] shadow-sm border border-border/30 px-8 py-20 flex flex-col items-center justify-center gap-4">
+    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm px-6 py-16 flex flex-col items-center justify-center gap-4">
       <p className="text-muted-foreground font-medium">{regionName} 지역의 등록된 후보자가 아직 없습니다.</p>
       <Link href="/city-select">
         <Button variant="outline" className="border-border/30 text-foreground hover:bg-muted">지역 다시 선택하기</Button>
@@ -258,76 +260,90 @@ const getPartyColor = (party: string) => {
 // Layout Header (Top Nav) included in the page for simplicity, 
 // though ideally it should be in App.tsx. Since the design requires it to be above the content,
 // we will add it at the top of RegionView.
-function TopHeader({ 
-  allRegions, 
-  currentRegionCode, 
-  onSelectRegion 
-}: { 
+function TopHeader({
+  allRegions,
+  currentRegionCode,
+  onSelectRegion
+}: {
   allRegions: { code: string; name: string }[];
   currentRegionCode: string;
   onSelectRegion: (idx: number) => void;
 }) {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const hasUnread = useHasUnread();
 
   return (
-    <header className="w-full h-[72px] flex items-center justify-between px-8 bg-background border-b border-border/40 sticky top-0 z-50">
-      <div className="flex items-center gap-8">
-        {/* Logo removed here as it is present in SideNav */}
-        
-        {/* Region Tabs in Header — mobile only, desktop has it in SideNav */}
-        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto scrollbar-hide py-1 max-w-[800px]">
-          {allRegions.map((r, idx) => (
-            <button
-              key={r.code}
-              onClick={() => onSelectRegion(idx)}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                currentRegionCode === r.code 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
-                  : "bg-muted text-muted-foreground hover:bg-muted/70"
-              }`}
-            >
-              {r.name}
-            </button>
-          ))}
+    <div>
+      <header className="w-full bg-white/90 dark:bg-black/80 backdrop-blur-2xl sticky top-0 z-50 pt-[env(safe-area-inset-top)]">
+      <div className="h-[52px] flex items-center justify-between px-4">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Region Tabs in Header — mobile only */}
+        <div className="flex md:hidden items-center overflow-x-auto scrollbar-hide flex-1 min-w-0 gap-0.5">
+          {allRegions.map((r, idx) => {
+            const isActive = currentRegionCode === r.code;
+            return (
+              <button
+                key={r.code}
+                onClick={() => onSelectRegion(idx)}
+                className={`relative px-2.5 py-1.5 shrink-0 active:opacity-60 transition-all whitespace-nowrap ${
+                  isActive
+                    ? "text-foreground font-extrabold text-[14px]"
+                    : "text-muted-foreground/50 font-semibold text-[13px]"
+                }`}
+              >
+                {r.name}
+                {isActive && (
+                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
           <Link href="/city-select">
-            <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground hover:bg-muted/70 ml-1 shrink-0">
-              <Plus className="w-4 h-4" />
+            <button className="ml-2 shrink-0 active:opacity-60 text-[12px] font-semibold text-muted-foreground/40 whitespace-nowrap">
+              + 지역
             </button>
           </Link>
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <button className="text-muted-foreground hover:text-primary transition-colors relative">
-          <Bell className="w-6 h-6" />
-          <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-background"></span>
+      <div className="flex items-center gap-3 shrink-0">
+        <button
+          onClick={() => setNotifOpen(true)}
+          className="text-muted-foreground relative active:opacity-70"
+        >
+          <Bell className="w-5 h-5" />
+          {hasUnread && (
+            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full" />
+          )}
         </button>
-        <button className="text-muted-foreground hover:text-primary transition-colors hidden sm:block">
-          <HelpCircle className="w-6 h-6" />
-        </button>
-        <div className="flex items-center gap-3 pl-4 border-l border-border/30">
+        <div className="flex items-center gap-2">
           {user ? (
             <Link href="/more">
-              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-sm cursor-pointer shadow-sm ring-2 ring-transparent hover:ring-primary/20 transition-all">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black text-sm active:opacity-70">
                 {user.name.charAt(0)}
               </div>
             </Link>
           ) : (
-            <Button 
-              className="bg-card text-primary hover:bg-muted border border-border/30 rounded-full px-6 h-10 font-bold shadow-sm text-xs"
+            <button
+              className="text-primary font-bold text-sm active:opacity-70"
               onClick={() => setLocation("/login")}
             >
               로그인
-            </Button>
+            </button>
           )}
         </div>
       </div>
-    </header>
+      </div>
+      </header>
+
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+    </div>
   );
 }
 
-function RegionView({ 
+function RegionView({
   region, 
   allRegions, 
   onSelectRegion,
@@ -449,119 +465,97 @@ function RegionView({
   const showEmpty = isSuccess && !isLoading && vsCandidates.length === 0;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background w-full pb-20 text-foreground">
-      <TopHeader 
-        allRegions={allRegions} 
-        currentRegionCode={region.code} 
-        onSelectRegion={onSelectRegion} 
+    <div className="flex flex-col min-h-screen bg-[#F2F2F7] dark:bg-[#000000] w-full pb-20 text-foreground">
+      <TopHeader
+        allRegions={allRegions}
+        currentRegionCode={region.code}
+        onSelectRegion={onSelectRegion}
       />
-      
-      <div className="px-4 sm:px-8 pt-6 w-full max-w-[1400px] mx-auto">
 
+      <div className="px-3 pt-3 w-full max-w-[1400px] mx-auto">
 
-
-
-        {/* 선거 종류 탭 — 지방선거 / 국회의원 재보궐 */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <span className="px-5 py-2.5 rounded-full text-[13px] font-black bg-indigo-600 text-white shadow-md">
-            지방선거
-          </span>
+        {/* 선거 종류 탭 */}
+        <div className="flex items-center gap-4 mb-4 px-1">
+          <span className="text-[14px] font-bold text-foreground border-b-2 border-foreground pb-1">지방선거</span>
           <Link href="/assembly-election">
-            <button className="px-5 py-2.5 rounded-full text-[13px] font-black bg-card border border-border/50 text-muted-foreground hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center gap-1.5">
-              <Landmark className="w-4 h-4" /> 국회의원 재보궐
-            </button>
+            <button className="text-[14px] font-medium text-muted-foreground/60 pb-1 active:opacity-70">재보궐</button>
           </Link>
         </div>
 
         {/* Main Grid: Left (Main Content) + Right (Widgets) */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-8">
-          
+
           {/* LEFT: Main Content */}
           <div className="flex flex-col gap-6">
-            
-            {/* Election Header & Poll Support Rating Summary */}
-            <div className="flex flex-col gap-4">
-              <div className="relative flex flex-col items-center justify-center py-4">
-                <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight text-center">
-                  {`${MAYOR_RACES.find(r => r.regionCode === region.code)?.positionLabel || `${region.name}시장`} 선거`}
-                </h1>
-                <p className="text-muted-foreground text-sm font-medium mt-2 text-center">제9회 전국동시지방선거 · 2026년 6월 3일</p>
-                
 
-              </div>
-
-            </div>
-
-            {/* Candidate Showcase (Multi-VS) — 로딩 중에는 Skeleton, 데이터 없으면 EmptyState */}
+            {/* Candidate Showcase — integrated election header */}
             {showSkeleton ? (
               <CandidatesSkeleton />
             ) : showEmpty ? (
               <EmptyState regionName={region.name} />
             ) : (
             <div className={`transition-opacity duration-300 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
-              <div className="bg-card rounded-2xl sm:rounded-[2.5rem] shadow-sm border border-border/30 overflow-hidden">
-                <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8">
-                <div className="flex items-center justify-between mb-6 sm:mb-8">
-                  <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
-                    주요 정당 핵심 정책 대결
-                  </h3>
-                  <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
-                    <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-[10px] font-black text-red-600">격전지 분석 중</span>
-                  </div>
-                </div>
+              <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl overflow-hidden shadow-sm">
+                {/* Election info header */}
+                {(() => {
+                  const dDays = calculateDDay("2026-06-03T00:00:00");
+                  const posLabel = MAYOR_RACES.find(r => r.regionCode === region.code)?.positionLabel || `${region.name}시장`;
+                  return (
+                    <div className="pt-5 pb-4 border-b border-black/[0.04] dark:border-white/[0.06]">
+                      <div className="flex items-center justify-between px-5 mb-3">
+                        <span className={`text-[12px] font-black px-2.5 py-1 rounded-lg ${dDays <= 7 ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"}`}>
+                          {formatDDayLabel(dDays)}
+                        </span>
+                        <Link href="/city-select">
+                          <button className="text-[12px] text-muted-foreground/40 active:opacity-60">지역 변경</button>
+                        </Link>
+                      </div>
+                      <div className="text-center px-5">
+                        <h2 className="text-[20px] font-extrabold text-foreground tracking-tight">{posLabel} 선거</h2>
+                        <p className="text-[12px] text-muted-foreground mt-1">2026. 6. 3 · 제9회 지방선거 · {displayCandidates.length}명 출마</p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
+                <div className="px-4 pt-5 pb-5">
                 {/* VS Matchup Section */}
                 <div className="flex flex-row items-center justify-center gap-2 sm:gap-6 md:gap-12 py-4">
                   {vsCandidates.map((candidate, idx) => {
                     const color = getPartyColor(candidate.party);
                     return (
                       <React.Fragment key={candidate.id || idx}>
-                        <motion.div
-                          whileHover={{ y: -8, scale: 1.02 }}
-                          className="flex flex-col items-center group cursor-pointer flex-1 max-w-[280px]"
+                        <div
+                          className="flex flex-col items-center cursor-pointer flex-1 max-w-[280px] active:opacity-70 transition-opacity"
                           onClick={() => {
                             saveCandidateToSession(String(candidate.id ?? encodeURIComponent(candidate.name)), candidate);
                             setLocation(`/candidates/${candidate.id ?? encodeURIComponent(candidate.name)}`);
                           }}
                         >
                           <div className="relative">
-                            <div className={`w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[220px] md:h-[220px] rounded-full overflow-hidden border-[6px] md:border-[8px] ${color.replace('bg-', 'border-')} shadow-xl group-hover:shadow-2xl transition-all duration-300 relative z-10 bg-card`}>
+                            <div className="w-[112px] h-[112px] sm:w-[148px] sm:h-[148px] rounded-full overflow-hidden border-[3px] border-white shadow-lg relative z-10 bg-card">
                               <PoliticianPhoto
                                 name={candidate.name}
                                 photo={candidate.photo}
-
                                 context={candidate.party}
-                                avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl font-black`}
+                                avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-2xl sm:text-3xl font-black`}
                               />
                             </div>
-                            <div className={`absolute -bottom-2 md:-bottom-3 left-1/2 -translate-x-1/2 ${color} text-white px-3 sm:px-6 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] md:text-[12px] font-black shadow-lg whitespace-nowrap z-20`}>
-                              기호 {getPartyRank(candidate.party)} · {candidate.party.replace('더불어', '')}
-                            </div>
-                            {/* Accent Ring */}
-                            <div className={`absolute inset-0 rounded-full border-2 ${color.replace('bg-', 'border-')} opacity-20 scale-110 group-hover:scale-125 transition-transform duration-500`}></div>
                           </div>
-                          <div className="text-center mt-6 md:mt-8">
-                            <h4 className="text-[17px] sm:text-[20px] md:text-2xl font-black text-foreground mb-1 md:mb-2 break-keep">{candidate.name}</h4>
+                          <div className="text-center mt-4">
+                            <p className="text-[11px] text-muted-foreground mb-1">{candidate.party.replace('더불어', '').replace('당', '')}</p>
+                            <h4 className="text-[18px] sm:text-[20px] font-black text-foreground break-keep">{candidate.name}</h4>
                             {(candidate.job || candidate.career1) && (
-                              <p className={`text-[10px] sm:text-[11px] md:text-[13px] font-bold ${color.replace('bg-', 'text-')} bg-muted px-2 sm:px-4 py-1 rounded-lg line-clamp-1`}>
+                              <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
                                 {candidate.job || candidate.career1}
                               </p>
                             )}
-                            {candidate.candidateStatus && (
-                              <div className="mt-1 md:mt-2">
-                                <span className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-500/15 text-orange-500' : 'bg-muted text-muted-foreground'}`}>
-                                  {candidate.candidateStatus}
-                                </span>
-                              </div>
-                            )}
                           </div>
-                        </motion.div>
-                        
+                        </div>
+
                         {idx === 0 && vsCandidates.length > 1 && (
                           <div className="flex flex-col items-center justify-center shrink-0">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-foreground text-background flex items-center justify-center text-xs sm:text-sm md:text-xl font-black italic shadow-lg z-10">VS</div>
-                            <div className="h-8 md:h-12 w-px bg-gradient-to-b from-transparent via-border to-transparent hidden md:block mt-2 md:mt-4"></div>
+                            <span className="text-[11px] font-black text-muted-foreground/40 tracking-widest">VS</span>
                           </div>
                         )}
                       </React.Fragment>
@@ -571,49 +565,34 @@ function RegionView({
 
                 {/* Minor Candidates Section */}
                 {minorCandidates.length > 0 && (
-                  <div className="mt-12 pt-8 border-t border-border/30">
-                    <h4 className="text-sm font-black text-muted-foreground mb-6 uppercase tracking-wider flex items-center gap-2">
-                      <Users className="w-4 h-4" /> 다른 후보자들 (기호 3번~)
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  <div className="mt-6 pt-5 border-t border-black/5 dark:border-white/10">
+                    <h4 className="text-[11px] text-muted-foreground mb-3">그 외 후보</h4>
+                    <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
                       {minorCandidates.map((candidate, idx) => {
                         const color = getPartyColor(candidate.party);
                         const symbol = getPartyRank(candidate.party);
                         return (
                           <motion.div
                             key={candidate.id || idx}
-                            whileHover={{ y: -8, scale: 1.02 }}
-                            className="bg-card rounded-[2rem] p-5 border border-border/30 hover:border-primary/20 hover:shadow-xl hover:shadow-indigo-500/10 transition-all cursor-pointer group relative overflow-hidden"
+                            className="w-[110px] flex-shrink-0 bg-white dark:bg-[#2C2C2E] rounded-2xl p-3 cursor-pointer active:opacity-70 transition-opacity overflow-hidden"
                             onClick={() => {
                               saveCandidateToSession(String(candidate.id ?? encodeURIComponent(candidate.name)), candidate);
                               setLocation(`/candidates/${candidate.id ?? encodeURIComponent(candidate.name)}`);
                             }}
                           >
-                            {/* Decorative Background Accent */}
-                            <div className={`absolute -top-10 -right-10 w-24 h-24 ${color} opacity-[0.03] rounded-full blur-2xl group-hover:opacity-[0.08] transition-opacity`} />
-                            
-                            <div className="flex flex-col items-center relative z-10">
-                              <div className="relative mb-5">
-                                <div className={`w-[90px] h-[90px] rounded-full overflow-hidden border-[6px] ${color.replace('bg-', 'border-').replace('[#', '[#').replace(']', '/10]')} shadow-sm group-hover:shadow-md transition-all`}>
+                            <div className="flex flex-col items-center">
+                              <div className="mb-3">
+                                <div className="w-[64px] h-[64px] rounded-full overflow-hidden border-2 border-white shadow-md">
                                   <PoliticianPhoto
                                     name={candidate.name}
                                     photo={candidate.photo}
-    
                                     context={candidate.party}
-                                    avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-xl font-black`}
+                                    avatarClassName={`w-full h-full ${color} text-white flex items-center justify-center text-lg font-black`}
                                   />
                                 </div>
-                                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 ${color} text-white px-3 py-1 rounded-full text-[10px] font-black shadow-lg border-2 border-card whitespace-nowrap`}>
-                                  기호 {symbol}
-                                </div>
                               </div>
-                              <h5 className="text-[16px] font-black text-foreground mb-1 group-hover:text-primary transition-colors break-keep">{candidate.name}</h5>
-                              <p className="text-[11px] text-muted-foreground font-bold tracking-tight mb-1">{candidate.party}</p>
-                              {candidate.candidateStatus && (
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${candidate.candidateStatus === '예비후보' ? 'bg-orange-500/15 text-orange-500' : 'bg-muted text-muted-foreground'}`}>
-                                  {candidate.candidateStatus}
-                                </span>
-                              )}
+                              <h5 className="text-[13px] font-bold text-foreground mb-0.5 break-keep text-center">{candidate.name}</h5>
+                              <p className="text-[10px] text-muted-foreground text-center leading-tight">{candidate.party.replace('더불어', '').replace('당', '')}</p>
                             </div>
                           </motion.div>
                         );
@@ -624,21 +603,12 @@ function RegionView({
               </div>
 
               {/* Divider */}
-              <div className="mx-4 sm:mx-8 border-t border-border/30" />
+              <div className="mx-4 border-t border-black/5 dark:border-white/10" />
 
-              {/* Pledge Comparison Grid — 실 공약 데이터 기반 렌더링 */}
-              <div className="p-4 sm:p-8">
-                <div className="flex items-center justify-between gap-2 mb-6 sm:mb-8">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
-                      핵심 공약 비교 분석
-                    </h3>
-                    <p className="text-[11px] sm:text-xs text-muted-foreground font-medium sm:ml-7">후보자별 공약을 비교하고 AI 분석을 확인하세요</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-primary/20 shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                    <span className="text-[10px] sm:text-[11px] font-black text-primary whitespace-nowrap">AI 비교</span>
-                  </div>
+              {/* Pledge Comparison Grid */}
+              <div className="p-4">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h3 className="text-[15px] font-bold text-foreground">핵심 공약 비교</h3>
                 </div>
 
                 {(() => {
@@ -662,116 +632,103 @@ function RegionView({
 
                   return (
                     <div className="flex flex-col gap-8 sm:gap-12">
-                      {/* 주요 후보 (VS) 공약 비교 — 폰에서도 좌우 2열 유지(웹과 동일 구성) */}
-                      <div className="grid grid-cols-2 gap-3 sm:gap-8">
-                        {vsCandidates.map((candidate) => {
-                          const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
-                          const color = getPartyColor(candidate.party);
-                          
-                          return (
-                            <div key={candidate.id} className="flex flex-col gap-4">
-                              {/* 후보자 헤더 */}
-                              <div className="flex items-center gap-1.5 sm:gap-2 pb-2 border-b border-border/30 min-w-0">
-                                <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
-                                <span className={`text-[11px] sm:text-[12px] font-black ${color.replace('bg-', 'text-')} shrink-0`}>기호 {getPartyRank(candidate.party)}</span>
-                                <span className="text-[13px] sm:text-[14px] font-black text-foreground truncate">{candidate.name}</span>
-                                <span className="text-[10px] sm:text-[11px] text-muted-foreground ml-auto shrink-0">{pledges.length}개</span>
-                              </div>
+                      {/* 주요 후보 공약 비교 — 공약 번호별 스택 레이아웃 */}
+                      <div className="flex flex-col gap-6">
+                        {Array.from({ length: maxPledgeCount }).map((_, pIdx) => (
+                          <div key={pIdx} className="flex flex-col gap-2">
+                            {/* 공약 번호 레이블 */}
+                            <p className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">공약 {pIdx + 1}</p>
 
-                              {pledges.length === 0 ? (
-                                <div className="bg-muted rounded-2xl p-6 text-center">
-                                  <p className="text-[13px] font-bold text-foreground mb-1">5월 21일부터 공약 정보가 공개됩니다</p>
-                                  <p className="text-[11px] text-muted-foreground">후보자 등록 기간 종료 후 자동으로 업데이트됩니다.</p>
-                                </div>
-                              ) : (
-                                pledges.map((p, pIdx) => (
-                                  <motion.div
-                                    key={`${candidate.id}-${p.id}`}
-                                    whileHover={{ y: -3 }}
-                                    className="bg-card p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-border/30 hover:border-primary/20 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
-                                    onClick={() => {
-                                      setSelectedCandidateId(String(candidate.id));
-                                      setSelectedCandidateName(candidate.name);
-                                      setSelectedCandidateParty(candidate.party);
-                                      setSelectedCandidateJob(candidate.job ?? "");
-                                      setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
-                                      setSelectedPledge(p);
-                                      const firstOther = vsCandidates.find(c => c.id !== candidate.id);
-                                      if (firstOther) {
-                                        const otherPledges = normalizePledges(firstOther.pledges ?? firstOther.promises ?? []);
-                                        const otherP = otherPledges[pIdx];
-                                        if (otherP) {
-                                          setSelectedCompareWith({
-                                            candidateId: String(firstOther.id),
-                                            name: firstOther.name,
-                                            party: firstOther.party,
-                                            job: firstOther.job ?? "",
-                                            career1: firstOther.career1 ?? firstOther.career ?? "",
-                                            pledge: otherP
-                                          });
-                                        }
+                            {vsCandidates.map((candidate) => {
+                              const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
+                              const p = pledges[pIdx];
+                              const color = getPartyColor(candidate.party);
+                              if (!p) return null;
+                              return (
+                                <div
+                                  key={`${candidate.id}-${pIdx}`}
+                                  className="bg-white dark:bg-[#2C2C2E] rounded-2xl shadow-sm overflow-hidden cursor-pointer active:opacity-70 transition-opacity"
+                                  onClick={() => {
+                                    setSelectedCandidateId(String(candidate.id));
+                                    setSelectedCandidateName(candidate.name);
+                                    setSelectedCandidateParty(candidate.party);
+                                    setSelectedCandidateJob(candidate.job ?? "");
+                                    setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
+                                    setSelectedPledge(p);
+                                    const firstOther = vsCandidates.find(c => c.id !== candidate.id);
+                                    if (firstOther) {
+                                      const otherPledges = normalizePledges(firstOther.pledges ?? firstOther.promises ?? []);
+                                      const otherP = otherPledges[pIdx];
+                                      if (otherP) {
+                                        setSelectedCompareWith({
+                                          candidateId: String(firstOther.id),
+                                          name: firstOther.name,
+                                          party: firstOther.party,
+                                          job: firstOther.job ?? "",
+                                          career1: firstOther.career1 ?? firstOther.career ?? "",
+                                          pledge: otherP
+                                        });
                                       }
-                                    }}
-                                  >
-                                    <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
-                                    <div className="flex items-start gap-2 sm:gap-3 pl-2 sm:pl-3">
-                                      <span className="text-[11px] font-bold text-muted-foreground mt-0.5 shrink-0">{pIdx + 1}</span>
-                                      <div className="flex-1 min-w-0">
-                                        {p.realmName && (
-                                          <span className="inline-block text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-1.5 uppercase tracking-wider line-clamp-1">{p.realmName}</span>
-                                        )}
-                                        <h5 className="text-[13px] sm:text-[14px] font-bold text-foreground mb-1.5 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                                          {p.title}
-                                        </h5>
-                                        {p.description && (
-                                          <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">{p.description}</p>
-                                        )}
-                                        {(p.method || p.funding || p.duration) && (
-                                          <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-2">
-                                            {p.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">이행방법 ✓</span>}
-                                            {p.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">재원조달 ✓</span>}
-                                            {p.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">이행기간 ✓</span>}
-                                          </div>
-                                        )}
+                                    }
+                                  }}
+                                >
+                                  {/* 후보자 헤더 바 */}
+                                  <div className={`h-1 w-full ${color}`} />
+                                  <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${color} shrink-0`} />
+                                    <span className="text-[12px] font-black text-foreground">{candidate.name}</span>
+                                    <span className="text-[10px] text-muted-foreground ml-1">기호 {getPartyRank(candidate.party)}</span>
+                                  </div>
+                                  <div className="px-4 pb-4">
+                                    {p.realmName && (
+                                      <span className="inline-block text-[10px] font-bold text-primary/70 mb-1">{p.realmName}</span>
+                                    )}
+                                    <h5 className="text-[15px] font-bold text-foreground leading-snug mb-1.5">
+                                      {p.title}
+                                    </h5>
+                                    {p.description && (
+                                      <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-3">{p.description}</p>
+                                    )}
+                                    {(p.method || p.funding || p.duration) && (
+                                      <div className="flex flex-wrap gap-1.5 mt-3">
+                                        {p.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">이행방법 ✓</span>}
+                                        {p.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">재원조달 ✓</span>}
+                                        {p.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">이행기간 ✓</span>}
                                       </div>
-                                      <div className="hidden sm:flex w-6 h-6 rounded-full bg-muted items-center justify-center group-hover:bg-primary/10 transition-colors shrink-0 mt-0.5">
-                                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary" />
-                                      </div>
-                                    </div>
-                                  </motion.div>
-                                ))
-                              )}
-                            </div>
-                          );
-                        })}
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
 
                       {/* 기타 후보 공약 */}
                       {minorCandidates.length > 0 && (
-                        <div className="pt-6 border-t border-border/30">
-                          <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                        <div className="pt-5 border-t border-black/5 dark:border-white/10">
+                          <div className="text-[11px] font-bold text-muted-foreground mb-3 flex items-center gap-1.5">
                             <Plus className="w-3 h-3" /> 기타 정당 후보 공약
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                          <div className="flex flex-col gap-2">
                             {minorCandidates.map((candidate) => {
                               const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
                               const color = getPartyColor(candidate.party);
 
                               return (
-                                <div key={candidate.id} className="bg-muted p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-border/30">
-                                  <div className="flex items-center gap-2 mb-3">
+                                <div key={candidate.id} className="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl shadow-sm">
+                                  <div className="flex items-center gap-2 mb-2">
                                     <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
-                                    <span className={`text-[10px] font-black ${color.replace('bg-', 'text-')}`}>{candidate.name} (기호 {getPartyRank(candidate.party)})</span>
+                                    <span className={`text-[11px] font-bold ${color.replace('bg-', 'text-')}`}>{candidate.name} (기호 {getPartyRank(candidate.party)})</span>
                                   </div>
                                   {pledges.length === 0 ? (
                                     <p className="text-[11px] text-muted-foreground">5월 21일 이후 공개 예정</p>
                                   ) : (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-1.5">
                                       {pledges.slice(0, 3).map((p, pIdx) => (
-                                        <motion.div
+                                        <div
                                           key={`${candidate.id}-${p.id}`}
-                                          whileHover={{ scale: 1.01 }}
-                                          className="cursor-pointer group"
+                                          className="cursor-pointer active:opacity-70"
                                           onClick={() => {
                                             setSelectedCandidateId(String(candidate.id));
                                             setSelectedCandidateName(candidate.name);
@@ -781,10 +738,10 @@ function RegionView({
                                             setSelectedPledge(p);
                                           }}
                                         >
-                                          <h5 className="text-[12px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                                          <h5 className="text-[12px] font-medium text-foreground line-clamp-1">
                                             {pIdx + 1}. {p.title}
                                           </h5>
-                                        </motion.div>
+                                        </div>
                                       ))}
                                       {pledges.length > 3 && (
                                         <span className="text-[10px] text-muted-foreground">+{pledges.length - 3}개 더보기</span>
@@ -810,15 +767,16 @@ function RegionView({
           {/* RIGHT: Widget Section */}
           <div className="flex flex-col gap-6">
             
+            {/* Widget: 데일리 폴 (오늘의 핫이슈 1분 투표) */}
+            <DailyPollWidget />
 
             {/* Widget 1: 선거 주요 일정 (DB 연동) */}
             <ScheduleWidget regionName={region.name} />
 
             {/* Widget 2: 가장 인기있는 토론 참여 */}
-            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 rounded-[2rem] p-6 shadow-xl text-white relative overflow-hidden border border-white/10 group">
-              {/* Background abstract glowing circles */}
-              <div className="absolute -top-12 -right-12 w-36 h-36 bg-pink-500/20 rounded-full blur-2xl pointer-events-none group-hover:bg-pink-500/35 transition-all duration-700"></div>
-              <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-blue-500/25 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/40 transition-all duration-700"></div>
+            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 rounded-2xl p-5 shadow-lg text-white relative overflow-hidden">
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-pink-500/20 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-blue-500/25 rounded-full blur-2xl pointer-events-none"></div>
               
               {/* Header */}
               <div className="flex items-center justify-between mb-4 relative z-10">
@@ -853,7 +811,7 @@ function RegionView({
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -30 }}
                           transition={{ duration: 0.4, ease: "easeInOut" }}
-                          className="absolute inset-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shadow-inner hover:bg-white/15 transition-colors duration-300 cursor-pointer flex flex-col justify-between"
+                          className="absolute inset-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shadow-inner cursor-pointer flex flex-col justify-between active:opacity-70"
                           onClick={() => setLocation(`/community/${post.id}`)}
                         >
                           <div>
@@ -896,17 +854,6 @@ function RegionView({
                 </AnimatePresence>
               </div>
               
-              {/* User Avatars & Info */}
-              <div className="flex items-center justify-between mb-5 relative z-10 px-0.5">
-                <div className="flex -space-x-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">김</div>
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">이</div>
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-[9px] font-black border-2 border-indigo-600 text-white shadow-md">박</div>
-                  <div className="w-7 h-7 rounded-full bg-slate-700/80 flex items-center justify-center text-[8px] font-bold border-2 border-indigo-600 text-white shadow-md">+99</div>
-                </div>
-                <span className="text-[10px] text-white/70 font-bold">지금 328명이 토론방에 있음</span>
-              </div>
-
               {/* Action Button */}
               <Button
                 className="w-full bg-white hover:bg-white/95 text-indigo-700 hover:text-indigo-800 active:scale-[0.98] transition-all h-12 rounded-xl font-extrabold shadow-lg border-none flex items-center justify-center gap-1.5 group/btn cursor-pointer relative z-10"
@@ -921,7 +868,7 @@ function RegionView({
             </div>
 
             {/* Widget 3: 요즘 핫한 의원 */}
-            <div className="bg-card rounded-[1.5rem] shadow-sm border border-border/30 overflow-hidden">
+            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
               {/* Header */}
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-center justify-between mb-1">
@@ -939,9 +886,7 @@ function RegionView({
                     </motion.span>
                   </div>
                   <Link href="/members">
-                    <span className="text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
-                      전체보기
-                    </span>
+                    <span className="text-[11px] font-bold text-primary">전체보기</span>
                   </Link>
                 </div>
                 <p className="text-[11px] text-muted-foreground pl-10">이번 주 뉴스·조회수 기준 급상승</p>
@@ -992,7 +937,7 @@ function RegionView({
                           transition={{ delay: i * 0.07 }}
                         >
                           <Link href={`/members/${m.id}`}>
-                            <div className="flex items-center gap-3 px-2 py-2.5 rounded-[14px] hover:bg-muted/50 cursor-pointer transition-colors group">
+                            <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl active:bg-black/5 dark:active:bg-white/5 transition-colors">
                               {/* Rank */}
                               <div
                                 className="w-5 text-center text-[12px] font-black shrink-0"
@@ -1058,7 +1003,7 @@ function RegionView({
               {/* Footer CTA */}
               <div className="border-t border-border/30 px-5 py-3">
                 <Link href="/members">
-                  <button className="w-full text-[12px] font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1">
+                  <button className="w-full text-[12px] font-bold text-muted-foreground active:opacity-70 flex items-center justify-center gap-1">
                     국회의원 전체 보기 <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </Link>

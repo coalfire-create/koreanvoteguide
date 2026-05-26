@@ -68,7 +68,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full h-[60px] sm:h-[72px] bg-background/80 backdrop-blur-md border-b border-border/40 flex items-center px-4 sm:px-8">
+      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
+        <div className="h-[60px] sm:h-[72px] flex items-center px-4 sm:px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
             <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -100,9 +101,10 @@ export default function Home() {
             </Link>
           )}
         </div>
+        </div>
       </header>
 
-      <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-4 sm:p-8 gap-4 sm:gap-8">
+      <div className="flex-1 flex w-full max-w-[1200px] mx-auto p-4 sm:p-8 gap-4 sm:gap-8 pb-[calc(80px+env(safe-area-inset-bottom))]">
         {/* Main Feed Section */}
         <div className="flex-1 min-w-0 space-y-6">
           {/* Feed List */}

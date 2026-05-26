@@ -16,7 +16,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 dark:bg-black/80 backdrop-blur-2xl pb-[env(safe-area-inset-bottom)]"
       data-testid="nav-bottom"
     >
       <div className="flex items-center justify-around h-[64px] max-w-lg mx-auto px-2">
@@ -34,31 +34,14 @@ export function BottomNav() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {item.isCenter ? (
-                <div
-                  className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-transform active:scale-95 ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`}
-                >
-                  <item.icon
-                    className={`w-6 h-6 mb-0.5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
-                  />
-                  <span
-                    className={`text-[10px] tracking-wide ${isActive ? "font-bold" : "font-medium"}`}
-                  >
-                    {item.title}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <item.icon
-                    className={`w-6 h-6 transition-all duration-300 ${isActive ? "stroke-[2.5]" : "stroke-2"}`}
-                  />
-                  <span
-                    className={`text-[10px] tracking-wide transition-all duration-300 ${isActive ? "font-bold" : "font-medium"}`}
-                  >
-                    {item.title}
-                  </span>
-                </>
-              )}
+              <>
+                <item.icon
+                  className={`w-[22px] h-[22px] transition-all ${isActive ? "stroke-[2.5]" : "stroke-[1.5]"}`}
+                />
+                <span className={`text-[10px] transition-all ${isActive ? "font-bold" : "font-normal text-muted-foreground/70"}`}>
+                  {item.title}
+                </span>
+              </>
             </Link>
           );
         })}

@@ -61,13 +61,6 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <div className="absolute bottom-16 left-4 w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
 
         <div className="relative w-full px-6 pt-16 pb-14 max-w-[680px] mx-auto">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-[12px] bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/10">
-              <span className="text-white font-black text-sm tracking-tight">이유</span>
-            </div>
-            <span className="text-white font-black text-lg tracking-tight">이유있는 투표</span>
-          </div>
 
           {/* D-day badge */}
           <motion.div
@@ -307,7 +300,7 @@ export default function CitySelect() {
                 placeholder="지역명 검색 (서울, 부산, 경기...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-11 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6D28D9] focus:outline-none transition-all text-[14px] font-medium placeholder:text-gray-400 shadow-sm"
+                className="w-full h-11 pl-11 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6D28D9] focus:outline-none transition-all text-[16px] font-medium placeholder:text-gray-400 shadow-sm"
               />
             </div>
             <div className="text-[11px] font-bold text-gray-400 px-1 mt-2">

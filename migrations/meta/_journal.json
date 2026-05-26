@@ -8,6 +8,13 @@
       "when": 1775979257527,
       "tag": "0000_loud_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779775827662,
+      "tag": "0001_nostalgic_inertia",
+      "breakpoints": true
     }
   ]
 }

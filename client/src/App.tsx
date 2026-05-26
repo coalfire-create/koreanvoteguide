@@ -12,6 +12,7 @@ import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { AuthProvider } from "@/lib/auth";
 import { isElectionMode } from "@/lib/election-config";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 // 라우트별 lazy import — 초기 번들 크기 감소 (각 페이지가 별도 chunk로 분리됨)
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -35,6 +36,8 @@ const BillVote = lazy(() => import("@/pages/bill-vote"));
 const CandidateDetail = lazy(() => import("@/pages/candidate-detail"));
 const AssemblyElection = lazy(() => import("@/pages/assembly-election"));
 const IntroTour = lazy(() => import("@/pages/intro-tour"));
+const DailyBriefing = lazy(() => import("@/pages/daily-briefing"));
+const Prediction = lazy(() => import("@/pages/prediction"));
 
 function RouteSpinner() {
   return (
@@ -78,6 +81,8 @@ function Router() {
         <Route path="/city-select" component={CitySelect} />
         <Route path="/intro-tour" component={IntroTour} />
         <Route path="/news" component={NewsPage} />
+        <Route path="/daily-briefing" component={DailyBriefing} />
+        <Route path="/prediction" component={Prediction} />
         <Route path="/more" component={More} />
         <Route component={NotFound} />
       </Switch>
@@ -99,6 +104,38 @@ function LoginSuccessToast() {
   return null;
 }
 
+function AttendanceCheck() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  useEffect(() => {
+    if (!user) return;
+    
+    let isMounted = true;
+    const checkAttendance = async () => {
+      try {
+        const res = await apiRequest("POST", "/api/users/attendance");
+        const data = await res.json();
+        
+        if (data.success && isMounted) {
+          toast({
+            title: "출석 완료! 🎉",
+            description: `${data.streak}일 연속 출석하셨습니다. (EXP +${data.rewardExp})`,
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        }
+      } catch (e) {
+        // fail silently
+      }
+    };
+    
+    checkAttendance();
+    return () => { isMounted = false; };
+  }, [user, toast]);
+
+  return null;
+}
+
 function MainApp() {
   const [location] = useLocation();
   const isLoginPage = location === "/login";
@@ -109,16 +146,18 @@ function MainApp() {
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
-      <LoginSuccessToast />
       {!hideHeaderNav && <AnnouncementBanner />}
       {!hideHeaderNav && <SideNav />}
 
       <main className={`flex-1 w-full ${!hideHeaderNav ? "md:pl-[260px]" : ""}`}>
-        <div className="w-full min-h-screen pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-10">
+        <div className="flex-1 w-full relative z-0">
           <Router />
         </div>
+        <BottomNav />
       </main>
-      {!hideHeaderNav && <BottomNav />}
+      <Toaster />
+      <LoginSuccessToast />
+      <AttendanceCheck />
     </div>
   );
 }
