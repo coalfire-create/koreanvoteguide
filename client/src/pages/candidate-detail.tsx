@@ -353,13 +353,21 @@ export default function CandidateDetail() {
               />
             </div>
             <div className="flex flex-col justify-center flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-white text-[10px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md">
+              <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate leading-none">{candidate.name}</h1>
+                <span className="text-white text-[10px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md shrink-0">
                   {verification.job || "후보자"}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">{candidate.name}</h1>
-              <p className="text-white/90 text-[12px] sm:text-[13px] font-bold truncate">{candidate.party}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-white/95 text-[12px] sm:text-[13px] font-bold shrink-0">{candidate.party}</span>
+                {verification.district && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-white/30 shrink-0" />
+                    <span className="text-white/80 text-[11px] sm:text-[12px] font-medium truncate">{verification.district}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

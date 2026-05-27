@@ -339,7 +339,7 @@ export default function BillSearch() {
                       >
                         {item.thumbnail ? (
                           <img
-                            src={item.thumbnail}
+                            src={withApiBase(item.thumbnail)}
                             alt=""
                             className="w-12 h-12 rounded-xl object-cover shrink-0"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -576,7 +576,7 @@ export default function BillSearch() {
                       >
                         <div className="w-14 h-14 rounded-full border-2 border-primary/20 overflow-hidden bg-muted flex items-center justify-center">
                           {member.photo ? (
-                            <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                            <img src={withApiBase(member.photo)} alt={member.name} className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-lg font-bold text-muted-foreground">{member.name.charAt(0)}</span>
                           )}
