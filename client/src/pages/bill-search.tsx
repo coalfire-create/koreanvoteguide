@@ -6,6 +6,7 @@ import { getBillEmoji } from "@/lib/utils";
 import { useAssemblyBills, useAssemblyMembers, useHotBills, useSearchHistory, saveSearchQuery, clearSearchHistory, deleteSearchHistoryItem } from "@/lib/api-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
+import { withApiBase } from "@/lib/api-base";
 import { useQuery } from "@tanstack/react-query";
 import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
 import { useAuth } from "@/lib/auth";
@@ -176,7 +177,7 @@ export default function BillSearch() {
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-black font-sans text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl">
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
@@ -369,189 +370,189 @@ export default function BillSearch() {
               ) : null}
             </section>
 
-            {/* ===== Stats row ===== */}
-            <div className="flex gap-2">
-              <div className="flex-1 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-3 flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText className="w-4.5 h-4.5 text-primary" />
+            {/* Community Box — full width, above bills */}
+            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span className="text-[14px] font-bold text-foreground">커뮤니티 토론</span>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium">오늘 발의</p>
-                  <p className="text-[20px] font-bold text-foreground leading-none">
-                    {todayBillCount}
-                    <span className="text-[12px] font-medium text-muted-foreground ml-0.5">건</span>
-                  </p>
-                </div>
+                <Link href="/community">
+                  <span className="text-[11px] text-primary font-medium">전체보기</span>
+                </Link>
               </div>
-
               {hotDiscussionPost ? (
-                <Link href={`/community/${hotDiscussionPost.id}`} className="flex-1">
-                  <div className="h-full bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-3 flex items-center gap-2.5 active:opacity-70 cursor-pointer">
-                    <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-4.5 h-4.5 text-rose-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-muted-foreground font-medium">활발한 토론</p>
-                      <p className="text-[13px] font-bold text-foreground line-clamp-1 leading-snug">{hotDiscussionPost.title}</p>
-                    </div>
+                <Link href={`/community/${hotDiscussionPost.id}`}>
+                  <div className="bg-[#F2F2F7] dark:bg-[#2C2C2E] rounded-xl p-3.5 active:opacity-70 cursor-pointer">
+                    <p className="text-[13px] font-semibold text-foreground line-clamp-2 leading-snug">{hotDiscussionPost.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      지금 가장 활발한 토론
+                    </p>
                   </div>
                 </Link>
               ) : (
-                <div className="flex-1 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-3 flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="w-4.5 h-4.5 text-rose-500" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-muted-foreground font-medium">활발한 토론</p>
-                    <p className="text-[13px] font-bold text-muted-foreground">없음</p>
-                  </div>
+                <div className="bg-[#F2F2F7] dark:bg-[#2C2C2E] rounded-xl p-3.5">
+                  <p className="text-[12px] text-muted-foreground/60 text-center py-1">새 토론이 없습니다.</p>
                 </div>
               )}
             </div>
 
-            {/* ===== 인기 법안 Top 5 ===== */}
-            <section>
-              <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-[15px] font-bold text-foreground">인기 법안</h2>
-                <span className="text-[11px] text-muted-foreground">뉴스 언급 기반</span>
-              </div>
+            {/* Main Content Layout: Bills on left, Stats on right */}
+            <div className="flex gap-4 items-start">
 
-              {hotBillsLoading ? (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
-                  {[1, 2, 3, 4, 5].map((i, idx, arr) => (
-                    <div key={i}>
-                      <div className="px-4 py-3 flex items-center gap-3">
-                        <Skeleton className="w-4 h-4 rounded shrink-0" />
-                        <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-                        <div className="flex-1 space-y-1.5">
-                          <Skeleton className="h-4 w-3/4 rounded" />
-                          <Skeleton className="h-3 w-1/2 rounded" />
+              {/* Left Column: Bills */}
+              <div className="flex-1 min-w-0 space-y-5">
+
+                {/* ===== 인기 법안 Top 3 ===== */}
+                <section>
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <h2 className="text-[15px] font-bold text-foreground">인기 법안</h2>
+                    <span className="text-[11px] text-muted-foreground">뉴스 언급 기반</span>
+                  </div>
+
+                  {hotBillsLoading ? (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
+                      {[1, 2, 3].map((i, idx, arr) => (
+                        <div key={i}>
+                          <div className="px-3 py-2.5 flex items-center gap-2.5">
+                            <Skeleton className="w-3 h-3 rounded shrink-0" />
+                            <Skeleton className="w-6 h-6 rounded-lg shrink-0" />
+                            <div className="flex-1 space-y-1">
+                              <Skeleton className="h-3 w-3/4 rounded" />
+                              <Skeleton className="h-2 w-1/2 rounded" />
+                            </div>
+                          </div>
+                          {idx < arr.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[52px]" />}
                         </div>
-                      </div>
-                      {idx < arr.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[72px]" />}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : hotBillsError || hotBills.length === 0 ? (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-6 flex flex-col items-center gap-2 text-muted-foreground">
-                  <AlertCircle className="w-6 h-6 opacity-50" />
-                  <p className="text-[13px] font-medium">인기 법안 데이터를 불러올 수 없습니다</p>
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
-                  {hotSlice.map((bill: any, idx: number) => {
-                    const sl = statusLabel(bill.result);
-                    const sc = statusColor(sl);
-                    const rankColor =
-                      idx === 0 ? "text-foreground font-black" :
-                      idx === 1 ? "text-foreground/70 font-black" :
-                      idx === 2 ? "text-foreground/50 font-bold" :
-                      "text-muted-foreground/40 font-semibold";
-                    const matchedNews: any[] = bill.matchedNews ?? [];
-                    return (
-                      <div key={bill.billId}>
-                        <div
-                          onClick={() => navigate(`/bills/${bill.billId}/vote`)}
-                          className="px-4 pt-3 pb-2 flex items-start gap-3 cursor-pointer active:opacity-70"
-                        >
-                          <span className={`text-[13px] font-black w-4 text-center shrink-0 mt-0.5 ${rankColor}`}>{idx + 1}</span>
-                          <span className="text-lg w-8 text-center shrink-0">{getBillEmoji(bill.billName, bill.committee)}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.billName}</p>
-                            <p className="text-[11px] mt-0.5">
-                              <span className={`font-bold ${sc}`}>{sl}</span>
-                              {bill.committee && <span className="text-muted-foreground"> · {bill.committee}</span>}
-                            </p>
-                            {/* 관련 뉴스 인라인 */}
-                            {matchedNews.length > 0 && (
-                              <div className="mt-2 flex flex-col gap-1.5">
-                                {matchedNews.map((n: any) => (
-                                  <a
-                                    key={n.link}
-                                    href={n.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1.5 group"
-                                  >
-                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black border shrink-0 ${SOURCE_COLORS[n.sourceCode] ?? "bg-gray-50 text-gray-500 border-gray-100"}`}>
-                                      {n.source}
-                                    </span>
-                                    <span className="text-[11px] text-muted-foreground line-clamp-1 flex-1 group-hover:text-foreground transition-colors">
-                                      {n.title}
-                                    </span>
-                                    <ExternalLink className="w-3 h-3 text-muted-foreground/30 shrink-0" />
-                                  </a>
-                                ))}
+                  ) : hotBillsError || hotBills.length === 0 ? (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-4 flex flex-col items-center gap-2 text-muted-foreground">
+                      <AlertCircle className="w-5 h-5 opacity-50" />
+                      <p className="text-[12px] font-medium">데이터 없음</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
+                      {hotSlice.slice(0, 3).map((bill: any, idx: number) => {
+                        const sl = statusLabel(bill.result);
+                        const sc = statusColor(sl);
+                        const rankColor =
+                          idx === 0 ? "text-foreground font-black" :
+                          idx === 1 ? "text-foreground/70 font-black" :
+                          idx === 2 ? "text-foreground/50 font-bold" :
+                          "text-muted-foreground/40 font-semibold";
+                        const matchedNews: any[] = bill.matchedNews ?? [];
+                        return (
+                          <div key={bill.billId}>
+                            <div
+                              onClick={() => navigate(`/bills/${bill.billId}/vote`)}
+                              className="px-3 pt-2 pb-1.5 flex items-start gap-2.5 cursor-pointer active:opacity-70"
+                            >
+                              <span className={`text-[12px] font-black w-3 text-center shrink-0 mt-0.5 ${rankColor}`}>{idx + 1}</span>
+                              <span className="text-base w-6 text-center shrink-0">{getBillEmoji(bill.billName, bill.committee)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.billName}</p>
+                                <p className="text-[10px] mt-0.5">
+                                  <span className={`font-bold ${sc}`}>{sl}</span>
+                                  {bill.committee && <span className="text-muted-foreground"> · {bill.committee}</span>}
+                                </p>
                               </div>
-                            )}
+                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                            </div>
+                            {idx < Math.min(hotSlice.length, 3) - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[52px]" />}
                           </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5" />
-                        </div>
-                        {idx < hotSlice.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[72px]" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
 
-            {/* ===== 최신 발의된 법안 ===== */}
-            <section>
-              <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-[15px] font-bold text-foreground">최신 발의</h2>
-                <span className="text-[11px] text-muted-foreground">발의일 최신순</span>
+                {/* ===== 최신 발의된 법안 Top 3 ===== */}
+                <section>
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <h2 className="text-[15px] font-bold text-foreground">최신 발의</h2>
+                    <span className="text-[11px] text-muted-foreground">발의일 최신순</span>
+                  </div>
+
+                  {billsLoading ? (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
+                      {[1, 2, 3].map((i, idx, arr) => (
+                        <div key={i}>
+                          <div className="px-3 py-2.5 flex items-center gap-2.5">
+                            <Skeleton className="w-6 h-6 rounded-lg shrink-0" />
+                            <div className="flex-1 space-y-1">
+                              <Skeleton className="h-3 w-3/4 rounded" />
+                              <Skeleton className="h-2 w-1/2 rounded" />
+                            </div>
+                          </div>
+                          {idx < arr.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[42px]" />}
+                        </div>
+                      ))}
+                    </div>
+                  ) : latestBills.length === 0 ? (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-4 flex flex-col items-center gap-2 text-muted-foreground">
+                      <AlertCircle className="w-5 h-5 opacity-50" />
+                      <p className="text-[12px] font-medium">데이터 없음</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
+                      {latestBills.slice(0, 3).map((bill, idx) => {
+                        const sl = statusLabel(bill.status);
+                        const sc = statusColor(sl);
+                        return (
+                          <div key={bill.id}>
+                            <div
+                              onClick={() => navigate(`/bills/${bill.id}/vote`)}
+                              className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer active:opacity-70"
+                            >
+                              <span className="text-base w-6 text-center shrink-0">{getBillEmoji(bill.name, bill.summary)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.name}</p>
+                                <p className="text-[10px] mt-0.5">
+                                  <span className={`font-bold ${sc}`}>{sl}</span>
+                                  {bill.proposer && <span className="text-muted-foreground"> · {bill.proposer.split("(")[0].trim()}</span>}
+                                </p>
+                              </div>
+                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                            </div>
+                            {idx < Math.min(latestBills.length, 3) - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[42px]" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               </div>
 
-              {billsLoading ? (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
-                  {[1, 2, 3, 4, 5].map((i, idx, arr) => (
-                    <div key={i}>
-                      <div className="px-4 py-3 flex items-center gap-3">
-                        <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-                        <div className="flex-1 space-y-1.5">
-                          <Skeleton className="h-4 w-3/4 rounded" />
-                          <Skeleton className="h-3 w-1/2 rounded" />
-                        </div>
-                      </div>
-                      {idx < arr.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-14" />}
+              {/* Right Column: Stats */}
+              <div className="w-[110px] shrink-0 flex flex-col gap-2">
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm p-3 flex flex-col items-center gap-1.5 justify-center">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <p className="text-[10px] text-muted-foreground font-medium text-center">오늘 발의</p>
+                  <p className="text-[16px] font-bold text-foreground leading-none">
+                    {todayBillCount}<span className="text-[10px] font-medium text-muted-foreground ml-0.5">건</span>
+                  </p>
+                </div>
+
+                {hotDiscussionPost ? (
+                  <Link href={`/community/${hotDiscussionPost.id}`}>
+                    <div className="bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm p-3 flex flex-col items-center gap-1.5 justify-center active:opacity-70 cursor-pointer">
+                      <MessageSquare className="w-4 h-4 text-rose-500" />
+                      <p className="text-[10px] text-muted-foreground font-medium text-center">활발한 토론</p>
+                      <p className="text-[11px] font-bold text-foreground line-clamp-2 text-center leading-snug">{hotDiscussionPost.title}</p>
                     </div>
-                  ))}
-                </div>
-              ) : latestBills.length === 0 ? (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-6 flex flex-col items-center gap-2 text-muted-foreground">
-                  <AlertCircle className="w-6 h-6 opacity-50" />
-                  <p className="text-[13px] font-medium">데이터를 불러올 수 없습니다</p>
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
-                  {latestBills.map((bill, idx) => {
-                    const sl = statusLabel(bill.status);
-                    const sc = statusColor(sl);
-                    return (
-                      <div key={bill.id}>
-                        <div
-                          onClick={() => navigate(`/bills/${bill.id}/vote`)}
-                          className="px-4 py-3 flex items-center gap-3 cursor-pointer active:opacity-70"
-                        >
-                          <span className="text-lg w-8 text-center shrink-0">{getBillEmoji(bill.name, bill.summary)}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.name}</p>
-                            <p className="text-[11px] mt-0.5">
-                              <span className={`font-bold ${sc}`}>{sl}</span>
-                              {bill.proposer && <span className="text-muted-foreground"> · {bill.proposer.split("(")[0].trim()} 대표발의</span>}
-                              {bill.proposedDate && <span className="text-muted-foreground/60"> · {bill.proposedDate}</span>}
-                            </p>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                        </div>
-                        {idx < latestBills.length - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-14" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                  </Link>
+                ) : (
+                  <div className="bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm p-3 flex flex-col items-center gap-1.5 justify-center">
+                    <MessageSquare className="w-4 h-4 text-rose-500" />
+                    <p className="text-[10px] text-muted-foreground font-medium text-center">활발한 토론</p>
+                    <p className="text-[11px] font-bold text-muted-foreground text-center">없음</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
 
             {/* ===== 최근 대표발의한 의원 ===== */}
             <section>

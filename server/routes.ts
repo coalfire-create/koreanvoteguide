@@ -1324,6 +1324,35 @@ export async function registerRoutes(
         console.error("[kakao] session save failed:", err);
         return res.status(500).json({ error: "세션 저장에 실패했습니다. 다시 시도해주세요." });
       }
+      // iOS WKWebView는 외부 도메인 리다이렉션 후 세션 쿠키가 사라질 수 있으므로
+      // state를 별도 쿠키에도 저장 (SameSite=None 으로 크로스사이트 리다이렉션에서도 유지)
+      const stateHmac = createHmac("sha256", process.env.SESSION_SECRET || "vote-with-reason-dev-secret-key")
+        .update(state)
+        .digest("hex")
+        .slice(0, 16);
+      const cookieVal = `${state}.${stateHmac}`;
+      const oauthNext = safeNextUrl(req.query.next);
+      res.cookie("_kst", cookieVal, {
+        maxAge: 10 * 60 * 1000, // 10분
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "none",
+        path: "/api/auth/kakao/callback",
+      });
+      res.cookie("_krd", config.redirectUri, {
+        maxAge: 10 * 60 * 1000,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "none",
+        path: "/api/auth/kakao/callback",
+      });
+      res.cookie("_knx", oauthNext, {
+        maxAge: 10 * 60 * 1000,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "none",
+        path: "/api/auth/kakao/callback",
+      });
       res.redirect(url);
     });
   });
@@ -1344,15 +1373,37 @@ export async function registerRoutes(
     if (!code || typeof code !== "string") {
       return res.status(400).send("Kakao 인증 코드가 누락되었습니다.");
     }
-    const expectedState = req.session.kakaoOAuthState;
-    if (!expectedState || expectedState !== state) {
+
+    // iOS WKWebView에서 외부 리다이렉션 후 세션이 유실될 수 있으므로
+    // 세션의 state OR 쿠키의 state 중 하나라도 일치하면 통과
+    const sessionState = req.session.kakaoOAuthState;
+    const cookieRaw = (req.cookies as Record<string, string | undefined>)?.["_kst"];
+    let cookieStateValid = false;
+    if (cookieRaw && state) {
+      const [cookieState, cookieSig] = cookieRaw.split(".");
+      const expectedSig = createHmac("sha256", process.env.SESSION_SECRET || "vote-with-reason-dev-secret-key")
+        .update(cookieState ?? "")
+        .digest("hex")
+        .slice(0, 16);
+      cookieStateValid = cookieState === state && cookieSig === expectedSig;
+    }
+    const stateValid = (sessionState && sessionState === state) || cookieStateValid;
+    if (!stateValid) {
+      console.warn("[kakao] state mismatch. session:", sessionState, "cookie valid:", cookieStateValid, "received:", state);
       return res.status(400).send("OAuth state 검증 실패. 다시 로그인해 주세요.");
     }
     req.session.kakaoOAuthState = undefined;
+    // 쿠키 정리
+    res.clearCookie("_kst", { path: "/api/auth/kakao/callback" });
+
     // 토큰 교환 시 authorize와 동일한 redirect URI 필요
+    const cookieRedirectUri = (req.cookies as Record<string, string | undefined>)?.["_krd"];
     if (req.session.kakaoRedirectUri) {
       config.redirectUri = req.session.kakaoRedirectUri;
       req.session.kakaoRedirectUri = undefined;
+    } else if (cookieRedirectUri) {
+      config.redirectUri = cookieRedirectUri;
+      res.clearCookie("_krd", { path: "/api/auth/kakao/callback" });
     }
 
     try {
@@ -1422,8 +1473,10 @@ export async function registerRoutes(
       }
 
       req.session.userId = userId;
-      const next = safeNextUrl(req.session.oauthNext);
+      const cookieNext = (req.cookies as Record<string, string | undefined>)?.["_knx"];
+      const next = safeNextUrl(req.session.oauthNext ?? cookieNext);
       req.session.oauthNext = undefined;
+      res.clearCookie("_knx", { path: "/api/auth/kakao/callback" });
       console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
       redirectWithLoginSuccess(res, next);
     } catch (error: any) {
@@ -3622,10 +3675,10 @@ export async function registerRoutes(
     }
   });
 
-  // ===== 투표 댓글 API ===== (로그인 필수)
-  app.post("/api/poll-comments", requireAuth, async (req, res) => {
+  // ===== 투표 댓글 API ===== (비로그인 허용)
+  app.post("/api/poll-comments", communityWriteLimiter, async (req, res) => {
     try {
-      const { pollId, content, authorType, parentId } = req.body;
+      const { pollId, content, parentId } = req.body;
       const raw = typeof content === "string" ? content.trim() : "";
       if (!pollId || raw.length === 0) {
         return res.status(400).json({ error: "pollId와 content 필수" });
@@ -3635,19 +3688,21 @@ export async function registerRoutes(
       }
       const safe = sanitizeText(raw, 500);
 
-      const userId = req.session.userId!;
-      const user = await storage.getUser(userId);
+      const actorId = getActorId(req);
       let resolvedAuthorType = "anonymous";
-      let resolvedDisplayName: string | null = user?.nickname || user?.name || "익명";
+      let resolvedDisplayName: string | null = getOrCreateNickname(actorId);
       let resolvedIsVerified = false;
 
-      if (user) {
-        if (user.nickname) {
-          resolvedAuthorType = "nickname";
-          resolvedDisplayName = user.nickname;
-        } else {
-          resolvedAuthorType = "nickname";
-          resolvedDisplayName = user.name;
+      if (req.session.userId) {
+        const user = await storage.getUser(req.session.userId);
+        if (user) {
+          if (user.nickname) {
+            resolvedAuthorType = "nickname";
+            resolvedDisplayName = user.nickname;
+          } else {
+            resolvedAuthorType = "anonymous";
+            resolvedDisplayName = user.name || "익명";
+          }
         }
       }
 
@@ -3655,7 +3710,7 @@ export async function registerRoutes(
 
       const [comment] = await db.insert(pollComments).values({
         pollId,
-        userId,
+        userId: actorId,
         content: safe,
         authorType: resolvedAuthorType,
         displayName: resolvedDisplayName,
@@ -3765,7 +3820,6 @@ export async function registerRoutes(
 
   app.post(
     "/api/upload",
-    requireAuth,
     (req, res, next) => {
       upload.single("file")(req, res, (err: any) => {
         if (err) {
@@ -4116,10 +4170,6 @@ export async function registerRoutes(
       }
       const post = await storage.getPost(req.params.id as string);
       if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다" });
-      // 회원 게시판 글은 조회와 마찬가지로 댓글도 로그인 필요
-      if (post.boardType === "members" && !req.session.userId) {
-        return res.status(401).json({ error: "회원 게시판은 로그인이 필요합니다" });
-      }
 
       const requestedAuthorType = (req.body.authorType as string) || "anonymous";
       const userId = getActorId(req);
@@ -6888,26 +6938,26 @@ export async function registerRoutes(
         // 임시로 자동 생성 (실제로는 어드민이나 크론에서 생성)
         const [newPoll] = await db.insert(dailyPolls).values({
           date: today,
-          title: "오늘의 테스트 투표: 차기 대선 주자 토론회 시청하시나요?",
-          description: "여야 유력 주자들의 첫 TV 토론회가 오늘 저녁 열립니다.",
+          title: "오늘의 투표: 지방선거에서 가장 중요한 공약 분야는?",
+          description: "2026 지방선거를 앞두고 유권자들의 의견을 묻습니다.",
           options: [
-            { id: "yes", label: "시청한다" },
-            { id: "no", label: "시청하지 않는다" },
+            { id: "economy", label: "경제·일자리" },
+            { id: "welfare", label: "복지·교육" },
+            { id: "housing", label: "주거·교통" },
+            { id: "safety", label: "안전·환경" },
           ],
         }).returning();
         poll = newPoll;
       }
       
-      const sessionUser = (req as any).user as { id: string } | undefined;
+      const actorId = getActorId(req);
       let userVote = null;
-      if (sessionUser) {
-        const [vote] = await db
-          .select()
-          .from(dailyPollVotes)
-          .where(and(eq(dailyPollVotes.pollId, poll.id), eq(dailyPollVotes.userId, sessionUser.id)))
-          .limit(1);
-        if (vote) userVote = vote.optionId;
-      }
+      const [vote] = await db
+        .select()
+        .from(dailyPollVotes)
+        .where(and(eq(dailyPollVotes.pollId, poll.id), eq(dailyPollVotes.userId, actorId)))
+        .limit(1);
+      if (vote) userVote = vote.optionId;
       
       // 결과 집계
       const rawVotes = await db
@@ -6933,24 +6983,28 @@ export async function registerRoutes(
     }
   });
   
-  app.post("/api/daily-polls/:id/vote", requireAuth, async (req, res) => {
-    const sessionUser = (req as any).user as { id: string } | undefined;
-    if (!sessionUser) return res.status(401).json({ error: "로그인 필요" });
+  app.post("/api/daily-polls/:id/vote", async (req, res) => {
     const { optionId } = req.body;
     if (!optionId) return res.status(400).json({ error: "옵션을 선택해주세요." });
-    
+
+    const actorId = getActorId(req);
+    const sessionUser = (req as any).user as { id: string } | undefined;
+
     try {
       await db.insert(dailyPollVotes).values({
         pollId: String(req.params.id),
-        userId: sessionUser.id,
+        userId: actorId,
         optionId: String(optionId),
       });
-      // 투표 참여 보상 지급 (예: 50 exp)
-      await db.update(users)
-        .set({ exp: dsql`exp + 50` })
-        .where(eq(users.id, sessionUser.id));
-        
-      return res.json({ success: true, reward: 50 });
+      // EXP 보상은 로그인한 사용자만
+      let reward = 0;
+      if (sessionUser) {
+        await db.update(users)
+          .set({ exp: dsql`exp + 50` })
+          .where(eq(users.id, sessionUser.id));
+        reward = 50;
+      }
+      return res.json({ success: true, reward });
     } catch (e: any) {
       if (e.code === '23505') return res.status(400).json({ error: "이미 투표하셨습니다." });
       console.error(e);

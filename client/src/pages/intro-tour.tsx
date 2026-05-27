@@ -576,7 +576,7 @@ export default function IntroTour() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
                 onClick={handleDone}
-                className="flex-1 h-14 bg-[#6D28D9] hover:bg-[#5b21b6] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black flex items-center justify-center gap-2 shadow-xl shadow-[#6D28D9]/30 transition-all"
+                className="flex-1 h-14 bg-[#0F172A] hover:bg-[#1e293b] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black flex items-center justify-center gap-2 shadow-xl shadow-[#0F172A]/30 transition-all"
               >
                 홈 화면으로 시작하기
                 <ChevronRight className="w-5 h-5" />

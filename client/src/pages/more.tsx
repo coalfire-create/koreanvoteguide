@@ -330,27 +330,23 @@ export default function More() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [nicknameSheetOpen, setNicknameSheetOpen] = useState(false);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
 
-  // ===== 본인인증 모킹 (PortOne/PASS 연동 전 테스트용) =====
-  // POST /api/auth/verify-identity 에 고정된 mock payload를 보내 본인확인 콜백 시뮬레이션.
+  const { data: activeAnnouncement } = useQuery<Announcement | null>({
+    queryKey: ["/api/announcements/active"],
+    queryFn: () => apiRequest("GET", "/api/announcements/active").then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 본인인증 — PortOne/PASS 연동 예정
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const verifyIdentityMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/auth/verify-identity", {
-        name: "테스터",
-        birthDate: "19980515",
-        gender: "M",
-        ci: `mock_ci_${user?.id ?? "anon"}`,
-        provider: "mock_pass",
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: "본인인증 완료", description: "프로필이 업데이트되었습니다." });
+      throw new Error("본인인증 서비스는 준비 중입니다.");
     },
     onError: (err: Error) => {
       const raw = String(err?.message || "");
-      // apiRequest는 "<status>: <body>" 형식으로 throw — 409면 이미 인증된 계정
       if (raw.startsWith("409")) {
         toast({ title: "이미 인증된 계정입니다.", variant: "destructive" });
         return;
@@ -490,7 +486,7 @@ export default function More() {
               </div>
             </div>
 
-            {/* ===== 본인인증 (PortOne/PASS 연동 전 mock 테스트 버튼) ===== */}
+            {/* 본인인증 */}
             <div className="mt-5 pt-5 border-t border-border/30">
               {user.realNameVerified ? (
                 <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 border border-blue-100 rounded-2xl py-3 px-4">
@@ -498,20 +494,10 @@ export default function More() {
                   <span className="text-[13px] font-bold">본인인증 완료</span>
                 </div>
               ) : (
-                <Button
-                  type="button"
-                  onClick={() => verifyIdentityMutation.mutate()}
-                  disabled={verifyIdentityMutation.isPending}
-                  data-testid="mock-verify-identity"
-                  className="w-full h-12 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-sm flex items-center justify-center gap-2"
-                >
-                  {verifyIdentityMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="w-4 h-4" />
-                  )}
-                  본인인증 하기 (테스트)
-                </Button>
+                <div className="flex items-center justify-center gap-2 text-muted-foreground bg-muted/50 border border-border/30 rounded-2xl py-3 px-4">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-[13px] font-bold">본인인증 (준비 중)</span>
+                </div>
               )}
             </div>
           </motion.div>
@@ -638,7 +624,7 @@ export default function More() {
             {/* 공지사항 */}
             <button
               className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
-              onClick={() => toast({ title: "공지사항", description: "현재 등록된 공지사항이 없습니다." })}
+              onClick={() => setAnnouncementOpen(true)}
             >
               <div className="flex items-center gap-4">
                 <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
@@ -652,7 +638,7 @@ export default function More() {
             {/* FAQ */}
             <button
               className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
-              onClick={() => toast({ title: "자주 묻는 질문", description: "준비 중입니다. 문의: coalfireant@gmail.com" })}
+              onClick={() => setFaqOpen(true)}
             >
               <div className="flex items-center gap-4">
                 <div className="w-11 h-11 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground">
@@ -733,6 +719,75 @@ export default function More() {
           onClose={() => setNicknameSheetOpen(false)}
           currentNickname={user.nickname}
         />
+      )}
+
+      {/* 공지사항 시트 */}
+      <Sheet open={announcementOpen} onOpenChange={setAnnouncementOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[70vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              공지사항
+            </SheetTitle>
+          </SheetHeader>
+          {activeAnnouncement ? (
+            <div className="space-y-3">
+              <h3 className="text-[16px] font-bold text-foreground">{activeAnnouncement.title}</h3>
+              <p className="text-[14px] text-muted-foreground leading-relaxed whitespace-pre-wrap">{activeAnnouncement.content}</p>
+              <p className="text-[11px] text-muted-foreground/60 pt-2">
+                {new Date(activeAnnouncement.createdAt).toLocaleDateString("ko-KR")}
+              </p>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">
+              <Bell className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="text-[14px] font-medium">현재 등록된 공지사항이 없습니다.</p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* FAQ 시트 */}
+      <Sheet open={faqOpen} onOpenChange={setFaqOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[80vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <CircleHelp className="w-5 h-5 text-primary" />
+              자주 묻는 질문
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-6">
+            {[
+              { q: "이유 앱은 어떤 서비스인가요?", a: "이유는 2026 지방선거를 앞두고 유권자들이 후보자·법안·의원 정보를 쉽게 확인하고 커뮤니티에서 토론할 수 있는 정치 정보 앱입니다." },
+              { q: "회원가입 없이도 사용할 수 있나요?", a: "네. 게시글 작성, 댓글, 좋아요, 법안 투표 등 대부분의 기능은 비로그인으로도 이용할 수 있습니다. 팔로우·북마크 기능은 로그인이 필요합니다." },
+              { q: "의원 정보는 어디서 가져오나요?", a: "열린국회정보(open.assembly.go.kr) 공공 API와 중앙선거관리위원회 공개 데이터를 수집·가공합니다." },
+              { q: "잘못된 정보를 발견했어요.", a: "커뮤니티에서 알려주시거나 하단의 이메일로 제보해주세요. 빠르게 수정하겠습니다." },
+              { q: "앱에 문제가 있거나 건의하고 싶어요.", a: "마이페이지 하단 이메일(문의하기)을 통해 언제든지 연락해주세요." },
+            ].map((item, i) => (
+              <FaqItem key={i} q={item.q} a={item.a} />
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-border/40 rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+      >
+        <span className="text-[14px] font-bold text-foreground pr-2">{q}</span>
+        <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 text-[13px] text-muted-foreground leading-relaxed border-t border-border/30 pt-3">
+          {a}
+        </div>
       )}
     </div>
   );

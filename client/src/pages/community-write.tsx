@@ -359,12 +359,10 @@ export default function CommunityWrite() {
             <Label className="text-sm font-black text-slate-700 ml-1">작성자 표시</Label>
             <div className="p-4 bg-slate-50 rounded-xl space-y-2.5">
               {!user ? (
-                <div className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl font-medium flex items-center justify-between border border-slate-100">
-                  <span>익명으로 올리기</span>
-                  <Link href="/login">
-                    <Button variant="outline" size="sm" className="h-8 text-xs font-bold rounded-lg border-slate-200">로그인하기</Button>
-                  </Link>
-                </div>
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked readOnly className="accent-primary" />
+                  <span className="text-sm font-medium text-slate-700">익명으로 올리기</span>
+                </label>
               ) : (
                 <>
                   <label className="flex items-center gap-3 cursor-pointer">

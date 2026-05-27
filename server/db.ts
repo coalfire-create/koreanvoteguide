@@ -49,3 +49,13 @@ pool.query(`
     console.warn("[db] users apple_id 컬럼 생성 경고:", err.message);
   }
 });
+
+// daily_poll_votes: user_id FK 제거 + nullable → 비로그인 투표 허용 (anon: prefix)
+pool.query(`
+  ALTER TABLE daily_poll_votes DROP CONSTRAINT IF EXISTS daily_poll_votes_user_id_users_id_fk;
+  ALTER TABLE daily_poll_votes ALTER COLUMN user_id DROP NOT NULL;
+`).catch((err: any) => {
+  if (err.code !== 'ECONNREFUSED') {
+    console.warn("[db] daily_poll_votes 제약 완화 경고:", err.message);
+  }
+});

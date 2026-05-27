@@ -99,7 +99,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col w-full pb-32">
+    <div className="min-h-screen bg-[#0F172A] flex flex-col w-full pb-32">
 
       {/* ─── Hero ─── */}
       <motion.div
@@ -110,22 +110,22 @@ export default function Onboarding() {
       >
         {/* Logo mark */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-11 h-11 rounded-[14px] bg-[#6D28D9] flex items-center justify-center shadow-lg">
-            <span className="text-white font-black text-sm tracking-tight">이유</span>
+          <div className="w-11 h-11 rounded-[14px] bg-white flex items-center justify-center shadow-lg">
+            <span className="text-[#0F172A] font-black text-sm tracking-tight">이유</span>
           </div>
-          <span className="text-[#6D28D9] font-black text-xl tracking-tight">이유</span>
+          <span className="text-white font-black text-xl tracking-tight">이유</span>
         </div>
 
         {/* Headline */}
-        <h1 className="text-[32px] sm:text-[36px] font-black text-gray-900 leading-[1.25] tracking-tight mb-4 break-keep">
+        <h1 className="text-[32px] sm:text-[36px] font-black text-white leading-[1.25] tracking-tight mb-4 break-keep">
           내 지역구를 선택하고<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">AI 공약 분석</span>을 확인하세요
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">AI 공약 분석</span>을 확인하세요
         </h1>
-        <p className="text-[15px] text-gray-600 leading-[1.7] font-medium break-keep">
+        <p className="text-[15px] text-gray-300 leading-[1.7] font-medium break-keep">
           후보자들의 핵심 정책과 실현가능성을 AI가 중립적으로 비교해 드립니다.<br />
           2026 지방선거, 현명한 선택을 위한 가장 스마트한 가이드.
           <br />
-          <span className="text-[13px] text-gray-400 mt-2 inline-block font-normal">관심 지역은 최대 3개까지 선택할 수 있습니다.</span>
+          <span className="text-[13px] text-gray-500 mt-2 inline-block font-normal">관심 지역은 최대 3개까지 선택할 수 있습니다.</span>
         </p>
       </motion.div>
 
@@ -147,13 +147,13 @@ export default function Onboarding() {
                   onClick={() => handleToggleRegion(region)}
                   className={`relative w-full py-5 flex flex-col items-center justify-center rounded-[20px] transition-all duration-200 shadow-sm border-2 focus:outline-none ${
                     isSelected
-                      ? "bg-[#6D28D9] border-[#6D28D9] text-white shadow-lg shadow-[#6D28D9]/20 scale-[1.03]"
-                      : "bg-white border-gray-100 text-gray-700 hover:border-[#6D28D9]/30 hover:shadow-md active:scale-[0.97]"
+                      ? "bg-white border-white text-[#0F172A] shadow-lg shadow-white/10 scale-[1.03]"
+                      : "bg-[#1E293B] border-white/5 text-gray-300 hover:border-white/20 hover:shadow-md active:scale-[0.97]"
                   }`}
                 >
                   {/* Order badge */}
                   {isSelected && (
-                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-white text-[#6D28D9] rounded-full flex items-center justify-center text-[11px] font-black shadow border border-[#6D28D9]/20">
+                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-[#0F172A] text-white rounded-full flex items-center justify-center text-[11px] font-black shadow border border-white/20">
                       {selectedIndex + 1}
                     </div>
                   )}
@@ -173,7 +173,7 @@ export default function Onboarding() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 120, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-[#F8F9FA]/90 backdrop-blur-xl border-t border-gray-200/60 px-6 py-5"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F172A]/90 backdrop-blur-xl border-t border-white/10 px-6 py-5"
           >
             <div className="max-w-[680px] mx-auto">
               {/* Selected chips */}
@@ -184,9 +184,9 @@ export default function Onboarding() {
                     initial={{ scale: 0.7, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.7, opacity: 0 }}
-                    className="flex items-center gap-1.5 bg-[#6D28D9]/10 text-[#6D28D9] text-[12px] font-bold px-3 py-1.5 rounded-full"
+                    className="flex items-center gap-1.5 bg-white/10 text-white text-[12px] font-bold px-3 py-1.5 rounded-full border border-white/10"
                   >
-                    <span className="w-4 h-4 bg-[#6D28D9] text-white rounded-full text-[10px] flex items-center justify-center font-black">{i + 1}</span>
+                    <span className="w-4 h-4 bg-white text-[#0F172A] rounded-full text-[10px] flex items-center justify-center font-black">{i + 1}</span>
                     {r.name}
                   </motion.span>
                 ))}
@@ -194,7 +194,7 @@ export default function Onboarding() {
 
               <button
                 onClick={handleComplete}
-                className="w-full h-14 bg-[#6D28D9] hover:bg-[#5210d4] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black shadow-xl shadow-[#6D28D9]/30 flex items-center justify-center gap-2 transition-all duration-150"
+                className="w-full h-14 bg-white hover:bg-gray-100 active:scale-[0.98] text-[#0F172A] rounded-[16px] text-[16px] font-black shadow-xl shadow-white/10 flex items-center justify-center gap-2 transition-all duration-150"
               >
                 {selectedRegions.length === 1
                   ? `${selectedRegions[0].name} 선택 완료`

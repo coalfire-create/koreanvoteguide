@@ -12,9 +12,11 @@ import { timeAgo } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
+import { withApiBase } from "@/lib/api-base";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { motion, AnimatePresence } from "framer-motion";
 import { StoryFeed } from "@/components/StoryFeed";
+import { NewsAnalysisDialog } from "@/components/news-analysis-dialog";
 
 // ─── 피드 타입 ──────────────────────────────────────────────────────────────
 interface FeedItem {
@@ -188,6 +190,7 @@ export default function Members() {
   const [selectedParty, setSelectedParty] = useState("전체");
   const [visibleCount, setVisibleCount] = useState(12);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [selectedNews, setSelectedNews] = useState<{ title: string; url: string; source: string } | null>(null);
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -287,7 +290,7 @@ export default function Members() {
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] font-sans text-foreground">
       {/* ── 상단 헤더 ── */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl">
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-3">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-[22px] font-bold text-foreground">인물</h1>
@@ -387,16 +390,14 @@ export default function Members() {
                           const hours = Math.floor(diff / 3600000);
                           const timeStr = hours < 1 ? "방금" : hours < 24 ? `${hours}시간 전` : `${Math.floor(hours / 24)}일 전`;
                           return (
-                            <a
+                            <button
                               key={i}
-                              href={item.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 w-[140px] flex flex-col gap-2 active:opacity-70 transition-opacity"
+                              onClick={() => setSelectedNews({ title: item.title, url: item.link, source: item.source })}
+                              className="shrink-0 w-[140px] flex flex-col gap-2 active:opacity-70 transition-opacity text-left"
                             >
                               <div className={`w-full h-[90px] rounded-xl ${color} flex items-center justify-center relative overflow-hidden`}>
                                 {item.thumbnail ? (
-                                  <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                                  <img src={withApiBase(item.thumbnail)} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                   <span className="text-white text-[22px] font-black opacity-90">{sourceInitial}</span>
                                 )}
@@ -407,7 +408,7 @@ export default function Members() {
                                 <p className="text-[12px] font-semibold text-foreground leading-snug line-clamp-2">{item.title}</p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">{timeStr}</p>
                               </div>
-                            </a>
+                            </button>
                           );
                         })}
                       </div>
@@ -666,6 +667,11 @@ export default function Members() {
       </main>
 
       <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+      <NewsAnalysisDialog
+        isOpen={!!selectedNews}
+        onOpenChange={(open) => !open && setSelectedNews(null)}
+        news={selectedNews}
+      />
     </div>
   );
 }

@@ -3,9 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Vote, CheckCircle2, Trophy, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
 
 interface DailyPollOption {
   id: string;
@@ -26,9 +24,7 @@ interface DailyPollData {
 }
 
 export function DailyPollWidget() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [isVoting, setIsVoting] = useState(false);
 
   const { data, isLoading } = useQuery<DailyPollData>({
@@ -44,12 +40,10 @@ export function DailyPollWidget() {
     },
     onSuccess: (resData) => {
       queryClient.invalidateQueries({ queryKey: ["/api/daily-polls/today"] });
-      // update auth user query to get fresh EXP
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      
       toast({
         title: "투표 완료!",
-        description: `포인트 +${resData.reward}P 획득하셨습니다.`,
+        description: resData.reward > 0 ? `포인트 +${resData.reward}P 획득하셨습니다.` : "투표가 기록되었습니다.",
       });
     },
     onError: (err: any) => {
@@ -78,15 +72,6 @@ export function DailyPollWidget() {
   const { poll, userVote, results, totalVotes } = data;
 
   const handleVote = (optionId: string) => {
-    if (!user) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "투표하고 포인트를 받으려면 로그인해주세요.",
-      });
-      setLocation("/login");
-      return;
-    }
-    
     if (userVote || isVoting) return;
     
     setIsVoting(true);

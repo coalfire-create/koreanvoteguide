@@ -4,13 +4,14 @@ const config: CapacitorConfig = {
   appId: 'com.antigravity.iyu',
   appName: '이유',
   webDir: 'dist/public',
-  // 로컬 테스트용 IP 주소로 임시 변경 (테스트 후 원상복구 필요)
-  server: {
-    url: 'http://localhost:3000',
-    cleartext: true,
-  },
+  server: process.env.CAPACITOR_LOCAL === 'true'
+    ? {
+        url: 'http://localhost:3000',
+        cleartext: true,
+      }
+    : undefined,
   ios: {
-    backgroundColor: '#6D28D9',
+    backgroundColor: '#FFFFFF',
     contentInset: 'always',
     scrollEnabled: true,
     limitsNavigationsToAppBoundDomains: false,
@@ -18,7 +19,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: '#6D28D9',
+      backgroundColor: '#0F172A',
       showSpinner: false,
       launchAutoHide: true,
       iosSpinnerStyle: 'small',

@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown, Sparkles, Vote } from "lucide-react";
+import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown } from "lucide-react";
 import { KakaoLoginButton } from "@/components/KakaoLoginButton";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 import { AppleLoginButton } from "@/components/AppleLoginButton";
@@ -54,9 +54,9 @@ export default function AuthPage() {
       </div>
       
       {/* 헤더 네비게이션 */}
-      <div className="relative z-10 p-5 flex items-center mb-4">
+      <div className="relative z-10 p-5 pt-[calc(env(safe-area-inset-top)+16px)] flex items-center mb-4">
         <Link href="/">
-          <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+          <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
             <ArrowLeft className="w-5 h-5" />
           </button>
         </Link>
@@ -71,26 +71,14 @@ export default function AuthPage() {
           className="text-white mb-10 px-2 flex flex-col items-center text-center relative"
         >
           {/* Decorative glowing rings */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120px] h-[120px] bg-white/5 border border-white/10 rounded-full blur-[2px] animate-pulse" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160px] h-[160px] bg-white/5 border border-white/5 rounded-full blur-[4px]" style={{ animationDelay: '1s', animationDuration: '3s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160px] h-[160px] bg-white/5 border border-white/10 rounded-full blur-[4px] animate-pulse" />
 
-          <motion.div 
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative z-10 w-20 h-20 rounded-3xl bg-gradient-to-br from-white via-white/90 to-white/60 backdrop-blur-2xl flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(255,255,255,0.3)] border border-white/40 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 mix-blend-overlay" />
-            <Vote className="w-10 h-10 text-indigo-600 drop-shadow-md" />
-            <Sparkles className="absolute top-3 right-3 w-4 h-4 text-amber-400" />
-          </motion.div>
-          
-          <h1 className="relative z-10 text-[36px] font-black tracking-tight mb-3 leading-tight drop-shadow-lg flex items-center gap-1">
-            이유
-            <span className="text-[12px] align-top bg-white/20 px-2 py-0.5 rounded-full font-bold ml-1 tracking-normal border border-white/20">BETA</span>
+          <h1 className="relative z-10 text-[26px] font-black tracking-tight leading-snug drop-shadow-xl text-white text-center flex flex-col items-center gap-2 mt-4">
+            <span className="text-[13px] font-bold text-indigo-200/80 tracking-widest uppercase">KOREAN ELECTION GUIDE</span>
+            <span className="bg-black/15 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/10 shadow-inner">
+              투표에 <span className="text-amber-300 relative px-1 font-extrabold">이유<span className="absolute bottom-1 left-0 w-full h-[6px] bg-amber-400/40 -z-10 rounded-full" /></span>를 갖는다
+            </span>
           </h1>
-          <p className="relative z-10 text-white/90 font-medium text-[16px] tracking-tight bg-black/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
-            투표에 <span className="font-bold text-white">이유</span>를 갖는다
-          </p>
         </motion.div>
 
         {/* 메인 폼 카드 */}

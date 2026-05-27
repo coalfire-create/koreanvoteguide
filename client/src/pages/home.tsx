@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Bell, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Plus, ChevronRight } from "lucide-react";
+import { Search, Bell, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { NotificationPanel, useHasUnread } from "@/components/NotificationPanel";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAssemblyMembers } from "@/lib/api-data";
@@ -14,7 +16,10 @@ import type { AssemblyBill } from "@shared/schema";
 export default function Home() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const hasUnread = useHasUnread();
   const { members, isLoading: isMembersLoading } = useAssemblyMembers();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -68,7 +73,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="h-[60px] sm:h-[72px] flex items-center px-4 sm:px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
@@ -85,9 +90,9 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors relative">
+          <button onClick={() => setNotifOpen(true)} className="p-2 text-muted-foreground hover:text-foreground transition-colors relative">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background"></span>
+            {hasUnread && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background" />}
           </button>
           {user ? (
             <Link href="/more">
@@ -137,7 +142,7 @@ export default function Home() {
                         <p className="text-[11px] font-bold text-muted-foreground">{members.find(m => m.name === bill.proposer)?.party ?? ""} · {bill.committee}</p>
                       </div>
                     </div>
-                    <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => setLocation(`/bills/${bill.billId}/vote`)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
                       <MoreHorizontal className="w-5 h-5" />
                     </button>
                   </div>
@@ -159,17 +164,28 @@ export default function Home() {
                   {/* Card Interactions */}
                   <div className="px-4 sm:px-6 py-4 flex items-center justify-between border-t border-border/30">
                     <div className="flex items-center gap-5">
-                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-red-500 transition-colors">
+                      <button onClick={() => setLocation(`/bills/${bill.billId}/vote`)} className="flex items-center gap-1.5 text-muted-foreground hover:text-red-500 transition-colors active:scale-90">
                         <Heart className="w-5 h-5" />
                       </button>
-                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
+                      <button onClick={() => setLocation(`/bills/${bill.billId}/vote`)} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors active:scale-90">
                         <MessageCircle className="w-5 h-5" />
                       </button>
-                      <button className="flex items-center gap-1.5 text-muted-foreground hover:text-green-500 transition-colors">
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/bills/${bill.billId}/vote`;
+                          if (navigator.share) {
+                            navigator.share({ title: bill.billName, url });
+                          } else {
+                            navigator.clipboard.writeText(url);
+                            toast({ title: "링크 복사됨", description: "클립보드에 복사되었습니다." });
+                          }
+                        }}
+                        className="flex items-center gap-1.5 text-muted-foreground hover:text-green-500 transition-colors active:scale-90"
+                      >
                         <Share2 className="w-5 h-5" />
                       </button>
                     </div>
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => setLocation(`/bills/${bill.billId}/vote`)} className="text-muted-foreground hover:text-foreground transition-colors active:scale-90">
                       <Bookmark className="w-5 h-5" />
                     </button>
                   </div>
@@ -213,7 +229,7 @@ export default function Home() {
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-[14px] font-black text-muted-foreground">추천 의원</h3>
-              <button className="text-[12px] font-black text-foreground hover:underline">모두 보기</button>
+              <button onClick={() => setLocation("/members")} className="text-[12px] font-black text-foreground hover:underline">모두 보기</button>
             </div>
             
             <div className="space-y-4">
@@ -260,21 +276,15 @@ export default function Home() {
           {/* Footer Info */}
           <div className="px-1 text-[11px] font-bold text-gray-300 space-y-4">
             <div className="flex flex-wrap gap-x-3 gap-y-1">
-              <span>정보</span>
-              <span>도움말</span>
-              <span>홍보 센터</span>
-              <span>API</span>
-              <span>채용 정보</span>
-              <span>개인정보처리방침</span>
-              <span>약관</span>
-              <span>위치</span>
-              <span>언어</span>
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-100 transition-colors">개인정보처리방침</a>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-100 transition-colors">이용약관</a>
             </div>
-            <p>© 2024 이유 FROM COALFIRE</p>
+            <p>© 2026 이유</p>
           </div>
         </aside>
       </div>
 
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </div>
   );

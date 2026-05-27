@@ -36,39 +36,31 @@ function abbrevParty(party: string): string {
 }
 
 const FEATURES = [
-  { icon: MapIcon,       color: "#6D28D9", title: "지역별 후보자 비교",    desc: "내 지역 후보들의 공약·이력·뉴스를 한눈에" },
-  { icon: BarChart2,     color: "#2563EB", title: "국회의원 표결 추적",    desc: "어떤 법안에 어떻게 투표했는지 확인" },
-  { icon: Newspaper,     color: "#059669", title: "AI 정치 뉴스 분석",     desc: "12개 언론사 뉴스를 AI가 핵심만 전달" },
-  { icon: MessageCircle, color: "#EA580C", title: "유권자 커뮤니티",       desc: "이웃들과 지역 현안과 정치를 이야기" },
+  { icon: MapIcon,       color: "#ffffff", title: "지역별 후보자 비교",    desc: "내 지역 후보들의 공약·이력·뉴스를 한눈에" },
+  { icon: BarChart2,     color: "#ffffff", title: "국회의원 표결 추적",    desc: "어떤 법안에 어떻게 투표했는지 확인" },
+  { icon: Newspaper,     color: "#ffffff", title: "AI 정치 뉴스 분석",     desc: "12개 언론사 뉴스를 AI가 핵심만 전달" },
+  { icon: MessageCircle, color: "#ffffff", title: "유권자 커뮤니티",       desc: "이웃들과 지역 현안과 정치를 이야기" },
 ];
 
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const daysLeft = Math.max(0, Math.ceil((new Date("2026-06-03").getTime() - Date.now()) / 86400000));
 
   return (
-    <div className="min-h-screen flex flex-col w-full">
-      {/* ─── Hero gradient ─── */}
-      <div
-        className="w-full flex-shrink-0 relative overflow-hidden"
-        style={{ background: "linear-gradient(145deg, #1e0040 0%, #4c1d95 45%, #6d28d9 100%)" }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 80% 60% at 60% 40%, rgba(167,139,250,0.18) 0%, transparent 70%)" }}
-        />
+    <div className="min-h-screen flex flex-col w-full bg-[#0F172A]">
+      {/* ─── Hero ─── */}
+      <div className="w-full flex-shrink-0 relative overflow-hidden bg-[#0F172A]">
         {/* Decorative blobs */}
         <div className="absolute top-8 right-6 w-28 h-28 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute top-20 right-16 w-14 h-14 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute bottom-16 left-4 w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
 
         <div className="relative w-full px-6 pt-16 pb-14 max-w-[680px] mx-auto">
-
           {/* D-day badge */}
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm text-white/90 text-[12px] font-bold px-3 py-1.5 rounded-full mb-6 border border-white/10"
+            className="inline-flex items-center gap-2 bg-white/10 text-white text-[12px] font-bold px-3 py-1.5 rounded-full mb-6 border border-white/10"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />
             2026 지방선거 D-{daysLeft}
@@ -83,7 +75,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
             <h1 className="text-[44px] font-black text-white leading-[1.05] tracking-tight mb-4">
               이유있게<br />투표하세요
             </h1>
-            <p className="text-[15px] text-white/65 leading-relaxed">
+            <p className="text-[15px] text-gray-300 leading-relaxed">
               후보자 정보부터 국회의원 활동까지<br />투표에 필요한 모든 정보를 한 곳에서
             </p>
           </motion.div>
@@ -91,14 +83,14 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
         <div className="w-full overflow-hidden" style={{ marginBottom: "-2px" }}>
           <svg viewBox="0 0 1440 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block">
-            <path d="M0 48L1440 48L1440 16C1100 52 420 -4 0 28L0 48Z" fill="#F8F9FA" />
+            <path d="M0 48L1440 48L1440 16C1100 52 420 -4 0 28L0 48Z" fill="#0F172A" />
           </svg>
         </div>
       </div>
 
       {/* ─── Features ─── */}
-      <div className="flex-1 bg-[#F8F9FA] w-full px-5 pt-6 pb-36 max-w-[680px] mx-auto self-center">
-        <p className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest mb-4 px-1">
+      <div className="flex-1 bg-[#0F172A] w-full px-5 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] max-w-[680px] mx-auto self-center">
+        <p className="text-[11px] font-black text-white/50 uppercase tracking-widest mb-4 px-1">
           이런 걸 도와드려요
         </p>
 
@@ -111,19 +103,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.28 + i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                className="flex items-center gap-4 bg-white rounded-[18px] p-4 shadow-sm border border-gray-100/80"
+                className="flex items-center gap-4 bg-[#1E293B] rounded-[18px] p-4 shadow-sm border border-white/5"
               >
                 <div
-                  className="w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0"
-                  style={{ background: `${f.color}14` }}
+                  className="w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 bg-white/10"
                 >
-                  <Icon className="w-5 h-5" style={{ color: f.color }} />
+                  <Icon className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[14px] font-black text-gray-900 leading-tight">{f.title}</div>
-                  <div className="text-[12px] text-gray-500 mt-0.5 leading-snug">{f.desc}</div>
+                  <div className="text-[14px] font-black text-white leading-tight">{f.title}</div>
+                  <div className="text-[12px] text-gray-400 mt-0.5 leading-snug">{f.desc}</div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-200 shrink-0" />
+                <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />
               </motion.div>
             );
           })}
@@ -134,15 +125,15 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.68 }}
-          className="flex items-center mt-6 bg-white rounded-[18px] border border-gray-100 shadow-sm overflow-hidden"
+          className="flex items-center mt-6 bg-[#1E293B] rounded-[18px] border border-white/5 shadow-sm overflow-hidden"
         >
           {[
             { num: "17개", label: "광역시도" },
             { num: "300+", label: "국회의원" },
             { num: "12개", label: "언론사 뉴스" },
           ].map((s, i) => (
-            <div key={s.label} className={`flex-1 py-4 text-center ${i < 2 ? "border-r border-gray-100" : ""}`}>
-              <div className="text-[18px] font-black text-[#6D28D9]">{s.num}</div>
+            <div key={s.label} className={`flex-1 py-4 text-center ${i < 2 ? "border-r border-white/5" : ""}`}>
+              <div className="text-[18px] font-black text-white">{s.num}</div>
               <div className="text-[10px] text-gray-400 font-medium mt-0.5">{s.label}</div>
             </div>
           ))}
@@ -154,17 +145,17 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.55, type: "spring", stiffness: 260, damping: 26 }}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-[#F8F9FA]/90 backdrop-blur-xl border-t border-gray-200/60 px-5 py-5"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F172A]/90 backdrop-blur-xl border-t border-white/10 px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="max-w-[680px] mx-auto">
           <button
             onClick={onStart}
-            className="w-full h-14 bg-[#6D28D9] hover:bg-[#5b21b6] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black shadow-xl shadow-[#6D28D9]/25 flex items-center justify-center gap-2 transition-all duration-150"
+            className="w-full h-14 bg-white hover:bg-gray-100 active:scale-[0.98] text-[#0F172A] rounded-[16px] text-[16px] font-black shadow-xl shadow-white/10 flex items-center justify-center gap-2 transition-all duration-150"
           >
             지역 선택하고 시작하기
             <ChevronRight className="w-5 h-5" />
           </button>
-          <p className="text-center text-[11px] text-gray-400 mt-2.5 font-medium">무료 · 광고 없음 · 1분이면 완료</p>
+          <p className="text-center text-[11px] text-gray-500 mt-2.5 font-medium">무료 · 광고 없음 · 1분이면 완료</p>
         </div>
       </motion.div>
     </div>
@@ -190,9 +181,9 @@ export default function CitySelect() {
   const [electionTab, setElectionTab] = useState<"local" | "assembly">("local");
 
   // 보궐선거 후보 데이터
-  const { data: assemblyRaw = [] } = useQuery<any[]>({
+  const { data: assemblyRaw = [], isLoading: assemblyLoading } = useQuery<any[]>({
     queryKey: ["/api/election/assembly"],
-    queryFn: () => fetch("/api/election/assembly").then((r) => r.json()),
+    queryFn: () => fetch("/api/election/assembly", { credentials: "include" }).then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -205,7 +196,7 @@ export default function CitySelect() {
       }
       map.get(key)!.candidates.push(c);
     }
-    return [...map.values()].sort((a, b) => a.sd.localeCompare(b.sd) || a.dist.localeCompare(b.dist));
+    return Array.from(map.values()).sort((a, b) => a.sd.localeCompare(b.sd) || a.dist.localeCompare(b.dist));
   }, [assemblyRaw]);
 
   const [selectedRegions, setSelectedRegions] = useState<{ code: string; name: string; level: string }[]>(() => {
@@ -234,8 +225,15 @@ export default function CitySelect() {
       setSelectedRegions((prev) => prev.filter((r) => r.code !== regionCode));
       return;
     }
-    if (selectedRegions.length >= 3) {
-      toast({ title: "지역은 최대 3개까지만 선택 가능합니다", variant: "destructive" });
+    const isAssembly = level === "assembly";
+    const sameLevel = selectedRegions.filter((r) => (r.level === "assembly") === isAssembly);
+    if (sameLevel.length >= 3) {
+      toast({
+        title: isAssembly
+          ? "보궐선거 지역은 최대 3개까지 선택 가능합니다"
+          : "지방선거 지역은 최대 3개까지 선택 가능합니다",
+        variant: "destructive",
+      });
       return;
     }
     setSelectedRegions((prev) => [...prev, { code: regionCode, name: regionShort, level }]);
@@ -286,28 +284,31 @@ export default function CitySelect() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          className="min-h-screen bg-[#F8F9FA] flex flex-col w-full"
+          className="min-h-screen bg-[#0F172A] flex flex-col w-full"
         >
           {/* ─── Header ─── */}
-          <div className="w-full px-6 pt-14 pb-6 max-w-[760px] mx-auto">
+          <div className="w-full px-6 pt-4 pb-6 max-w-[760px] mx-auto">
             {/* Logo + D-day */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-[11px] bg-[#6D28D9] flex items-center justify-center shadow-md shrink-0">
-                  <span className="text-white font-black text-xs tracking-tight">이유</span>
-                </div>
-                <span className="text-[#6D28D9] font-black text-lg tracking-tight">이유있는 투표</span>
+                <button
+                  onClick={() => setLocation("/")}
+                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-[0.98] transition-all shadow-sm border border-white/10"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-80"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <span className="text-white font-black text-lg tracking-tight">투표에 이유를 만들자</span>
               </div>
-              <span className="text-[12px] font-bold text-[#6D28D9] bg-[#6D28D9]/10 px-3 py-1 rounded-full shrink-0">
+              <span className="text-[12px] font-bold text-white bg-white/10 px-3 py-1 rounded-full shrink-0 border border-white/10">
                 D-{daysLeft}
               </span>
             </div>
 
-            <h1 className="text-[28px] font-black text-gray-900 leading-[1.25] tracking-tight mb-2">
+            <h1 className="text-[28px] font-black text-white leading-[1.25] tracking-tight mb-2">
               어느 선거가<br />
-              <span className="text-[#6D28D9]">궁금하세요?</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">궁금하세요?</span>
             </h1>
-            <p className="text-[13px] text-gray-500 leading-relaxed mb-4">
+            <p className="text-[13px] text-gray-400 leading-relaxed mb-4">
               최대 3개 지역을 선택하면 맞춤 후보 정보를 바로 볼 수 있어요.
             </p>
 
@@ -317,8 +318,8 @@ export default function CitySelect() {
                 onClick={() => setElectionTab("local")}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-black transition-all ${
                   electionTab === "local"
-                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/25"
-                    : "bg-white text-gray-500 border border-gray-200"
+                    ? "bg-white text-[#0F172A] shadow-md shadow-white/25"
+                    : "bg-[#1E293B] text-gray-400 border border-white/10"
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5" />
@@ -328,30 +329,32 @@ export default function CitySelect() {
                 onClick={() => setElectionTab("assembly")}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-black transition-all ${
                   electionTab === "assembly"
-                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/25"
-                    : "bg-white text-gray-500 border border-gray-200"
+                    ? "bg-white text-[#0F172A] shadow-md shadow-white/25"
+                    : "bg-[#1E293B] text-gray-400 border border-white/10"
                 }`}
               >
-                <Landmark className="w-3.5 h-3.5" />
+                <Landmark className="w-4 h-4" />
                 보궐선거
               </button>
             </div>
 
             {/* Search */}
-            <div className="relative w-full">
-              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
+            <div className="relative mb-8 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white transition-colors" />
               <input
                 type="text"
                 placeholder={electionTab === "local" ? "지역명 검색 (서울, 부산, 경기...)" : "선거구 검색 (계양구, 안산시...)"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-11 pr-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-[#6D28D9] focus:outline-none transition-all text-[16px] font-medium placeholder:text-gray-400 shadow-sm"
+                className="w-full h-11 pl-11 pr-4 bg-[#1E293B] border border-white/10 rounded-2xl focus:border-white focus:outline-none transition-all text-[16px] font-medium text-white placeholder:text-gray-500 shadow-sm"
               />
             </div>
             <div className="text-[11px] font-bold text-gray-400 px-1 mt-2">
-              선택 <span className="text-[#6D28D9]">{selectedRegions.length}</span> / 3
+              선택{" "}
+              <span className="text-white">
+                {selectedRegions.filter((r) => (r.level === "assembly") === (electionTab === "assembly")).length}
+              </span>{" "}
+              / 3
             </div>
           </div>
 
@@ -380,36 +383,36 @@ export default function CitySelect() {
                       onClick={() => handleSelect(race.regionCode, race.regionShort, race.level || "metropolitan")}
                       className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 focus:outline-none active:scale-[0.97] shadow-sm ${
                         isSelected
-                          ? "border-[#6D28D9] bg-white shadow-md shadow-[#6D28D9]/10 scale-[1.01]"
-                          : "bg-white border-gray-100 hover:border-[#6D28D9]/40 hover:shadow-md"
+                          ? "border-white bg-white shadow-md shadow-white/10 scale-[1.01]"
+                          : "bg-[#1E293B] border-white/5 hover:border-white/20 hover:shadow-md"
                       }`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-1 mb-1">
-                            <MapPin className="w-3 h-3 text-[#6D28D9]/50" />
-                            <span className="text-[10px] font-bold text-gray-400 tracking-tight">{race.positionLabel}</span>
+                            <MapPin className={`w-3 h-3 ${isSelected ? "text-[#0F172A]/60" : "text-gray-400"}`} />
+                            <span className={`text-[10px] font-bold tracking-tight ${isSelected ? "text-[#0F172A]/60" : "text-gray-400"}`}>{race.positionLabel}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-[20px] font-black text-gray-900 leading-none">{race.regionShort}</h3>
+                            <h3 className={`text-[20px] font-black leading-none ${isSelected ? "text-[#0F172A]" : "text-white"}`}>{race.regionShort}</h3>
                             {isSelected && (
-                              <span className="inline-flex w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] items-center justify-center font-black shrink-0">
+                              <span className="inline-flex w-5 h-5 rounded-full bg-[#0F172A] text-white text-[10px] items-center justify-center font-black shrink-0">
                                 {selectedIndex + 1}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#6D28D9] border-[#6D28D9]" : "border-gray-200 bg-white"}`}>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#0F172A] border-[#0F172A]" : "border-white/10 bg-[#1E293B]"}`}>
                           {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                         </div>
                       </div>
                       <div className="space-y-1.5">
                         {([candA, candB, candC] as typeof candA[]).filter(Boolean).map((cand, idx) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: getPartyBg(cand.party) }}>
+                          <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: isSelected ? getPartyBg(cand.party) : '#0F172A' }}>
                             <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border-[1.5px]" style={{ borderColor: `${getPartyText(cand.party)}66` }}>
                               <PoliticianPhoto name={cand.name} photo={cand.photo} context={cand.party} avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black" />
                             </div>
-                            <span className="text-[12px] font-black text-gray-900 truncate flex-1">{cand.name}</span>
+                            <span className={`text-[12px] font-black truncate flex-1 ${isSelected ? "text-gray-900" : "text-white"}`}>{cand.name}</span>
                             <span className="text-[10px] font-bold shrink-0" style={{ color: getPartyText(cand.party) }}>{abbrevParty(cand.party)}</span>
                           </div>
                         ))}
@@ -419,53 +422,60 @@ export default function CitySelect() {
                 })
               ) : (
                 // ── 보궐선거 카드 ──
-                assemblyDistricts.length === 0 ? (
-                  <div className="col-span-2 py-16 text-center text-gray-400 text-[13px]">보궐선거 후보 정보를 불러오는 중...</div>
+                assemblyLoading ? (
+                  <div className="col-span-2 space-y-3 py-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-[110px] rounded-[20px] bg-[#1E293B] animate-pulse border border-white/5" />
+                    ))}
+                  </div>
+                ) : assemblyDistricts.length === 0 ? (
+                  <div className="col-span-2 py-16 text-center text-gray-500 text-[13px]">
+                    보궐선거 후보 정보가 없습니다.
+                  </div>
                 ) : (
                   assemblyDistricts.filter(
                     (d) => d.sd.includes(searchQuery) || d.dist.includes(searchQuery),
-                  ).map((district) => {
-                    const isSelected = selectedRegions.some((r) => r.code === district.code);
-                    const selectedIndex = selectedRegions.findIndex((r) => r.code === district.code);
-                    const shortName = district.dist;
-
+                  ).map((d) => {
+                    const isSelected = selectedRegions.some((r) => r.code === d.code);
+                    const selectedIndex = selectedRegions.findIndex((r) => r.code === d.code);
+                    
                     return (
                       <motion.button
-                        key={district.code}
+                        key={d.code}
                         variants={item}
-                        onClick={() => handleSelect(district.code, shortName, "assembly")}
+                        onClick={() => handleSelect(d.code, d.dist, "assembly")}
                         className={`w-full text-left rounded-[20px] p-4 transition-all duration-200 border-2 focus:outline-none active:scale-[0.97] shadow-sm ${
                           isSelected
-                            ? "border-[#6D28D9] bg-white shadow-md shadow-[#6D28D9]/10 scale-[1.01]"
-                            : "bg-white border-gray-100 hover:border-[#6D28D9]/40 hover:shadow-md"
+                            ? "border-white bg-white shadow-md shadow-white/10 scale-[1.01]"
+                            : "bg-[#1E293B] border-white/5 hover:border-white/20 hover:shadow-md"
                         }`}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <div className="flex items-center gap-1 mb-1">
-                              <Landmark className="w-3 h-3 text-[#6D28D9]/50" />
-                              <span className="text-[10px] font-bold text-gray-400 tracking-tight">국회의원 보궐선거 · {district.sd}</span>
+                              <Landmark className={`w-3 h-3 ${isSelected ? "text-[#0F172A]/50" : "text-gray-400"}`} />
+                              <span className={`text-[10px] font-bold tracking-tight ${isSelected ? "text-[#0F172A]/60" : "text-gray-400"}`}>{d.sd.replace(/(특별자치도|특별자치시|특별시|광역시|도)$/, "")}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <h3 className="text-[18px] font-black text-gray-900 leading-tight">{shortName}</h3>
+                              <h3 className={`text-[15px] font-black tracking-tight truncate max-w-[120px] ${isSelected ? "text-[#0F172A]" : "text-white"}`}>{d.dist}</h3>
                               {isSelected && (
-                                <span className="inline-flex w-5 h-5 rounded-full bg-[#6D28D9] text-white text-[10px] items-center justify-center font-black shrink-0">
+                                <span className="inline-flex w-5 h-5 rounded-full bg-[#0F172A] text-white text-[10px] items-center justify-center font-black shrink-0">
                                   {selectedIndex + 1}
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#6D28D9] border-[#6D28D9]" : "border-gray-200 bg-white"}`}>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${isSelected ? "bg-[#0F172A] border-[#0F172A]" : "border-white/10 bg-[#1E293B]"}`}>
                             {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                           </div>
                         </div>
                         <div className="space-y-1.5">
-                          {district.candidates.slice(0, 3).map((cand, idx) => (
-                            <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: getPartyBg(cand.party) }}>
+                          {d.candidates?.slice(0, 3).map((cand: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2 rounded-xl px-2.5 py-1.5" style={{ background: isSelected ? getPartyBg(cand.party) : '#0F172A' }}>
                               <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border-[1.5px]" style={{ borderColor: `${getPartyText(cand.party)}66` }}>
-                                <PoliticianPhoto name={cand.name} photo={cand.photo ?? null} context={cand.party} avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black" />
+                                <PoliticianPhoto name={cand.name} photo={cand.photo} context={cand.party} avatarClassName="w-full h-full flex items-center justify-center text-white text-[8px] font-black" />
                               </div>
-                              <span className="text-[12px] font-black text-gray-900 truncate flex-1">{cand.name}</span>
+                              <span className={`text-[12px] font-black truncate flex-1 ${isSelected ? "text-gray-900" : "text-white"}`}>{cand.name}</span>
                               <span className="text-[10px] font-bold shrink-0" style={{ color: getPartyText(cand.party) }}>{abbrevParty(cand.party)}</span>
                             </div>
                           ))}
@@ -478,35 +488,66 @@ export default function CitySelect() {
             </motion.div>
           </div>
 
-          {/* ─── Bottom CTA — regions selected ─── */}
+          {/* ─── Bottom CTA ─── */}
           <AnimatePresence>
             {selectedRegions.length > 0 && (
               <motion.div
-                initial={{ y: 100, opacity: 0 }}
+                initial={{ y: 140, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 100, opacity: 0 }}
+                exit={{ y: 140, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 280, damping: 28 }}
-                className="fixed bottom-0 left-0 right-0 z-50 bg-white/92 backdrop-blur-xl border-t border-gray-100 px-5 pt-4 pb-5 shadow-[0_-8px_30px_rgba(0,0,0,0.06)]"
+                className="fixed bottom-0 left-0 right-0 z-50 bg-[#F8F9FA]/90 backdrop-blur-xl border-t border-gray-200/60 px-6 py-5 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.08)]"
               >
                 <div className="max-w-[760px] mx-auto">
                   {/* Removable chips */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {selectedRegions.map((r, i) => (
-                      <motion.button
-                        key={r.code}
-                        initial={{ scale: 0.75, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        onClick={() => setSelectedRegions((prev) => prev.filter((s) => s.code !== r.code))}
-                        className="flex items-center gap-1.5 bg-[#6D28D9]/10 hover:bg-[#6D28D9]/20 text-[#6D28D9] text-[13px] font-bold px-3 py-1.5 rounded-full transition-colors"
-                      >
-                        <span className="w-4 h-4 bg-[#6D28D9] text-white rounded-full text-[9px] flex items-center justify-center font-black shrink-0">
-                          {i + 1}
-                        </span>
-                        {r.level === "assembly" && <Landmark className="w-3 h-3 opacity-60" />}
-                        {r.name}
-                        <X className="w-3 h-3 opacity-50" />
-                      </motion.button>
-                    ))}
+                  <div className="flex flex-col gap-2.5 mb-3">
+                    {/* 지방선거 선택 항목 */}
+                    {selectedRegions.filter(r => r.level !== "assembly").length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-gray-400 shrink-0 w-12">지방선거</span>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRegions.filter(r => r.level !== "assembly").map((r, i) => (
+                            <motion.button
+                              key={r.code}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              onClick={() => setSelectedRegions((prev) => prev.filter((s) => s.code !== r.code))}
+                              className="flex items-center gap-1.5 bg-[#0F172A]/10 hover:bg-[#0F172A]/20 text-[#0F172A] text-[13px] font-bold px-3 py-1.5 rounded-full transition-colors"
+                            >
+                              <span className="w-4 h-4 bg-[#0F172A] text-white rounded-full text-[9px] flex items-center justify-center font-black shrink-0">{i + 1}</span>
+                              <MapPin className="w-3 h-3 opacity-60 shrink-0" />
+                              <span className="truncate max-w-[80px]">{r.name}</span>
+                              <X className="w-3 h-3 opacity-50" />
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 보궐선거 선택 항목 */}
+                    {selectedRegions.filter(r => r.level === "assembly").length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-gray-400 shrink-0 w-12">보궐선거</span>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRegions.filter(r => r.level === "assembly").map((r, i) => (
+                            <motion.button
+                              key={r.code}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              onClick={() => setSelectedRegions((prev) => prev.filter((s) => s.code !== r.code))}
+                              className="flex items-center gap-1.5 bg-[#0F172A]/10 hover:bg-[#0F172A]/20 text-[#0F172A] text-[13px] font-bold px-3 py-1.5 rounded-full transition-colors"
+                            >
+                              <span className="w-4 h-4 bg-[#0F172A] text-white rounded-full text-[9px] flex items-center justify-center font-black shrink-0">{i + 1}</span>
+                              <Landmark className="w-3 h-3 opacity-60 shrink-0" />
+                              <span className="truncate max-w-[80px]">{r.name}</span>
+                              <X className="w-3 h-3 opacity-50" />
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={handleComplete}

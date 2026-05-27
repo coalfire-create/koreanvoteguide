@@ -108,16 +108,16 @@ export function NotificationPanel({ open, onClose }: Props) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] bg-[#F2F2F7] dark:bg-[#1C1C1E] rounded-t-[28px] overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 z-[70] bg-[#F2F2F7] dark:bg-[#1C1C1E] rounded-t-[28px] flex flex-col"
             style={{ maxHeight: "85vh" }}
           >
             {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-black/20 dark:bg-white/20 rounded-full" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 pb-3 pt-2">
+            <div className="flex-shrink-0 flex items-center justify-between px-5 pb-3 pt-2">
               <div className="flex items-center gap-2">
                 <Bell className="w-5 h-5 text-primary" />
                 <h2 className="text-[18px] font-bold text-foreground">알림</h2>
@@ -131,7 +131,10 @@ export function NotificationPanel({ open, onClose }: Props) {
             </div>
 
             {/* Content */}
-            <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+16px)]" style={{ maxHeight: "calc(85vh - 80px)" }}>
+            <div
+              className="flex-1 min-h-0 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+16px)]"
+              style={{ overscrollBehavior: "contain" }}
+            >
 
               {/* 선거 D-day 섹션 */}
               {upcomingSchedules.length > 0 && (

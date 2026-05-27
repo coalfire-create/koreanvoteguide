@@ -45,25 +45,43 @@ export function LoginPrompt({
               className="relative z-10 flex flex-col"
             >
               {/* Top Illustration Area */}
-              <div className="relative h-[220px] w-full overflow-hidden bg-black">
-                <motion.img 
-                  initial={{ scale: 1.1, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 0.8 }}
-                  transition={{ duration: 2, ease: "easeOut" }}
-                  src="/assets/login_premium.png" 
-                  alt="Login Illustration"
-                  className="w-full h-full object-cover mix-blend-screen"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-                
-                {/* Floating Elements for Dynamism */}
+              <div className="relative h-[220px] w-full overflow-hidden bg-gradient-to-br from-[#0F172A] via-[#1E1B4B] to-black flex items-center justify-center">
+                {/* Abstract animated background elements */}
                 <motion.div 
-                  animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }} 
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute top-8 left-8 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-xl"
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }} 
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-purple-600/30 rounded-full blur-3xl"
+                />
+                <motion.div 
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.4, 0.2] }} 
+                  transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                  className="absolute bottom-[-20%] left-[-10%] w-64 h-64 bg-indigo-600/30 rounded-full blur-3xl"
+                />
+                
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="relative z-10 flex flex-col items-center justify-center"
                 >
-                  <Sparkles className="w-6 h-6 text-purple-300" />
+                  <span className="text-white/60 text-[10px] font-black tracking-[0.3em] mb-3 uppercase">Korean Election Guide</span>
+                  <div className="relative">
+                    <h2 className="text-[32px] font-black text-white tracking-tight leading-[1.1] text-center flex flex-col items-center">
+                      <span>투표에 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFA500] drop-shadow-md">이유</span>를</span>
+                      <span>만들자</span>
+                    </h2>
+                    {/* Sparkle accent */}
+                    <motion.div 
+                      animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -top-3 -right-8 text-yellow-400 opacity-90 drop-shadow-md"
+                    >
+                      <Sparkles className="w-6 h-6" fill="currentColor" />
+                    </motion.div>
+                  </div>
                 </motion.div>
+
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent pointer-events-none" />
               </div>
 
               {/* Content Area */}

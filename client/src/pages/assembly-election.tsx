@@ -79,12 +79,21 @@ export default function AssemblyElection() {
     return regions.filter(r => r.level === "assembly").slice(0, 3);
   });
 
+  // 전체 선거구 목록 (선택 여부 무관)
+  const allDistricts = useMemo(() => {
+    const map = new Map<string, { key: string; sd: string; name: string }>();
+    for (const c of candidates) {
+      const key = `${c.sdName}_${c.districtName}`;
+      if (!map.has(key)) map.set(key, { key, sd: c.sdName, name: c.districtName });
+    }
+    return [...map.values()].sort((a, b) => a.sd.localeCompare(b.sd) || a.name.localeCompare(b.name));
+  }, [candidates]);
+
+  // 관심지역으로 필터된 선거구 (후보 포함)
   const districts = useMemo(() => {
     const map = new Map<string, { key: string; sd: string; name: string; list: AssemblyCandidate[] }>();
     for (const c of candidates) {
       const key = `${c.sdName}_${c.districtName}`;
-      // Only include if it's in the user's selected regions, or if we want to show all. 
-      // The user wants ONLY the selected ones to be visible.
       if (userRegions.some(r => r.code === key)) {
         if (!map.has(key)) map.set(key, { key, sd: c.sdName, name: c.districtName, list: [] });
         map.get(key)!.list.push(c);
@@ -108,12 +117,21 @@ export default function AssemblyElection() {
     return { vs: v, minor: sorted.filter((c) => !used.has(c.id)) };
   }, [active]);
 
+  const addRegion = (d: { key: string; name: string }) => {
+    if (userRegions.length >= 3) return;
+    const next = [...userRegions, { code: d.key, name: d.name, level: "assembly" }];
+    setUserRegions(next);
+    const stored: { code: string; name: string; level?: string }[] = JSON.parse(localStorage.getItem("userRegions") ?? "[]");
+    const merged = [...stored.filter((r) => r.level !== "assembly"), ...next];
+    localStorage.setItem("userRegions", JSON.stringify(merged));
+  };
+
   const go = (c: AssemblyCandidate) => { saveCandidateToSession(String(c.id), c); setLocation(`/candidates/${c.id}`); };
 
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] text-foreground pb-24">
       {/* 헤더 */}
-      <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950 px-5 pt-9 pb-7 text-white">
+      <div className="bg-[#0F172A] px-5 pt-9 pb-7 text-white">
         <div className="max-w-[1400px] mx-auto">
           <Link href="/">
             <button className="flex items-center gap-1.5 text-white/70 hover:text-white text-[13px] font-bold mb-3">
@@ -140,11 +158,25 @@ export default function AssemblyElection() {
         {isLoading ? (
           <div className="py-20 text-center text-muted-foreground text-sm">불러오는 중…</div>
         ) : districts.length === 0 ? (
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm px-6 py-16 flex flex-col items-center justify-center gap-4 mt-6">
-            <p className="text-muted-foreground font-medium">선택된 국회의원 재보궐선거 지역이 없습니다.</p>
-            <Link href="/city-select">
-              <button className="border border-border/30 px-4 py-2 rounded-lg text-foreground hover:bg-muted font-bold text-sm transition-colors">관심 지역 선택하기</button>
-            </Link>
+          /* 관심지역 미선택 → 인라인 선택기 */
+          <div className="mt-6 bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Landmark className="w-4 h-4 text-indigo-500" />
+              <h3 className="text-[15px] font-black text-foreground">관심 선거구 선택</h3>
+            </div>
+            <p className="text-[12px] text-muted-foreground mb-4">선거구를 탭하면 후보 정보가 바로 나타납니다 (최대 3개)</p>
+            <div className="flex flex-wrap gap-2">
+              {allDistricts.map((d) => (
+                <button
+                  key={d.key}
+                  onClick={() => addRegion(d)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border/60 bg-muted/30 text-[12px] font-bold text-foreground hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 active:scale-95 transition-all"
+                >
+                  <span className="text-[10px] text-muted-foreground">{d.sd.replace(/(특별자치도|특별자치시|특별시|광역시|도)$/, "")}</span>
+                  {d.name}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -293,71 +325,100 @@ export default function AssemblyElection() {
 
                     return (
                       <div className="flex flex-col gap-8 sm:gap-12">
-                        {/* 주요 후보 공약 — 공약 번호별 스택 */}
+                        {/* 주요 후보 공약 — VS 2열 레이아웃 */}
                         <div className="flex flex-col gap-6">
-                          {Array.from({ length: maxPledgeCount }).map((_, pIdx) => (
-                            <div key={pIdx} className="flex flex-col gap-2">
-                              <p className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">공약 {pIdx + 1}</p>
-                              {vs.map((c) => {
-                                const pledges = normalizePledges(c.pledges ?? c.promises ?? []);
-                                const p = pledges[pIdx];
-                                const color = getPartyColor(c.party);
-                                if (!p) return null;
-                                return (
-                                  <div
-                                    key={`${c.id}-${pIdx}`}
-                                    className="bg-white dark:bg-[#2C2C2E] rounded-2xl shadow-sm overflow-hidden cursor-pointer active:opacity-70 transition-opacity"
-                                    onClick={() => {
-                                      setSelectedCandidateId(String(c.id));
-                                      setSelectedCandidateName(c.name);
-                                      setSelectedCandidateParty(c.party);
-                                      setSelectedCandidateJob(c.job ?? "");
-                                      setSelectedCandidateCareer1(c.career1 ?? c.career ?? "");
-                                      setSelectedPledge(p);
-                                      const firstOther = vs.find((o) => o.id !== c.id);
-                                      if (firstOther) {
-                                        const otherPledges = normalizePledges(firstOther.pledges ?? firstOther.promises ?? []);
-                                        const otherP = otherPledges[pIdx];
-                                        setSelectedCompareWith(otherP ? {
-                                          candidateId: String(firstOther.id),
-                                          name: firstOther.name,
-                                          party: firstOther.party,
-                                          job: firstOther.job ?? "",
-                                          career1: firstOther.career1 ?? firstOther.career ?? "",
-                                          pledge: otherP,
-                                        } : null);
-                                      } else {
-                                        setSelectedCompareWith(null);
-                                      }
-                                    }}
-                                  >
-                                    <div className={`h-1 w-full ${color}`} />
-                                    <div className="px-4 pt-3 pb-1 flex items-center gap-2">
-                                      <div className={`w-1.5 h-1.5 rounded-full ${color} shrink-0`} />
-                                      <span className="text-[12px] font-black text-foreground">{c.name}</span>
-                                      <span className="text-[10px] text-muted-foreground ml-1">기호 {getPartyRank(c.party)}</span>
+                          {Array.from({ length: maxPledgeCount }).map((_, pIdx) => {
+                            const leftC = vs[0];
+                            const rightC = vs[1];
+                            const leftP = leftC ? normalizePledges(leftC.pledges ?? leftC.promises ?? [])[pIdx] : null;
+                            const rightP = rightC ? normalizePledges(rightC.pledges ?? rightC.promises ?? [])[pIdx] : null;
+                            if (!leftP && !rightP) return null;
+
+                            const makePledgeCard = (candidate: typeof leftC, p: typeof leftP) => {
+                              if (!candidate || !p) return <div className="flex-1" />;
+                              const color = getPartyColor(candidate.party);
+                              const otherC = candidate.id === leftC?.id ? rightC : leftC;
+                              const otherP = otherC ? normalizePledges(otherC.pledges ?? otherC.promises ?? [])[pIdx] : null;
+                              
+                              return (
+                                <div
+                                  className={`flex-1 min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer active:opacity-70 transition-all hover:shadow-md relative overflow-hidden group`}
+                                  onClick={() => {
+                                    setSelectedCandidateId(String(candidate.id));
+                                    setSelectedCandidateName(candidate.name);
+                                    setSelectedCandidateParty(candidate.party);
+                                    setSelectedCandidateJob(candidate.job ?? "");
+                                    setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
+                                    setSelectedPledge(p);
+                                    if (otherC && otherP) {
+                                      setSelectedCompareWith({
+                                        candidateId: String(otherC.id),
+                                        name: otherC.name,
+                                        party: otherC.party,
+                                        job: otherC.job ?? "",
+                                        career1: otherC.career1 ?? otherC.career ?? "",
+                                        pledge: otherP,
+                                      });
+                                    } else {
+                                      setSelectedCompareWith(null);
+                                    }
+                                  }}
+                                >
+                                  {/* 상단 컬러 바 */}
+                                  <div className={`absolute top-0 left-0 right-0 h-1.5 ${color} opacity-80`} />
+                                  
+                                  <div className="p-3.5 pt-4">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                                      <span className="text-[12px] font-black text-foreground truncate">{candidate.name}</span>
                                     </div>
-                                    <div className="px-4 pb-4">
-                                      {p.realmName && (
-                                        <span className="inline-block text-[10px] font-bold text-indigo-600/70 mb-1">{p.realmName}</span>
-                                      )}
-                                      <h5 className="text-[15px] font-bold text-foreground leading-snug mb-1.5">{p.title}</h5>
-                                      {p.description && (
-                                        <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-3">{p.description}</p>
-                                      )}
-                                      {(p.method || p.funding || p.duration) && (
-                                        <div className="flex flex-wrap gap-1.5 mt-3">
-                                          {p.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">이행방법 ✓</span>}
-                                          {p.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">재원조달 ✓</span>}
-                                          {p.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">이행기간 ✓</span>}
-                                        </div>
-                                      )}
-                                    </div>
+                                    
+                                    {p.realmName && (
+                                      <span className="inline-block text-[10px] font-bold text-primary/60 mb-1">{p.realmName}</span>
+                                    )}
+                                    <h5 className="text-[13px] font-bold text-foreground leading-[1.4] line-clamp-3 mb-1.5 group-hover:text-primary transition-colors">
+                                      {p.title}
+                                    </h5>
+                                    {p.description && (
+                                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{p.description}</p>
+                                    )}
+                                    
+                                    {(p.method || p.funding || p.duration) && (
+                                      <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-black/5 dark:border-white/5">
+                                        {p.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-md">이행 ✓</span>}
+                                        {p.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-md">재원 ✓</span>}
+                                        {p.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 dark:bg-sky-500/10 dark:text-sky-400 px-1.5 py-0.5 rounded-md">기간 ✓</span>}
+                                      </div>
+                                    )}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ))}
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <div key={pIdx} className="flex flex-col gap-2 relative">
+                                <div className="flex items-center justify-center">
+                                  <div className="bg-muted/50 px-3 py-1 rounded-full border border-black/5 dark:border-white/5">
+                                    <span className="text-[11px] font-black text-muted-foreground tracking-widest">공약 {pIdx + 1}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-stretch gap-3 relative z-0">
+                                  {makePledgeCard(leftC, leftP)}
+                                  
+                                  {/* 중앙 VS 뱃지 */}
+                                  {rightC && (
+                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center pointer-events-none">
+                                      <div className="w-7 h-7 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shadow-lg border-[2px] border-white dark:border-[#1C1C1E]">
+                                        <span className="text-white dark:text-gray-900 text-[10px] font-black italic tracking-tighter pr-0.5">VS</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {rightC && makePledgeCard(rightC, rightP)}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
 
                         {/* 기타 후보 공약 — election-home 동일 compact list */}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
+import { withApiBase } from "@/lib/api-base";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -147,22 +148,22 @@ function PledgeCard({ candidateId, promise, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-start gap-3 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all duration-200 group"
+      className="w-full text-left flex items-start gap-2.5 p-3.5 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all duration-200 group"
     >
-      <div className="mt-0.5 shrink-0 w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-        <CheckCircle2 className="w-4 h-4 text-indigo-500" />
+      <div className="shrink-0 w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
       </div>
       <div className="flex-1 min-w-0">
         {promise.realmName && (
-          <span className="inline-block text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mb-1 uppercase tracking-wider">{promise.realmName}</span>
+          <span className="inline-block text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md mb-1 uppercase tracking-wider">{promise.realmName}</span>
         )}
-        <p className="font-bold text-[14px] text-gray-900 leading-snug group-hover:text-indigo-700 transition-colors">{promise.title}</p>
+        <p className="font-bold text-[13px] text-gray-900 leading-snug group-hover:text-indigo-700 transition-colors">{promise.title}</p>
         {promise.description && (
-          <p className="text-[11px] text-gray-400 mt-1 line-clamp-1 leading-relaxed">{promise.description}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-1 leading-relaxed">{promise.description}</p>
         )}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           {/* 실현가능성 뱃지 */}
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${feasibility.bg} ${feasibility.color}`}>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${feasibility.bg} ${feasibility.color}`}>
             실현가능성 {feasibility.label}
           </span>
           {/* 구조화 데이터 지표 */}
@@ -172,13 +173,13 @@ function PledgeCard({ candidateId, promise, onClick }: {
           {/* 댓글 수 */}
           {comments.length > 0 && (
             <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              <MessageCircle className="w-3 h-3" />
+              <MessageCircle className="w-2.5 h-2.5" />
               {comments.length}
             </span>
           )}
         </div>
       </div>
-      <ChevronDown className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 rotate-[-90deg] shrink-0 mt-2 transition-colors" />
+      <ChevronDown className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 rotate-[-90deg] shrink-0 transition-colors" />
     </button>
   );
 }
@@ -321,14 +322,14 @@ export default function CandidateDetail() {
       className="w-full pb-24"
     >
       {/* ── 헤더 ── */}
-      <div className={`relative ${partyBg} overflow-hidden px-4 pt-12 pb-24`}>
+      <div className={`relative ${partyBg} overflow-hidden px-4 pt-4 pb-14`}>
         {/* 세련된 배경 효과 */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent mix-blend-overlay" />
         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
         <div className="absolute top-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-2xl" />
 
         <div className="max-w-4xl mx-auto relative z-10">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3">
             <Link href="/">
               <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors border border-white/20">
                 <ArrowLeft className="w-5 h-5 text-white" />
@@ -341,57 +342,57 @@ export default function CandidateDetail() {
               className="text-white hover:bg-white/20 backdrop-blur-md border border-white/20"
             />
           </div>
-          <div className="flex flex-row items-center gap-5 mt-2 bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/20 shadow-2xl">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-2xl bg-white border-2 border-white overflow-hidden shadow-inner">
+          <div className="flex flex-row items-center gap-4 mt-2 bg-white/10 p-3.5 rounded-3xl backdrop-blur-md border border-white/20 shadow-xl">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl bg-white border-2 border-white overflow-hidden shadow-inner">
               <PoliticianPhoto
                 name={candidate.name}
                 photo={candidate.photo}
                 monaCd={String(candidate.id)}
                 context={candidate.party}
-                avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-2xl bg-gray-100"
+                avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-xl bg-gray-100"
               />
             </div>
             <div className="flex flex-col justify-center flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-white text-[11px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-white text-[10px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md">
                   {verification.job || "후보자"}
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">{candidate.name}</h1>
-              <p className="text-white/90 text-[13px] sm:text-[14px] mt-1 font-bold truncate">{candidate.party}</p>
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">{candidate.name}</h1>
+              <p className="text-white/90 text-[12px] sm:text-[13px] font-bold truncate">{candidate.party}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── 탭 컨텐츠 ── */}
-      <div className="px-4 -mt-12 relative z-20 w-full max-w-6xl mx-auto">
+      <div className="px-4 -mt-8 relative z-20 w-full max-w-6xl mx-auto">
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden divide-y divide-gray-100 border border-black/5">
 
           {/* ── 핵심 공약 ── */}
-          <section className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-4">
+          <section className="p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-[16px] font-black text-gray-900">핵심 공약</h3>
+                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-[15px] font-black text-gray-900">핵심 공약</h3>
               </div>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200">{candidate.promises.length}개</Badge>
+              <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200 text-[10px] px-2 py-0">{candidate.promises.length}개</Badge>
             </div>
             {candidate.promises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
-                <p className="text-[14px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
-                <p className="text-[12px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
+              <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
+                <p className="text-[13px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
+                <p className="text-[11px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
               </div>
             ) : (
               <>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 flex items-start gap-2 shadow-sm animate-pulse">
-                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-2 mb-2 flex items-start gap-1.5 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[13px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
-                    <p className="text-[12px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o / Llama 3.3)가 실현가능성과 핵심 취약점을 낱낱이 분석해 드립니다.</p>
+                    <p className="text-[11px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
+                    <p className="text-[10px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o)가 실현가능성과 핵심 취약점을 분석해 드립니다.</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
                   {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
                     <PledgeCard
                       key={promise.id}
@@ -663,7 +664,7 @@ export default function CandidateDetail() {
                     >
                       {item.thumbnail ? (
                         <img
-                          src={item.thumbnail}
+                          src={withApiBase(item.thumbnail)}
                           alt=""
                           className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm"
                         />

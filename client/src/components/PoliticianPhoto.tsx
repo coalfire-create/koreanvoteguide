@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { POLITICIAN_PHOTOS } from "@/lib/politician-photos";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withApiBase } from "@/lib/api-base";
 
 export interface PoliticianPhotoProps {
   name: string;
@@ -32,7 +33,12 @@ export function PoliticianPhoto({
     // 명시적으로 업로드한 공식 사진(/uploads/…, 예: 선관위 후보자명부 엑셀에서 추출)은
     // 본인 확정 사진이므로 hardcoded·동명이인 검색보다 최우선으로 사용.
     const uploaded = photo && photo.startsWith("/uploads/") ? photo : null;
-    return [uploaded, hardcoded, assemblyPhoto, photo, resolvedUrl, dynamicFallback].filter(Boolean) as string[];
+    // native(Capacitor) 빌드는 capacitor://localhost/ 에서 로드되므로 "/uploads/...", "/api/..." 같은
+    // server-relative URL 을 그대로 <img src> 에 넣으면 도달 못함. withApiBase 가 API_BASE 를 prefix 해 준다.
+    // (웹/SSR 같은 same-origin 컨텍스트에서는 no-op)
+    return [uploaded, hardcoded, assemblyPhoto, photo, resolvedUrl, dynamicFallback]
+      .filter(Boolean)
+      .map((s) => withApiBase(s as string)) as string[];
   }, [photo, resolvedUrl, name, monaCd, context]);
 
   // sources[0]이 바뀌면 (새 URL이 추가되면) srcIndex 리셋 — 이전에 실패한 인덱스로 고정되는 버그 방지.

@@ -2,6 +2,7 @@ import { X, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAssemblyMembers } from "@/lib/api-data";
 import { candidates, getPartyColor, getScoreGrade } from "@/lib/mock-data";
+import { withApiBase } from "@/lib/api-base";
 
 interface FavoriteMiniCardProps {
   personId: string;
@@ -73,10 +74,10 @@ export function FavoriteMiniCard({ personId, type, onClose }: FavoriteMiniCardPr
             {/* 1. 프로필 헤더 */}
             <div className="flex items-start gap-4 mb-5">
               {person.photo || person.imageUrl ? (
-                <img 
-                  src={person.photo || person.imageUrl} 
-                  alt={person.name} 
-                  className="w-16 h-16 rounded-full object-cover border border-gray-100 shadow-sm shrink-0" 
+                <img
+                  src={withApiBase(person.photo || person.imageUrl)}
+                  alt={person.name}
+                  className="w-16 h-16 rounded-full object-cover border border-gray-100 shadow-sm shrink-0"
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center text-xl font-bold text-gray-400 shrink-0">

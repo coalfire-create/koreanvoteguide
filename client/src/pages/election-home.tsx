@@ -276,18 +276,23 @@ function TopHeader({
 
   return (
     <div>
-      <header className="w-full bg-gradient-to-r from-indigo-600 via-primary to-purple-600 sticky top-0 z-50 pt-[env(safe-area-inset-top)] shadow-sm">
+      <header className="w-full bg-[#0F172A] sticky top-0 z-50 shadow-sm border-b border-white/[0.06]">
         {/* 상단 로고/유저 영역 */}
-        <div className="h-[56px] flex items-center justify-between px-5 relative overflow-hidden">
-          {/* 장식용 글로우 */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute top-0 -left-10 w-24 h-24 bg-white/5 rounded-full blur-xl" />
+        <div className="h-[56px] flex items-center justify-between px-5 relative">
           
           <div className="flex items-center gap-2 relative z-10">
-            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
-              <span className="text-white font-black text-sm tracking-tighter">이유</span>
-            </div>
-            <h1 className="text-white font-bold text-[18px] tracking-tight">지방선거 가이드</h1>
+            {/* 연도 배지 */}
+            <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+              2026
+            </span>
+            {/* 메인 타이틀 */}
+            <h1 className="text-white font-bold text-[16px] tracking-tight flex items-center gap-1.5">
+              제9회 전국동시지방선거
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-red-500 pb-[1px]">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/>
+                <path d="M12 6v12 M12 12l4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            </h1>
           </div>
           
           <div className="flex items-center gap-3 shrink-0 relative z-10">
@@ -513,18 +518,26 @@ function RegionView({
                   const dDays = calculateDDay("2026-06-03T00:00:00");
                   const posLabel = MAYOR_RACES.find(r => r.regionCode === region.code)?.positionLabel || `${region.name}시장`;
                   return (
-                    <div className="pt-5 pb-4 border-b border-black/[0.04] dark:border-white/[0.06]">
-                      <div className="flex items-center justify-between px-5 mb-3">
-                        <span className={`text-[12px] font-black px-2.5 py-1 rounded-lg ${dDays <= 7 ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"}`}>
+                    <div className="pt-6 pb-5 border-b border-black/[0.04] dark:border-white/[0.06] relative overflow-hidden bg-gradient-to-b from-indigo-50/30 to-transparent dark:from-indigo-950/10">
+                      {/* 은은한 백그라운드 랜드마크 실루엣 */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                        <Landmark className="w-48 h-48 text-foreground" />
+                      </div>
+                      
+                      <div className="flex items-center justify-between px-5 mb-3 relative z-10">
+                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-lg tracking-wider ${dDays <= 7 ? "bg-red-500/10 text-red-500" : "bg-indigo-600/10 text-indigo-600 dark:bg-indigo-400/10 dark:text-indigo-400"}`}>
                           {formatDDayLabel(dDays)}
                         </span>
                         <Link href="/city-select">
-                          <button className="text-[12px] text-muted-foreground/40 active:opacity-60">지역 변경</button>
+                          <button className="text-[12px] text-muted-foreground/50 hover:text-muted-foreground active:opacity-60 transition-colors font-medium">지역 변경</button>
                         </Link>
                       </div>
-                      <div className="text-center px-5">
-                        <h2 className="text-[20px] font-extrabold text-foreground tracking-tight">{posLabel} 선거</h2>
-                        <p className="text-[12px] text-muted-foreground mt-1">2026. 6. 3 · 제9회 지방선거 · {displayCandidates.length}명 출마</p>
+                      
+                      <div className="text-center px-5 relative z-10">
+                        <h2 className="text-[22px] font-black text-foreground tracking-tight">
+                          {posLabel} <span className="text-indigo-600 dark:text-indigo-400">결정의 날</span>
+                        </h2>
+                        <p className="text-[12px] text-muted-foreground/80 mt-1.5 font-medium">2026. 6. 3 · 제9회 전국동시지방선거 · {displayCandidates.length}인의 후보</p>
                       </div>
                     </div>
                   );
@@ -644,76 +657,97 @@ function RegionView({
 
                   return (
                     <div className="flex flex-col gap-8 sm:gap-12">
-                      {/* 주요 후보 공약 비교 — 공약 번호별 스택 레이아웃 */}
+                      {/* 주요 후보 공약 비교 — VS 2열 레이아웃 */}
                       <div className="flex flex-col gap-6">
-                        {Array.from({ length: maxPledgeCount }).map((_, pIdx) => (
-                          <div key={pIdx} className="flex flex-col gap-2">
-                            {/* 공약 번호 레이블 */}
-                            <p className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest px-1">공약 {pIdx + 1}</p>
+                        {Array.from({ length: maxPledgeCount }).map((_, pIdx) => {
+                          const leftC = vsCandidates[0];
+                          const rightC = vsCandidates[1];
+                          const leftP = leftC ? normalizePledges(leftC.pledges ?? leftC.promises ?? [])[pIdx] : null;
+                          const rightP = rightC ? normalizePledges(rightC.pledges ?? rightC.promises ?? [])[pIdx] : null;
+                          if (!leftP && !rightP) return null;
 
-                            {vsCandidates.map((candidate) => {
-                              const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
-                              const p = pledges[pIdx];
-                              const color = getPartyColor(candidate.party);
-                              if (!p) return null;
-                              return (
-                                <div
-                                  key={`${candidate.id}-${pIdx}`}
-                                  className="bg-white dark:bg-[#2C2C2E] rounded-2xl shadow-sm overflow-hidden cursor-pointer active:opacity-70 transition-opacity"
-                                  onClick={() => {
-                                    setSelectedCandidateId(String(candidate.id));
-                                    setSelectedCandidateName(candidate.name);
-                                    setSelectedCandidateParty(candidate.party);
-                                    setSelectedCandidateJob(candidate.job ?? "");
-                                    setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
-                                    setSelectedPledge(p);
-                                    const firstOther = vsCandidates.find(c => c.id !== candidate.id);
-                                    if (firstOther) {
-                                      const otherPledges = normalizePledges(firstOther.pledges ?? firstOther.promises ?? []);
-                                      const otherP = otherPledges[pIdx];
-                                      if (otherP) {
-                                        setSelectedCompareWith({
-                                          candidateId: String(firstOther.id),
-                                          name: firstOther.name,
-                                          party: firstOther.party,
-                                          job: firstOther.job ?? "",
-                                          career1: firstOther.career1 ?? firstOther.career ?? "",
-                                          pledge: otherP
-                                        });
-                                      }
-                                    }
-                                  }}
-                                >
-                                  {/* 후보자 헤더 바 */}
-                                  <div className={`h-1 w-full ${color}`} />
-                                  <div className="px-4 pt-3 pb-1 flex items-center gap-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${color} shrink-0`} />
-                                    <span className="text-[12px] font-black text-foreground">{candidate.name}</span>
-                                    <span className="text-[10px] text-muted-foreground ml-1">기호 {getPartyRank(candidate.party)}</span>
+                          const makePledgeCard = (candidate: typeof leftC, p: typeof leftP, isLeft: boolean) => {
+                            if (!candidate || !p) return <div className="flex-1" />;
+                            const color = getPartyColor(candidate.party);
+                            const otherC = candidate.id === leftC?.id ? rightC : leftC;
+                            const otherP = otherC ? normalizePledges(otherC.pledges ?? otherC.promises ?? [])[pIdx] : null;
+                            return (
+                              <div
+                                className={`flex-1 min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer active:opacity-70 transition-all hover:shadow-md relative overflow-hidden group`}
+                                onClick={() => {
+                                  setSelectedCandidateId(String(candidate.id));
+                                  setSelectedCandidateName(candidate.name);
+                                  setSelectedCandidateParty(candidate.party);
+                                  setSelectedCandidateJob(candidate.job ?? "");
+                                  setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
+                                  setSelectedPledge(p);
+                                  if (otherC && otherP) {
+                                    setSelectedCompareWith({
+                                      candidateId: String(otherC.id),
+                                      name: otherC.name,
+                                      party: otherC.party,
+                                      job: otherC.job ?? "",
+                                      career1: otherC.career1 ?? otherC.career ?? "",
+                                      pledge: otherP,
+                                    });
+                                  }
+                                }}
+                              >
+                                {/* 상단 컬러 바 */}
+                                <div className={`absolute top-0 left-0 right-0 h-1.5 ${color} opacity-80`} />
+                                
+                                <div className="p-3.5 pt-4">
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                                    <span className="text-[12px] font-black text-foreground truncate">{candidate.name}</span>
                                   </div>
-                                  <div className="px-4 pb-4">
-                                    {p.realmName && (
-                                      <span className="inline-block text-[10px] font-bold text-primary/70 mb-1">{p.realmName}</span>
-                                    )}
-                                    <h5 className="text-[15px] font-bold text-foreground leading-snug mb-1.5">
-                                      {p.title}
-                                    </h5>
-                                    {p.description && (
-                                      <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-3">{p.description}</p>
-                                    )}
-                                    {(p.method || p.funding || p.duration) && (
-                                      <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {p.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">이행방법 ✓</span>}
-                                        {p.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">재원조달 ✓</span>}
-                                        {p.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">이행기간 ✓</span>}
-                                      </div>
-                                    )}
-                                  </div>
+                                  
+                                  {p.realmName && (
+                                    <span className="inline-block text-[10px] font-bold text-primary/60 mb-1">{p.realmName}</span>
+                                  )}
+                                  <h5 className="text-[13px] font-bold text-foreground leading-[1.4] line-clamp-3 mb-1.5 group-hover:text-primary transition-colors">
+                                    {p.title}
+                                  </h5>
+                                  {p.description && (
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{p.description}</p>
+                                  )}
+                                  
+                                  {(p.method || p.funding || p.duration) && (
+                                    <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-black/5 dark:border-white/5">
+                                      {p.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-md">이행 ✓</span>}
+                                      {p.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-md">재원 ✓</span>}
+                                      {p.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 dark:bg-sky-500/10 dark:text-sky-400 px-1.5 py-0.5 rounded-md">기간 ✓</span>}
+                                    </div>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        ))}
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div key={pIdx} className="flex flex-col gap-2 relative">
+                              <div className="flex items-center justify-center">
+                                <div className="bg-muted/50 px-3 py-1 rounded-full border border-black/5 dark:border-white/5">
+                                  <span className="text-[11px] font-black text-muted-foreground tracking-widest">공약 {pIdx + 1}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-stretch gap-3 relative z-0">
+                                {makePledgeCard(leftC, leftP, true)}
+                                
+                                {/* 중앙 VS 뱃지 */}
+                                {rightC && (
+                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center pointer-events-none">
+                                    <div className="w-7 h-7 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shadow-lg border-[2px] border-white dark:border-[#1C1C1E]">
+                                      <span className="text-white dark:text-gray-900 text-[10px] font-black italic tracking-tighter pr-0.5">VS</span>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {rightC && makePledgeCard(rightC, rightP, false)}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
 
                       {/* 기타 후보 공약 */}
@@ -1055,9 +1089,9 @@ export default function ElectionHome() {
   const [temporaryRegions, setTemporaryRegions] = useState<{ code: string; name: string }[]>([]);
 
   // 유저 관심 지역 (localStorage, 동기 읽기로 깜박임 방지)
-  const [userRegions, setUserRegions] = useState<{ code: string; name: string }[]>(() => {
+  const [userRegions, setUserRegions] = useState<{ code: string; name: string; level?: string }[]>(() => {
     const storedMulti = localStorage.getItem("userRegions");
-    let regions: { code: string; name: string }[] = [];
+    let regions: { code: string; name: string; level?: string }[] = [];
     if (storedMulti) {
       try {
         const parsed = JSON.parse(storedMulti);
@@ -1073,17 +1107,20 @@ export default function ElectionHome() {
       }
     }
 
-    // "영천", "중", "함양" 지역 삭제 요청 반영 및 3개로 제한
-    const filtered = regions.filter(r => 
+    // "영천", "중", "함양" 지역 삭제 요청 반영 — 지방선거는 최대 3개, 보궐은 최대 3개 (합산 최대 6)
+    const filtered = regions.filter(r =>
       !["영천", "중", "함양"].includes(r.name)
-    ).slice(0, 3);
-    
+    );
+    const localFiltered = filtered.filter(r => r.level !== "assembly").slice(0, 3);
+    const assemblyFiltered = filtered.filter(r => r.level === "assembly").slice(0, 3);
+    const result = [...localFiltered, ...assemblyFiltered];
+
     // 변경된 경우 localStorage 업데이트
-    if (filtered.length !== regions.length) {
-      localStorage.setItem("userRegions", JSON.stringify(filtered));
+    if (result.length !== regions.length) {
+      localStorage.setItem("userRegions", JSON.stringify(result));
     }
-    
-    return filtered;
+
+    return result;
   });
 
   // 17개 시·도 전체 선거 목록 — 광역단체장만(기초 제외), 유저 관심 지역을 앞에 배치

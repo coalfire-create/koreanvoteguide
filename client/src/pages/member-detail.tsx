@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPartyColor, getScoreColor, getScoreGrade } from "@/lib/mock-data";
 import { useAssemblyMembers, useMemberDetail, useMemberAlumni } from "@/lib/api-data";
+import { withApiBase } from "@/lib/api-base";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -1139,7 +1140,7 @@ export default function MemberDetail() {
                 <div className="p-4 flex items-center gap-3 border-b border-border/20">
                   <div className="w-10 h-10 rounded-full border border-border/40 overflow-hidden bg-muted flex items-center justify-center relative">
                     {member.photo ? (
-                      <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                      <img src={withApiBase(member.photo)} alt={member.name} className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-5 h-5 text-muted-foreground/50" />
                     )}
@@ -1270,7 +1271,7 @@ export default function MemberDetail() {
                           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 border border-blue-100/50 transition-all cursor-pointer group">
                             {person.photoUrl ? (
                               <div className="w-8 h-8 rounded-lg overflow-hidden border border-white shadow-sm shrink-0">
-                                <img src={person.photoUrl} alt={person.name} className="w-full h-full object-cover" />
+                                <img src={withApiBase(person.photoUrl)} alt={person.name} className="w-full h-full object-cover" />
                               </div>
                             ) : (
                               <div className="w-8 h-8 rounded-lg bg-blue-200 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">
@@ -1864,7 +1865,7 @@ export default function MemberDetail() {
                   data-testid={`news-item-${i}`}
                 >
                   {item.thumbnail ? (
-                    <img src={item.thumbnail} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm" />
+                    <img src={withApiBase(item.thumbnail)} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm" />
                   ) : (
                     <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center shrink-0">
                       <Newspaper className="w-5 h-5 text-muted-foreground/40" />

@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { registerLegalPages } from "./legal-pages";
 import { serveStatic } from "./static";
@@ -116,6 +117,9 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+
+// 쿠키 파서 — req.cookies 에서 OAuth state 쿠키 등을 읽기 위해 필요
+app.use(cookieParser());
 
 // 업로드된 이미지 파일 정적 변환
 import path from "path";
