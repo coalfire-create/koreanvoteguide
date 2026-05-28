@@ -2,6 +2,8 @@
 // 클릭 시 /api/auth/apple 로 이동 → 서버가 애플 authorize URL로 redirect.
 // 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
+import { withApiBase } from "@/lib/api-base";
+
 interface Props {
   className?: string;
   label?: string;
@@ -9,7 +11,7 @@ interface Props {
 }
 
 export function AppleLoginButton({ className = "", label = "Apple로 로그인", next }: Props) {
-  const href = next ? `/api/auth/apple?next=${encodeURIComponent(next)}` : "/api/auth/apple";
+  const href = withApiBase(next ? `/api/auth/apple?next=${encodeURIComponent(next)}` : "/api/auth/apple");
 
   return (
     <a

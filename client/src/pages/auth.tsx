@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown } from "lucide-react";
 import { KakaoLoginButton } from "@/components/KakaoLoginButton";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
-import { AppleLoginButton } from "@/components/AppleLoginButton";
 
 export default function AuthPage() {
   const { user } = useAuth();
@@ -95,9 +94,8 @@ export default function AuthPage() {
             </p>
             <KakaoLoginButton next={returnTo} />
             <GoogleLoginButton next={returnTo} />
-            <AppleLoginButton next={returnTo} />
             <p className="text-center text-[11px] text-slate-400 leading-relaxed">
-              카카오·구글·애플 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
+              카카오·구글 로그인은 본인확인을 대체합니다. 연령대·성별 정보는 통계 목적으로만 사용돼요.
             </p>
           </div>
 

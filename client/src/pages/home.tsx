@@ -73,7 +73,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40">
+      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
         <div className="h-[60px] sm:h-[72px] flex items-center px-4 sm:px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">

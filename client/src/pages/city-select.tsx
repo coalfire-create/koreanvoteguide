@@ -181,10 +181,16 @@ export default function CitySelect() {
   const [electionTab, setElectionTab] = useState<"local" | "assembly">("local");
 
   // 보궐선거 후보 데이터
-  const { data: assemblyRaw = [], isLoading: assemblyLoading } = useQuery<any[]>({
+  const { data: assemblyRaw = [], isLoading: assemblyLoading, isError: assemblyError, refetch: assemblyRefetch } = useQuery<any[]>({
     queryKey: ["/api/election/assembly"],
-    queryFn: () => fetch("/api/election/assembly", { credentials: "include" }).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/election/assembly", { credentials: "include" });
+      if (!r.ok) throw new Error(`서버 오류: ${r.status}`);
+      return r.json();
+    },
     staleTime: 5 * 60 * 1000,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   const assemblyDistricts = useMemo(() => {
@@ -287,7 +293,7 @@ export default function CitySelect() {
           className="min-h-screen bg-[#0F172A] flex flex-col w-full"
         >
           {/* ─── Header ─── */}
-          <div className="w-full px-6 pt-4 pb-6 max-w-[760px] mx-auto">
+          <div className="w-full px-6 pb-6 max-w-[760px] mx-auto pt-[calc(1rem+env(safe-area-inset-top,0px))]">
             {/* Logo + D-day */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
@@ -424,9 +430,20 @@ export default function CitySelect() {
                 // ── 보궐선거 카드 ──
                 assemblyLoading ? (
                   <div className="col-span-2 space-y-3 py-4">
+                    <p className="text-center text-gray-500 text-[13px] mb-3">보궐선거 후보 정보를 불러오는 중...</p>
                     {[1, 2, 3].map(i => (
                       <div key={i} className="h-[110px] rounded-[20px] bg-[#1E293B] animate-pulse border border-white/5" />
                     ))}
+                  </div>
+                ) : assemblyError ? (
+                  <div className="col-span-2 py-16 text-center">
+                    <p className="text-gray-400 text-[13px] mb-3">보궐선거 정보를 불러오지 못했습니다.<br/>서버에 연결할 수 없습니다.</p>
+                    <button
+                      onClick={() => assemblyRefetch()}
+                      className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[13px] font-bold rounded-xl transition-colors"
+                    >
+                      다시 시도
+                    </button>
                   </div>
                 ) : assemblyDistricts.length === 0 ? (
                   <div className="col-span-2 py-16 text-center text-gray-500 text-[13px]">

@@ -290,7 +290,7 @@ export default function Members() {
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] font-sans text-foreground">
       {/* ── 상단 헤더 ── */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]">
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-3">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-[22px] font-bold text-foreground">인물</h1>

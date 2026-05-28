@@ -3,8 +3,8 @@ import type { Express } from "express";
 // 약관/개인정보처리방침/운영정책 — 변호사 자문 후 본문을 교체할 것.
 // 이 파일은 *템플릿*이며, 운영 전 실제 사업자 정보·CPO·관할 법원 등을 반드시 채워야 한다.
 
-const TOS_VERSION = "2026-05-12";
-const PRIVACY_VERSION = "2026-05-12";
+const TOS_VERSION = "2026-06-01";
+const PRIVACY_VERSION = "2026-06-01";
 
 const TOS_HTML = `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"/>
@@ -91,7 +91,7 @@ const PRIVACY_HTML = `<!doctype html>
 
 <h2>7. 정보주체의 권리</h2>
 <p>회원은 언제든지 마이페이지에서 본인 정보를 열람·수정·삭제·탈퇴할 수 있습니다.
-열람·정정·삭제 요청은 cpo@example.com (CPO 메일)으로도 접수합니다.</p>
+열람·정정·삭제 요청은 cpo@xn--2r5b1f.com (개인정보 보호체임자 메일)으로도 접수합니다.</p>
 
 <h2>8. 안전성 확보 조치</h2>
 <p>비밀번호 scrypt 해시, 전화번호 HMAC 해시, 세션 쿠키 httpOnly+secure, 전 구간 HTTPS,
@@ -101,7 +101,7 @@ const PRIVACY_HTML = `<!doctype html>
 <p>로그인 유지를 위해 세션 쿠키(kvg.sid)를 사용합니다. 브라우저 설정에서 거부할 수 있으나, 거부 시 일부 기능이 제한됩니다.</p>
 
 <h2>10. 개인정보 보호책임자</h2>
-<p>성명: (담당자명) · 직책: CPO · 이메일: cpo@example.com</p>
+<p>성명: 이유 운영팀 · 직책: CPO · 이메일: cpo@xn--2r5b1f.com</p>
 
 <h2>11. 정책 변경</h2>
 <p>본 방침은 ${PRIVACY_VERSION}부터 적용됩니다. 변경 시 7일 전 공지합니다.</p>

@@ -2,6 +2,8 @@
 // 클릭 시 /api/auth/kakao 로 이동 → 서버가 Kakao authorize URL로 redirect.
 // 클라이언트 SDK가 아니라 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
+import { withApiBase } from "@/lib/api-base";
+
 interface Props {
   className?: string;
   label?: string;
@@ -11,7 +13,7 @@ interface Props {
 }
 
 export function KakaoLoginButton({ className = "", label = "카카오로 1초 로그인", next }: Props) {
-  const href = next ? `/api/auth/kakao?next=${encodeURIComponent(next)}` : "/api/auth/kakao";
+  const href = withApiBase(next ? `/api/auth/kakao?next=${encodeURIComponent(next)}` : "/api/auth/kakao");
 
   return (
     <a

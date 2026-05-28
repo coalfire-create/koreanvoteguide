@@ -450,11 +450,38 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
               ? item.link
               : extractText(item.link?.["@_href"]) || extractText(item.guid) || "";
           const pubDate = extractText(item.pubDate || item.updated || item.published || "");
-          const thumbnail =
-            item["media:content"]?.["@_url"] ||
-            item["media:thumbnail"]?.["@_url"] ||
-            item.enclosure?.["@_url"] ||
+          // 1) 표준 미디어 필드(media:content/media:thumbnail/enclosure) — 단일 또는 배열
+          // 2) description/content:encoded HTML 안의 첫 <img src> (한국 RSS 대다수)
+          const pickUrl = (node: any): string => {
+            if (!node) return "";
+            if (Array.isArray(node)) {
+              for (const n of node) {
+                const u = pickUrl(n);
+                if (u) return u;
+              }
+              return "";
+            }
+            return node["@_url"] || node.url || "";
+          };
+          const extractFirstImg = (raw: any): string => {
+            const s = typeof raw === "string" ? raw : extractText(raw);
+            if (!s) return "";
+            // src 가 따옴표로 감싸지지 않는 경우도 처리 (한겨레 등 비표준 HTML)
+            const m = s.match(/<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+            return m?.[1] || m?.[2] || m?.[3] || "";
+          };
+          let thumbnail =
+            pickUrl(item["media:content"]) ||
+            pickUrl(item["media:thumbnail"]) ||
+            pickUrl(item.enclosure) ||
+            extractFirstImg(item["content:encoded"]) ||
+            extractFirstImg(item.description) ||
+            extractFirstImg(item.summary) ||
             "";
+          if (typeof thumbnail !== "string") thumbnail = "";
+          if (thumbnail.startsWith("//")) thumbnail = "https:" + thumbnail;
+          // http → https 강제 (HTTPS WebView 에서 mixed-content 차단 방지)
+          if (thumbnail.startsWith("http://")) thumbnail = "https://" + thumbnail.slice(7);
           const rawSummary =
             item.description ?? item.summary ?? item["content:encoded"] ?? item.content ?? "";
           if (title && link) {
@@ -464,7 +491,7 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
               pubDate,
               source: feed.source,
               sourceCode: meta.code,
-              thumbnail: typeof thumbnail === "string" ? thumbnail : "",
+              thumbnail,
               summary: toSummary(rawSummary, title),
             });
           }
@@ -481,6 +508,37 @@ async function fetchKoreanPoliticsNews(): Promise<{ items: NewsItem[]; grouped: 
   if (naverNews.length > 0) {
     allItems.push(...naverNews);
     console.log(`[news] 네이버뉴스: ${naverNews.length}건 수신`);
+  }
+
+  // RSS 에 이미지가 없는 항목(경향/미디어오늘/일부 다른 매체) → 기사 HTML 의 og:image 로 보완.
+  // 캐시 15분 수명 안에서만 동작하므로 외부 호출 한 번이면 다음 갱신까지 재사용.
+  // 병렬·짧은 timeout·실패 무시.
+  const needsOg = allItems.filter((i) => !i.thumbnail && i.link && /^https?:\/\//.test(i.link));
+  if (needsOg.length > 0) {
+    const ogResults = await Promise.allSettled(
+      needsOg.map((item) =>
+        axios.get(item.link, { timeout: 4000, headers: RSS_HEADERS, maxRedirects: 3, responseType: "text" })
+          .then((res) => {
+            const html: string = typeof res.data === "string" ? res.data : "";
+            // <meta property="og:image" content="..."> 또는 name="og:image"/twitter:image
+            const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']/i)
+              || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+            return m?.[1] ?? "";
+          })
+          .catch(() => "")
+      )
+    );
+    let filled = 0;
+    ogResults.forEach((r, idx) => {
+      if (r.status === "fulfilled" && r.value) {
+        let u = r.value;
+        if (u.startsWith("//")) u = "https:" + u;
+        if (u.startsWith("http://")) u = "https://" + u.slice(7);
+        needsOg[idx].thumbnail = u;
+        filled++;
+      }
+    });
+    console.log(`[news] og:image fallback ${filled}/${needsOg.length}건 보완`);
   }
 
   // 최신순 정렬

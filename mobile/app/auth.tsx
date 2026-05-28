@@ -7,7 +7,6 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, User, Lock, Eye, EyeOff } from "lucide-react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -18,7 +17,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
+
 
   if (user) {
     router.replace("/(tabs)");
@@ -41,28 +40,6 @@ export default function AuthScreen() {
     }
   };
 
-  const handleAppleLogin = async () => {
-    setAppleLoading(true);
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      await apiRequest("POST", "/api/auth/apple/native", {
-        identityToken: credential.identityToken,
-        fullName: credential.fullName,
-      });
-      await mutate();
-      router.replace("/(tabs)");
-    } catch (err: any) {
-      if (err?.code === "ERR_REQUEST_CANCELED") return;
-      Alert.alert("로그인 실패", err.message ?? "Apple 로그인 중 오류가 발생했습니다");
-    } finally {
-      setAppleLoading(false);
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -94,23 +71,7 @@ export default function AuthScreen() {
       >
         <Text style={{ fontSize: 22, fontWeight: "900", color: "#111827", marginBottom: 24 }}>로그인</Text>
 
-        {/* Apple Sign In — iOS only */}
-        {Platform.OS === "ios" && (
-          <>
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={14}
-              style={{ width: "100%", height: 54, marginBottom: 16 }}
-              onPress={handleAppleLogin}
-            />
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-              <Text style={{ fontSize: 12, color: "#9CA3AF", marginHorizontal: 12 }}>또는 아이디로</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-            </View>
-          </>
-        )}
+
 
         {/* ID Field */}
         <View style={{ marginBottom: 14 }}>

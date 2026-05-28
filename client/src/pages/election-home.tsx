@@ -276,7 +276,7 @@ function TopHeader({
 
   return (
     <div>
-      <header className="w-full bg-[#0F172A] sticky top-0 z-50 shadow-sm border-b border-white/[0.06]">
+      <header className="w-full bg-[#0F172A] sticky top-0 z-50 shadow-sm border-b border-white/[0.06] pt-[env(safe-area-inset-top)]">
         {/* 상단 로고/유저 영역 */}
         <div className="h-[56px] flex items-center justify-between px-5 relative">
           

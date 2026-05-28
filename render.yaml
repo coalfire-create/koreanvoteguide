@@ -88,4 +88,24 @@ services:
       - key: ENABLE_DEV_TESTER
         value: "0"                 # mock 계정 비활성화. prod에서 절대 "1"로 두지 말 것
 
+      # ===== 선거 블랙아웃 =====
+      - key: ELECTION_DAY
+        value: "2026-06-03"        # 여론조사 결과 공표 금지기간 계산 (공직선거법 §108)
+
+      # ===== 공공데이터 포털 =====
+      - key: DATA_GO_KR_API_KEY
+        sync: false                # data.go.kr API 키 (후보자 데이터 등)
+
+      # ===== Sign in with Apple (선택 — 애플 심사 통과 후 입력) =====
+      # Xcode Capability + Apple Developer Services ID 설정 완료 후 아래 항목 입력
+      # - key: APPLE_TEAM_ID
+      #   sync: false              # 10자리 팀 ID
+      # - key: APPLE_KEY_ID
+      #   sync: false              # .p8 파일의 Key ID
+      # - key: APPLE_SERVICE_ID
+      #   sync: false              # 예: com.antigravity.iyu.service
+      # - key: APPLE_PRIVATE_KEY
+      #   sync: false              # .p8 파일 전체 내용 (-----BEGIN PRIVATE KEY----- 포함)
+      # - key: APPLE_REDIRECT_URI
+      #   value: https://xn--2r5b1f.com/api/auth/apple/callback
 

@@ -148,38 +148,34 @@ function PledgeCard({ candidateId, promise, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left flex items-start gap-2.5 p-3.5 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all duration-200 group"
+      className="w-full h-full text-left flex flex-col gap-2 p-3.5 bg-white border border-gray-100 rounded-2xl hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-50 transition-all duration-200 group active:scale-[0.98]"
     >
-      <div className="shrink-0 w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        {promise.realmName && (
-          <span className="inline-block text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md mb-1 uppercase tracking-wider">{promise.realmName}</span>
-        )}
-        <p className="font-bold text-[13px] text-gray-900 leading-snug group-hover:text-indigo-700 transition-colors">{promise.title}</p>
-        {promise.description && (
-          <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-1 leading-relaxed">{promise.description}</p>
-        )}
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          {/* 실현가능성 뱃지 */}
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${feasibility.bg} ${feasibility.color}`}>
-            실현가능성 {feasibility.label}
-          </span>
-          {/* 구조화 데이터 지표 */}
-          {promise.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">이행방법 ✓</span>}
-          {promise.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">재원조달 ✓</span>}
-          {promise.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">이행기간 ✓</span>}
-          {/* 댓글 수 */}
-          {comments.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              <MessageCircle className="w-2.5 h-2.5" />
-              {comments.length}
-            </span>
-          )}
+      <div className="flex items-start gap-2">
+        <div className="shrink-0 w-7 h-7 rounded-xl bg-indigo-50 group-hover:bg-indigo-600 flex items-center justify-center transition-colors duration-200">
+          <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 group-hover:text-white transition-colors duration-200" />
         </div>
+        {promise.realmName && (
+          <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-lg mt-0.5 truncate">{promise.realmName}</span>
+        )}
       </div>
-      <ChevronDown className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 rotate-[-90deg] shrink-0 transition-colors" />
+      <p className="font-bold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-indigo-700 transition-colors flex-1">{promise.title}</p>
+      {promise.description && (
+        <p className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed">{promise.description}</p>
+      )}
+      <div className="flex items-center gap-1 flex-wrap mt-auto">
+        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${feasibility.bg} ${feasibility.color}`}>
+          {feasibility.label}
+        </span>
+        {promise.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg">이행</span>}
+        {promise.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-lg">재원</span>}
+        {promise.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded-lg">기간</span>}
+        {comments.length > 0 && (
+          <span className="flex items-center gap-0.5 text-[9px] text-gray-400 ml-auto">
+            <MessageCircle className="w-2.5 h-2.5" />
+            {comments.length}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -242,7 +238,22 @@ export default function CandidateDetail() {
           funding: typeof p === "string" ? undefined : (p.funding ?? p.deptCont ?? undefined),
           duration: typeof p === "string" ? undefined : (p.duration ?? p.distCont ?? undefined),
         })),
-        pastActivities: sessionCandidate.pastActivities ?? [],
+        pastActivities: (() => {
+          // 선관위 후보는 pastActivities 가 비어 있으므로 career/career1·2/candidacyHistory 에서 추출.
+          // 줄바꿈·세미콜론·번호항목(1. 2.) 으로 분리, 중복/공백 제거, 최대 12개로 trim.
+          if (sessionCandidate.pastActivities?.length) return sessionCandidate.pastActivities;
+          const sources = [
+            sessionCandidate.career,
+            sessionCandidate.career1,
+            sessionCandidate.career2,
+            sessionCandidate.candidacyHistory,
+          ].filter(Boolean) as string[];
+          const split = sources
+            .flatMap((s) => s.split(/\n|;|(?<=\.)\s+(?=\d+\.)|(?<=세\))\s+/))
+            .map((s) => s.replace(/^\s*[•\-\d.\s]+/, "").trim())
+            .filter((s) => s.length > 1);
+          return Array.from(new Set(split)).slice(0, 12);
+        })(),
         education: sessionCandidate.education ?? sessionCandidate.edu,
         career: sessionCandidate.career ?? (sessionCandidate.career1 ? `${sessionCandidate.career1}${sessionCandidate.career2 ? `\n${sessionCandidate.career2}` : ""}` : undefined),
         timeline: sessionCandidate.timeline ?? [],
@@ -319,19 +330,20 @@ export default function CandidateDetail() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="w-full pb-24"
+      className="w-full pb-24 bg-[#F0F2F8] min-h-screen"
     >
-      {/* ── 헤더 ── */}
-      <div className={`relative ${partyBg} overflow-hidden px-4 pt-4 pb-14`}>
-        {/* 세련된 배경 효과 */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent mix-blend-overlay" />
-        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute top-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-2xl" />
+      {/* ── 헤더 — 딥 슬레이트 + 당색 그라디언트 오버레이 ── */}
+      <div className={`relative overflow-hidden px-4 pt-3 pb-14`} style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1e2d4a 100%)' }}>
+        {/* 당색 오라 */}
+        <div className={`absolute -top-16 -right-16 w-72 h-72 rounded-full blur-3xl opacity-30 ${partyBg}`} />
+        <div className="absolute -bottom-20 -left-10 w-56 h-56 rounded-full blur-3xl opacity-20 bg-indigo-500" />
+        {/* 하단 흰 웨이브 마스크 */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-[#F0F2F8] rounded-t-[32px] z-10" />
 
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="flex items-center justify-between mb-3">
+        <div className="max-w-4xl mx-auto relative z-20">
+          <div className="flex items-center justify-between mb-5">
             <Link href="/">
-              <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors border border-white/20">
+              <button className="p-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl transition-all border border-white/15 shadow-md">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
             </Link>
@@ -339,68 +351,123 @@ export default function CandidateDetail() {
               title={`${candidate.name} 후보 - 이유있는 투표`}
               text={`${candidate.name}(${candidate.party}) 후보의 공약과 정보를 확인하세요`}
               variant="icon"
-              className="text-white hover:bg-white/20 backdrop-blur-md border border-white/20"
+              className="text-white hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl"
             />
           </div>
-          <div className="flex flex-row items-center gap-4 mt-2 bg-white/10 p-3.5 rounded-3xl backdrop-blur-md border border-white/20 shadow-xl">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl bg-white border-2 border-white overflow-hidden shadow-inner">
-              <PoliticianPhoto
-                name={candidate.name}
-                photo={candidate.photo}
-                monaCd={String(candidate.id)}
-                context={candidate.party}
-                avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-xl bg-gray-100"
-              />
+
+          {/* 프로필 카드 — 글래스모피즘 */}
+          <div className="flex flex-row items-center gap-4 bg-white/8 backdrop-blur-xl border border-white/12 rounded-3xl p-4 shadow-2xl">
+            {/* 사진 */}
+            <div className="relative shrink-0">
+              <div className="w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg">
+                <PoliticianPhoto
+                  name={candidate.name}
+                  photo={candidate.photo}
+                  monaCd={String(candidate.id)}
+                  context={candidate.party}
+                  avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-xl bg-gray-100"
+                />
+              </div>
+              {/* 당 색상 뱃지 */}
+              <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${partyBg} border-2 border-[#1e2d4a] shadow-sm`} />
             </div>
-            <div className="flex flex-col justify-center flex-1 min-w-0">
-              <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate leading-none">{candidate.name}</h1>
-                <span className="text-white text-[10px] font-black tracking-wider uppercase bg-black/20 px-2 py-0.5 rounded-md shrink-0">
+
+            {/* 텍스트 정보 */}
+            <div className="flex flex-col justify-center flex-1 min-w-0 gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-[22px] sm:text-[26px] font-black text-white tracking-tight leading-none">{candidate.name}</h1>
+                <span className="text-white/80 text-[10px] font-black tracking-widest uppercase bg-white/15 px-2 py-0.5 rounded-lg border border-white/20 shrink-0">
                   {verification.job || "후보자"}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-white/95 text-[12px] sm:text-[13px] font-bold shrink-0">{candidate.party}</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`text-[12px] font-black ${partyBg.replace('bg-', 'text-').replace('/30','').replace('/20','').replace('/50','')} text-white/90`}>{candidate.party}</span>
                 {verification.district && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-white/30 shrink-0" />
-                    <span className="text-white/80 text-[11px] sm:text-[12px] font-medium truncate">{verification.district}</span>
+                    <span className="w-1 h-1 rounded-full bg-white/25 shrink-0" />
+                    <span className="text-white/60 text-[11px] font-medium truncate flex items-center gap-0.5">
+                      <MapPin className="w-2.5 h-2.5" />
+                      {verification.district}
+                    </span>
                   </>
                 )}
               </div>
+              {/* 인라인 검증 뱃지 */}
+              {(() => {
+                const age = (verifData as any)?.age;
+                const gender = (verifData as any)?.gender;
+                const edu = (verifData as any)?.edu;
+                const chips: { label: string; tone: "neutral" | "warn" | "ok" }[] = [];
+                if (age) chips.push({ label: `${age}세${gender ? ` · ${gender}` : ""}`, tone: "neutral" });
+                if (verification.property) chips.push({ label: `재산 ${verification.property}`, tone: "neutral" });
+                if (verification.taxArrears && verification.taxArrears !== "0" && verification.taxArrears !== "없음") {
+                  chips.push({ label: `체납 ${verification.taxArrears}`, tone: "warn" });
+                }
+                if (criminalLines.length > 0) chips.push({ label: `전과 ${criminalLines.length}건`, tone: "warn" });
+                else if (verification.criminalText && verification.criminalText !== "없음") chips.push({ label: "전과 있음", tone: "warn" });
+                if (verification.military && verification.military !== "해당없음") chips.push({ label: `병역 ${verification.military}`, tone: "neutral" });
+                if (edu) chips.push({ label: edu, tone: "neutral" });
+                if (chips.length === 0) return null;
+                return (
+                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                    {chips.slice(0, 4).map((c, i) => (
+                      <span
+                        key={i}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border whitespace-nowrap ${
+                          c.tone === "warn"
+                            ? "bg-red-400/20 text-red-200 border-red-400/30"
+                            : "bg-white/10 text-white/80 border-white/15"
+                        }`}
+                      >
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── 탭 컨텐츠 ── */}
-      <div className="px-4 -mt-8 relative z-20 w-full max-w-6xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden divide-y divide-gray-100 border border-black/5">
+      {/* ── 탭 컨텐츠 — 헤더와 자연스럽게 연결 ── */}
+      <div className="px-3 -mt-2 relative z-20 w-full max-w-6xl mx-auto">
+        <div className="space-y-3">
 
           {/* ── 핵심 공약 ── */}
-          <section className="p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-[15px] font-black text-gray-900">핵심 공약</h3>
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            {/* 섹션 헤더 */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black text-gray-900 leading-tight">핵심 공약</h3>
+                  <p className="text-[10px] text-gray-400 font-medium">클릭하면 AI 분석을 볼 수 있어요</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-500 hover:bg-gray-200 text-[10px] px-2 py-0">{candidate.promises.length}개</Badge>
+              <span className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100">{candidate.promises.length}개</span>
             </div>
+            <div className="p-4 sm:p-5">
             {candidate.promises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 gap-2 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-2xl bg-gray-50 border border-dashed border-gray-200">
                 <p className="text-[13px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
                 <p className="text-[11px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
               </div>
             ) : (
               <>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-2 mb-2 flex items-start gap-1.5 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                {/* AI 힌트 배너 */}
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-3 mb-4 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
                   <div>
-                    <p className="text-[11px] font-black text-indigo-900 mb-0.5">👉 공약을 꼭 클릭해보세요!</p>
-                    <p className="text-[10px] text-indigo-700 leading-snug">공약을 클릭하면 최신 AI(GPT-4o)가 실현가능성과 핵심 취약점을 분석해 드립니다.</p>
+                    <p className="text-[12px] font-black text-indigo-900 mb-0.5">공약을 꼭 클릭해보세요! ✨</p>
+                    <p className="text-[10px] text-indigo-600 leading-snug">AI(GPT-4o)가 실현가능성과 핵심 취약점을 분석해 드립니다</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
                     <PledgeCard
                       key={promise.id}
@@ -412,37 +479,39 @@ export default function CandidateDetail() {
                 </div>
               </>
             )}
+            </div>
           </section>
 
-          {/* ── 요약 및 기본 정보 ── */}
-          <section className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[16px] font-black text-gray-900 flex items-center gap-2">
-                <MessageCircle className="w-5 h-5 text-indigo-600" />
-                국회의원 게시판
-              </h3>
+          {/* ── 커뮤니티 게시판 ── */}
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4 text-indigo-600" />
+                </div>
+                <h3 className="text-[15px] font-black text-gray-900">커뮤니티 게시판</h3>
+              </div>
               <Link href={`/community/write?tagType=candidate&tagId=${decodedId}&tagName=${candidate.name}`}>
-                <Button size="sm" className="h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[11px] font-black rounded-full px-4 border-none shadow-none">
+                <Button size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black rounded-xl px-3 shadow-sm shadow-indigo-200">
                   <PenSquare className="w-3 h-3 mr-1" /> 글쓰기
                 </Button>
               </Link>
             </div>
+            <div className="p-4">
             {postsLoading ? (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mb-4">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {[1, 2].map((i) => (
-                  <Skeleton key={i} className="w-[200px] h-[80px] rounded-xl shrink-0" />
+                  <Skeleton key={i} className="w-[200px] h-[90px] rounded-2xl shrink-0" />
                 ))}
               </div>
             ) : posts && posts.length > 0 ? (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x mb-4">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
                 {posts.map((post) => (
                   <Link key={post.id} href={`/community/${post.id}`}>
-                    <div className="w-[200px] shrink-0 bg-white border border-gray-200 rounded-xl p-3 snap-center hover:border-indigo-300 transition-colors cursor-pointer flex flex-col justify-between h-[80px]">
-                      <h4 className="text-[13px] font-bold text-gray-900 line-clamp-2 leading-snug">
-                        {post.title}
-                      </h4>
+                    <div className="w-[200px] shrink-0 bg-gray-50 hover:bg-indigo-50 border border-gray-100 hover:border-indigo-200 rounded-2xl p-3.5 snap-center transition-all cursor-pointer flex flex-col justify-between h-[90px]">
+                      <h4 className="text-[13px] font-bold text-gray-900 line-clamp-2 leading-snug">{post.title}</h4>
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold mt-1">
-                        <span className="text-gray-700 truncate max-w-[60px]">{post.displayName || "익명"}</span>
+                        <span className="text-gray-600 truncate max-w-[60px]">{post.displayName || "익명"}</span>
                         <div className="flex items-center gap-1.5 ml-auto shrink-0">
                           <span className="flex items-center gap-0.5"><ThumbsUp className="w-2.5 h-2.5" /> {post.likes}</span>
                           <span className="flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" /> {post.commentCount}</span>
@@ -453,55 +522,55 @@ export default function CandidateDetail() {
                 ))}
               </div>
             ) : (
-              <div className="text-[12px] text-gray-400 py-4 mb-4 bg-gray-50 rounded-xl text-center border border-dashed border-gray-200">
-                아직 등록된 관련 게시물이 없습니다.
+              <div className="text-[12px] text-gray-400 py-5 bg-gray-50 rounded-2xl text-center border border-dashed border-gray-200">
+                아직 등록된 관련 게시물이 없습니다
               </div>
             )}
+            </div>
+          </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
-              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                  </div>
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">선거구</span>
+          {/* ── 기본 정보 ── */}
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+                <User className="w-4 h-4 text-slate-600" />
+              </div>
+              <h3 className="text-[15px] font-black text-gray-900">기본 정보</h3>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-2.5">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">선거구</span>
                 </div>
                 <p className="text-[13px] font-bold text-gray-800 leading-snug">{verification.district || "정보 없음"}</p>
               </div>
-              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <User className="w-3.5 h-3.5 text-indigo-600" />
-                  </div>
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">직업</span>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">직업</span>
                 </div>
                 <p className="text-[13px] font-bold text-gray-800 leading-snug">{verification.job || "정보 없음"}</p>
               </div>
-              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                  </div>
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">학력</span>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <GraduationCap className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">학력</span>
                 </div>
                 <p className="text-[13px] font-bold text-gray-800 leading-snug">{candidate.education || "정보 없음"}</p>
               </div>
-              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                  </div>
-                  <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">주요 경력</span>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Star className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">주요 경력</span>
                 </div>
                 <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{candidate.career || "정보 없음"}</p>
               </div>
               {verification.candidacy && (
-                <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50 md:col-span-2">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                      <Vote className="w-3.5 h-3.5 text-indigo-600" />
-                    </div>
-                    <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tight">공직선거 입후보 경력</span>
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 col-span-2">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Vote className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">공직선거 입후보 경력</span>
                   </div>
                   <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.candidacy}</p>
                 </div>
@@ -510,12 +579,17 @@ export default function CandidateDetail() {
           </section>
 
           {/* ── 검증 정보 (재산·병역·세금·전과) ── */}
-          <section className="p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck className="w-5 h-5 text-indigo-600" />
-              <h3 className="text-[16px] font-black text-gray-900">검증 정보</h3>
-              <span className="text-[11px] text-gray-400 font-medium ml-1">선관위 후보자정보 기준</span>
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-black text-gray-900 leading-tight">검증 정보</h3>
+                <p className="text-[10px] text-gray-400 font-medium">선관위 후보자정보 공식 기준</p>
+              </div>
             </div>
+            <div className="p-4">
             {!hasVerification ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-2xl bg-gray-50 border border-dashed border-gray-200">
                 <ShieldQuestion className="w-8 h-8 text-gray-300" />
@@ -523,115 +597,171 @@ export default function CandidateDetail() {
                 <p className="text-[12px] text-gray-400 text-center max-w-xs">재산·병역·세금·전과 등 선관위 후보자정보가 반영되면 자동으로 표시됩니다.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 {/* 재산 */}
-                <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Landmark className="w-4 h-4 text-emerald-600" />
-                    <span className="text-[11px] font-black text-emerald-700 uppercase tracking-tight">재산 신고액</span>
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-4 border border-emerald-100 col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                    </div>
+                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">재산 신고액</span>
                   </div>
-                  <p className="text-[15px] font-black text-emerald-800 leading-snug">{verification.property || "정보 없음"}</p>
+                  <p className="text-[18px] font-black text-emerald-800 leading-snug">{verification.property || "정보 없음"}</p>
                 </div>
                 {/* 병역 */}
-                <div className="bg-sky-50/50 rounded-2xl p-4 border border-sky-100/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <ShieldCheck className="w-4 h-4 text-sky-600" />
-                    <span className="text-[11px] font-black text-sky-700 uppercase tracking-tight">병역 사항</span>
+                <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+                    <span className="text-[10px] font-black text-sky-700 uppercase tracking-wider">병역</span>
                   </div>
-                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.military || "정보 없음"}</p>
+                  <p className="text-[12px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.military || "정보 없음"}</p>
                 </div>
                 {/* 세금 납부 */}
-                <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Receipt className="w-4 h-4 text-amber-600" />
-                    <span className="text-[11px] font-black text-amber-700 uppercase tracking-tight">세금 납부</span>
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">세금 납부</span>
                   </div>
-                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.taxPaid || "정보 없음"}</p>
+                  <p className="text-[12px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.taxPaid || "정보 없음"}</p>
                 </div>
                 {/* 세금 체납 */}
-                <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-100/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Receipt className="w-4 h-4 text-rose-600" />
-                    <span className="text-[11px] font-black text-rose-700 uppercase tracking-tight">세금 체납</span>
+                <div className={`rounded-2xl p-4 border ${
+                  verification.taxArrears && verification.taxArrears !== "0" && verification.taxArrears !== "없음"
+                    ? "bg-rose-50 border-rose-200"
+                    : "bg-gray-50 border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Receipt className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-wider">세금 체납</span>
                   </div>
-                  <p className="text-[13px] font-bold text-gray-800 leading-snug whitespace-pre-line">{verification.taxArrears || "없음"}</p>
+                  <p className={`text-[12px] font-bold leading-snug whitespace-pre-line ${
+                    verification.taxArrears && verification.taxArrears !== "0" && verification.taxArrears !== "없음"
+                      ? "text-rose-700"
+                      : "text-gray-500"
+                  }`}>{verification.taxArrears || "없음"}</p>
                 </div>
                 {/* 전과 기록 */}
-                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 sm:col-span-2">
+                <div className={`rounded-2xl p-4 border col-span-2 ${
+                  criminalLines.length > 0 || (verification.criminalText && verification.criminalText !== "없음")
+                    ? "bg-rose-50 border-rose-200"
+                    : "bg-gray-50 border-gray-100"
+                }`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <Scale className="w-4 h-4 text-gray-600" />
-                    <span className="text-[11px] font-black text-gray-700 uppercase tracking-tight">전과 기록</span>
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                      criminalLines.length > 0 ? "bg-rose-100" : "bg-gray-100"
+                    }`}>
+                      <Scale className={`w-3.5 h-3.5 ${criminalLines.length > 0 ? "text-rose-600" : "text-gray-500"}`} />
+                    </div>
+                    <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider">전과 기록</span>
+                    {criminalLines.length > 0 && (
+                      <span className="ml-auto text-[10px] font-black text-rose-600 bg-rose-100 px-2 py-0.5 rounded-lg">{criminalLines.length}건</span>
+                    )}
                   </div>
                   {criminalLines.length > 0 ? (
                     <ul className="space-y-1.5">
                       {criminalLines.map((line, i) => (
-                        <li key={i} className="text-[13px] font-bold text-rose-700 flex items-start gap-2">
+                        <li key={i} className="text-[12px] font-bold text-rose-700 flex items-start gap-2">
                           <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
                           {line}
                         </li>
                       ))}
                     </ul>
                   ) : verification.criminalText ? (
-                    <p className="text-[13px] font-bold text-rose-700 leading-snug whitespace-pre-line">{verification.criminalText}</p>
+                    <p className="text-[12px] font-bold text-rose-700 leading-snug whitespace-pre-line">{verification.criminalText}</p>
                   ) : (
-                    <p className="text-[13px] font-bold text-emerald-700">전과 기록 없음</p>
+                    <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-[8px]">✓</span>
+                      전과 기록 없음
+                    </p>
                   )}
                 </div>
               </div>
             )}
+            </div>
           </section>
 
 
 
           {/* ── 활동 이력 ── */}
-          <section className="p-6 space-y-6">
-            <div>
-              <h3 className="text-[16px] font-black text-gray-900 flex items-center gap-2 mb-4">
-                <Star className="w-5 h-5 text-indigo-600" />
-                주요 활동 이력
-              </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {candidate.pastActivities.map((activity: string, i: number) => (
-                  <li key={i} className="text-[13px] text-gray-600 flex items-start gap-3 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
-                    {activity}
-                  </li>
-                ))}
-              </ul>
+          {(candidate.pastActivities.length > 0 || candidate.timeline.length > 0) && (
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <Star className="w-4 h-4 text-amber-600" />
+                </div>
+                <h3 className="text-[15px] font-black text-gray-900">주요 활동 이력</h3>
+              </div>
+              <span className="text-[11px] font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-100">{candidate.pastActivities.length}건</span>
             </div>
+            <div className="p-4 space-y-5">
+            {candidate.pastActivities.length > 0 && (
+              <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {candidate.pastActivities.map((activity: string, i: number) => {
+                  const m = activity.match(/^\(([현전前現])\)\s*/);
+                  const tag = m?.[1];
+                  const body = m ? activity.slice(m[0].length) : activity;
+                  const isActive = tag === "현" || tag === "現";
+                  return (
+                    <li key={i} className={`text-[12px] text-gray-700 flex items-start gap-2 p-3 rounded-xl border ${
+                      isActive
+                        ? "bg-emerald-50 border-emerald-100"
+                        : "bg-gray-50 border-gray-100"
+                    }`}>
+                      {tag ? (
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0 mt-0.5 ${
+                          isActive
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : "bg-gray-100 text-gray-500 border-gray-200"
+                        }`}>
+                          {tag === "前" ? "전" : tag === "現" ? "현" : tag}
+                        </span>
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                      )}
+                      <span className="leading-snug">{body}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
             {/* 타임라인 */}
-            <div>
-              <h3 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-indigo-500" />
-                활동 타임라인
-              </h3>
-              <div className="relative pl-5 border-l-2 border-indigo-100 space-y-6 ml-2 max-w-4xl">
-                {candidate.timeline.map((event: { id: string | number; date: string; title: string; description: string }) => (
-                  <div key={event.id} className="relative">
-                    <span className="absolute -left-[1.65rem] top-1 w-4 h-4 rounded-full bg-indigo-400 border-4 border-white shadow-sm" />
-                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                        {event.date}
-                      </span>
-                      <p className="font-bold text-[14px] text-gray-900">{event.title}</p>
+            {candidate.timeline.length > 0 && (
+              <div>
+                <h4 className="text-[13px] font-black text-gray-700 mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-500" />
+                  활동 타임라인
+                </h4>
+                <div className="relative pl-5 border-l-2 border-indigo-100 space-y-5 ml-2 max-w-4xl">
+                  {candidate.timeline.map((event: { id: string | number; date: string; title: string; description: string }) => (
+                    <div key={event.id} className="relative">
+                      <span className="absolute -left-[1.65rem] top-1 w-4 h-4 rounded-full bg-indigo-500 border-4 border-white shadow-sm" />
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">{event.date}</span>
+                        <p className="font-bold text-[13px] text-gray-900">{event.title}</p>
+                      </div>
+                      <p className="text-[11px] text-gray-500 leading-relaxed">{event.description}</p>
                     </div>
-                    <p className="text-[12px] text-gray-500 leading-relaxed">{event.description}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            )}
             </div>
           </section>
+          )}
 
           {/* ── 관련 뉴스 ── */}
-          <section className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-black text-gray-900 flex items-center gap-2">
-                <Newspaper className="w-5 h-5 text-indigo-600" />
-                관련 뉴스
-              </h3>
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Newspaper className="w-4 h-4 text-blue-600" />
+                </div>
+                <h3 className="text-[15px] font-black text-gray-900">관련 뉴스</h3>
+              </div>
             </div>
-            
+            <div className="p-4 space-y-4">
             {newsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {[1, 2, 3, 4].map((i) => (
@@ -715,14 +845,26 @@ export default function CandidateDetail() {
                 )}
               </>
             )}
+            </div>
           </section>
 
           {/* ── 객관 평가 리포트 ── */}
-          <section className="px-6 py-6 bg-gray-50/50">
-            <CandidateEvaluationReport
-              candidateName={candidate.name}
-              party={candidate.party || undefined}
-            />
+          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 pt-5 pb-4 border-b border-gray-50">
+              <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-black text-gray-900 leading-tight">AI 객관 평가</h3>
+                <p className="text-[10px] text-gray-400 font-medium">GPT-4o 기반 자동 분석</p>
+              </div>
+            </div>
+            <div className="p-4">
+              <CandidateEvaluationReport
+                candidateName={candidate.name}
+                party={candidate.party || undefined}
+              />
+            </div>
           </section>
 
         </div>

@@ -437,15 +437,21 @@ export const bills: Bill[] = [
 ];
 
 export function getPartyColor(party: string): string {
-  switch (party) {
-    case "민주당": return "bg-blue-500 dark:bg-blue-600";
-    case "국민의힘": return "bg-red-500 dark:bg-red-600";
-    case "조국혁신당": return "bg-indigo-500 dark:bg-indigo-600";
-    case "개혁신당": return "bg-orange-500 dark:bg-orange-600";
-    case "진보당": return "bg-red-800 dark:bg-red-900";
-    case "국가혁명당": return "bg-red-700 dark:bg-red-800";
-    default: return "bg-gray-500 dark:bg-gray-600";
-  }
+  // 정식명·약칭 모두 매칭 (더불어민주당 → 민주당, 등). 못 찾으면 슬레이트(검정 X).
+  const p = party ?? "";
+  if (p.includes("민주당")) return "bg-blue-500 dark:bg-blue-600";
+  if (p.includes("국민의힘")) return "bg-red-500 dark:bg-red-600";
+  if (p.includes("조국혁신")) return "bg-indigo-500 dark:bg-indigo-600";
+  if (p.includes("개혁신당")) return "bg-orange-500 dark:bg-orange-600";
+  if (p.includes("진보당")) return "bg-red-800 dark:bg-red-900";
+  if (p.includes("국가혁명")) return "bg-red-700 dark:bg-red-800";
+  if (p.includes("정의")) return "bg-yellow-500 dark:bg-yellow-600";
+  if (p.includes("녹색")) return "bg-emerald-600 dark:bg-emerald-700";
+  if (p.includes("기본소득")) return "bg-teal-600 dark:bg-teal-700";
+  if (p.includes("새로운미래")) return "bg-sky-600 dark:bg-sky-700";
+  if (p.includes("사회민주")) return "bg-rose-500 dark:bg-rose-600";
+  if (p.includes("무소속")) return "bg-slate-500 dark:bg-slate-600";
+  return "bg-slate-500 dark:bg-slate-600";
 }
 
 export const PARTY_RANK: Record<string, number> = {

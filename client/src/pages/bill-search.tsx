@@ -177,7 +177,7 @@ export default function BillSearch() {
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-black font-sans text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-black/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]">
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">

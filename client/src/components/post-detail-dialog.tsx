@@ -170,7 +170,7 @@ export function PostDetailDialog({ postId, onOpenChange }: PostDetailDialogProps
       <DialogContent className="max-w-md p-0 overflow-hidden bg-slate-50 border-0 shadow-2xl rounded-t-3xl rounded-b-none mt-auto mb-0 mx-0 sm:rounded-2xl sm:m-auto max-h-[90vh] flex flex-col gap-0 duration-300 transform-gpu slide-in-from-bottom data-[state=closed]:slide-out-to-bottom">
         
         {/* 헤더 바 */}
-        <div className="flex items-center justify-between p-4 bg-white border-b border-slate-100 z-10 shrink-0">
+        <div className="flex items-center justify-between px-4 pb-4 bg-white border-b border-slate-100 z-10 shrink-0 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
           <div className="flex flex-col">
             <DialogTitle className="text-sm font-bold text-slate-800">
               {data?.post?.title || "게시물 상세보기"}

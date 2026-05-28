@@ -131,7 +131,7 @@ export default function AssemblyElection() {
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-[#000000] text-foreground pb-24">
       {/* 헤더 */}
-      <div className="bg-[#0F172A] px-5 pt-9 pb-7 text-white">
+      <div className="bg-[#0F172A] px-5 pb-7 text-white pt-[calc(2.25rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-[1400px] mx-auto">
           <Link href="/">
             <button className="flex items-center gap-1.5 text-white/70 hover:text-white text-[13px] font-bold mb-3">
@@ -180,9 +180,8 @@ export default function AssemblyElection() {
           </div>
         ) : (
           <>
-            {/* 선거구 탭 (가로 스크롤) */}
-            <div className="sticky top-0 z-20 -mx-3 px-3 py-3 bg-[#F2F2F7]/95 dark:bg-[#000000]/95 backdrop-blur border-b border-border/40">
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 -mx-3 px-3 py-3 bg-[#F2F2F7]/95 dark:bg-[#000000]/95 backdrop-blur border-b border-border/40">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide items-center">
                 {districts.map((d) => {
                   const on = d.key === active?.key;
                   return (
@@ -198,6 +197,11 @@ export default function AssemblyElection() {
                     </button>
                   );
                 })}
+                <Link href="/city-select">
+                  <button className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-[12px] font-bold bg-black/5 dark:bg-white/5 text-muted-foreground border border-transparent hover:bg-black/10 dark:hover:bg-white/10 transition-colors ml-1">
+                    <span className="text-[14px] leading-none">+</span> 다른 지역 알아보기
+                  </button>
+                </Link>
               </div>
             </div>
 
