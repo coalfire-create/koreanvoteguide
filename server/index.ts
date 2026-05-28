@@ -43,23 +43,12 @@ app.use(
             fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
             // Google Analytics(GA4) gtag 로더 허용. 인라인 스크립트는 사용하지 않음(main.tsx 참고).
             scriptSrc: ["'self'", "https://www.googletagmanager.com"],
-            // 외부 이미지는 사진 프록시 + 위키 + GA 비콘 정도만.
-            imgSrc: [
-              "'self'",
-              "data:",
-              "blob:",
-              "https://open.assembly.go.kr",
-              "https://upload.wikimedia.org",
-              "https://wikimedia.org",
-              "https://search.pstatic.net",
-              "https://sstatic.naver.net",
-              "https://www.googletagmanager.com",
-              "https://*.google-analytics.com",
-              "https://k.kakaocdn.net",
-              "https://img1.kakaocdn.net",
-              "https://t1.kakaocdn.net",
-              "https://lh3.googleusercontent.com",
-            ],
+            // 이미지: 자체·data·blob 외에 모든 HTTPS 허용.
+            // 뉴스 썸네일이 8개 매체(연합·뉴시스·조선·경향·한겨레·SBS·오마이·미디어오늘)의 다양한
+            // CDN 도메인(image.newsis.com, img.yna.co.kr, www.chosun.com, ...)에서 오기 때문에
+            // 도메인 화이트리스트로는 누락이 계속 발생. img-src 는 HTTPS 강제만으로도 충분히 안전
+            // (스크립트 실행이 아닌 단순 이미지 로드, mixed-content 차단됨).
+            imgSrc: ["'self'", "data:", "blob:", "https:"],
             // GA4 + OAuth 콜백 엔드포인트 허용.
             connectSrc: [
               "'self'",
