@@ -25,8 +25,10 @@ const config: CapacitorConfig = {
     backgroundColor: '#FFFFFF',
     contentInset: 'always',
     scrollEnabled: true,
-    // WKAppBoundDomains 에 등록된 도메인만 허용 → App Store 가이드 4.2 준수
-    limitsNavigationsToAppBoundDomains: true,
+    // App Bound Domains 는 프로덕션 빌드에서만 활성화 (App Store 가이드 4.2 준수).
+    // 개발 빌드(localhost:3000)에서는 비활성 — Apple WK 가 'localhost' 를 valid
+    // app-bound domain 으로 받지 않아 강제 시 모든 네비게이션이 차단되어 흰화면 발생.
+    limitsNavigationsToAppBoundDomains: isProd,
   },
   plugins: {
     SplashScreen: {
