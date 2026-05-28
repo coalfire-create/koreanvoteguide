@@ -1,14 +1,19 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+const isProd = process.env.CAPACITOR_PROD === 'true';
+
 const config: CapacitorConfig = {
   appId: 'com.antigravity.iyu',
   appName: '이유',
   webDir: 'dist/public',
-  // dev/시뮬레이터 기본: WebView 가 dev 서버에서 자산을 직접 로드 (same-origin → mixed-content 회피).
-  // App Store/프로덕션 빌드 시에는 CAPACITOR_PROD=true 로 sync 해서 server.url 제거 + 번들 자산 사용.
-  // (그 경우 client/src/lib/api-base.ts 의 fetch 인터셉터 + <img> withApiBase 가 절대 URL 로 라우팅)
-  server: process.env.CAPACITOR_PROD === 'true'
-    ? undefined
+  // CAPACITOR_PROD=true 로 build/sync 하면 server.url 을 이유.com 으로 고정
+  // → 모든 API/OAuth/세션이 서버와 같은 origin에서 동작 (SameSite 쿠키 정상 동작)
+  // 개발 시(CAPACITOR_PROD 미설정): localhost:3000 에서 직접 로드
+  server: isProd
+    ? {
+        url: 'https://xn--2r5b1f.com',  // 이유.com (Punycode)
+        cleartext: false,
+      }
     : {
         url: 'http://localhost:3000',
         cleartext: true,
@@ -17,7 +22,8 @@ const config: CapacitorConfig = {
     backgroundColor: '#FFFFFF',
     contentInset: 'always',
     scrollEnabled: true,
-    limitsNavigationsToAppBoundDomains: false,
+    // WKAppBoundDomains 에 등록된 도메인만 허용 → App Store 가이드 4.2 준수
+    limitsNavigationsToAppBoundDomains: true,
   },
   plugins: {
     SplashScreen: {

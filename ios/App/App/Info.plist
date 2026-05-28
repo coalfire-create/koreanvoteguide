@@ -45,11 +45,26 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
+		<!-- 프로덕션에서는 HTTPS만 허용 (NSAllowsArbitraryLoads 제거). -->
+		<!-- 개발 시 로컬 서버(localhost)만 예외 허용 -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+			</dict>
+		</dict>
 	</dict>
+	<!-- WKAppBoundDomains: 이 도메인만 WebView에서 네비게이션 허용 (App Store 4.2 준수) -->
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>xn--2r5b1f.com</string>
+		<string>www.xn--2r5b1f.com</string>
+		<string>localhost</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

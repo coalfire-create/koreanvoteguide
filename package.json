@@ -10,6 +10,7 @@
     "check": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:prod": "tsx --env-file=.env script/check-production-ready.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -34,7 +35,8 @@
     "cap:build": "npm run build && npx cap sync android && npx cap build android",
     "cap:ios:sync": "npm run build && npx cap sync ios",
     "cap:ios:open": "npx cap open ios",
-    "cap:ios:build": "npm run build && npx cap sync ios && npx cap open ios"
+    "cap:ios:build": "npm run build && npx cap sync ios && npx cap open ios",
+    "cap:ios:prod": "CAPACITOR_PROD=true npm run build && CAPACITOR_PROD=true npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
     "@capacitor/cli": "^8.3.4",

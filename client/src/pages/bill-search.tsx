@@ -550,46 +550,49 @@ export default function BillSearch() {
                     <p className="text-[11px] font-bold text-muted-foreground text-center">없음</p>
                   </div>
                 )}
+                {/* ===== 최근 대표발의한 의원 (Right Column) ===== */}
+                <div className="bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm p-3 flex flex-col gap-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-[11px] font-bold text-foreground">발의 의원</h3>
+                    <Link href="/members" className="text-[10px] text-primary">전체</Link>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {membersLoading ? (
+                      [1, 2, 3].map((i) => (
+                        <div key={i} className="flex flex-col items-center gap-1">
+                          <Skeleton className="w-10 h-10 rounded-full" />
+                          <Skeleton className="w-10 h-2 rounded" />
+                        </div>
+                      ))
+                    ) : (
+                      topMembers.slice(0, 3).map((member) => (
+                        <Link
+                          key={member.id}
+                          href={`/members/${member.id}`}
+                          className="flex flex-col items-center gap-1 active:opacity-70 cursor-pointer"
+                        >
+                          <div className="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden bg-muted flex items-center justify-center">
+                            {member.photo ? (
+                              <img src={withApiBase(member.photo)} alt={member.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[12px] font-bold text-muted-foreground">{member.name.charAt(0)}</span>
+                            )}
+                          </div>
+                          <div className="text-center w-full">
+                            <p className="text-[11px] font-semibold text-foreground truncate">{member.name}</p>
+                            <p className="text-[9px] text-muted-foreground truncate leading-none mt-0.5">
+                              {(member.party || "").replace("민주당", "민주").replace("국민의힘", "국힘")}
+                            </p>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
 
             </div>
 
-            {/* ===== 최근 대표발의한 의원 ===== */}
-            <section>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-[15px] font-bold text-foreground">최근 대표발의한 의원</h2>
-                <Link href="/members" className="text-[13px] font-bold text-primary active:opacity-70">전체 →</Link>
-              </div>
-              <div className="flex gap-3 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-hide">
-                {membersLoading
-                  ? [1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 w-[60px]">
-                        <Skeleton className="w-14 h-14 rounded-full" />
-                        <Skeleton className="w-12 h-3 rounded" />
-                      </div>
-                    ))
-                  : topMembers.map((member) => (
-                      <Link
-                        key={member.id}
-                        href={`/members/${member.id}`}
-                        className="flex flex-col items-center gap-1 shrink-0 active:opacity-70 cursor-pointer w-[60px]"
-                      >
-                        <div className="w-14 h-14 rounded-full border-2 border-primary/20 overflow-hidden bg-muted flex items-center justify-center">
-                          {member.photo ? (
-                            <img src={withApiBase(member.photo)} alt={member.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-lg font-bold text-muted-foreground">{member.name.charAt(0)}</span>
-                          )}
-                        </div>
-                        <p className="text-[11px] font-semibold text-foreground text-center truncate w-full">{member.name}</p>
-                        <p className="text-[10px] text-muted-foreground text-center truncate w-full -mt-0.5">
-                          {(member.party || "").replace("민주당", "민주").replace("국민의힘", "국힘")}
-                        </p>
-                      </Link>
-                    ))
-                }
-              </div>
-            </section>
 
             {/* ===== 카테고리별 법안 탐색 ===== */}
             <section>

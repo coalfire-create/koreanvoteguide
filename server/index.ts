@@ -43,10 +43,11 @@ app.use(
             fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.gstatic.com"],
             // Google Analytics(GA4) gtag 로더 허용. 인라인 스크립트는 사용하지 않음(main.tsx 참고).
             scriptSrc: ["'self'", "https://www.googletagmanager.com"],
-            // 외부 이미지는 사진 프록시 + 위키 + GA 비콘 정도만. HTTP 혼합 콘텐츠 제거.
+            // 외부 이미지는 사진 프록시 + 위키 + GA 비콘 정도만.
             imgSrc: [
               "'self'",
               "data:",
+              "blob:",
               "https://open.assembly.go.kr",
               "https://upload.wikimedia.org",
               "https://wikimedia.org",
@@ -54,18 +55,38 @@ app.use(
               "https://sstatic.naver.net",
               "https://www.googletagmanager.com",
               "https://*.google-analytics.com",
+              "https://k.kakaocdn.net",
+              "https://img1.kakaocdn.net",
+              "https://t1.kakaocdn.net",
+              "https://lh3.googleusercontent.com",
             ],
-            // GA4 수집 엔드포인트(google-analytics.com, analytics.google.com) 허용.
+            // GA4 + OAuth 콜백 엔드포인트 허용.
             connectSrc: [
               "'self'",
               "https://www.googletagmanager.com",
               "https://*.google-analytics.com",
               "https://*.analytics.google.com",
+              // Kakao OAuth
+              "https://kauth.kakao.com",
+              "https://kapi.kakao.com",
+              // Google OAuth
+              "https://accounts.google.com",
+              "https://oauth2.googleapis.com",
+              "https://www.googleapis.com",
+              // Apple OAuth
+              "https://appleid.apple.com",
+            ],
+            // OAuth 리다이렉션 허용 (form_post 포함)
+            formAction: [
+              "'self'",
+              "https://kauth.kakao.com",
+              "https://accounts.google.com",
+              "https://appleid.apple.com",
             ],
             objectSrc: ["'none'"],
             frameAncestors: ["'none'"],
             baseUri: ["'self'"],
-            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
           },
         }
       : false,

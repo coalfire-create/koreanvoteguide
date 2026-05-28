@@ -370,7 +370,8 @@ function RegisterForm() {
     try {
       await register({ username, password, name, nickname, phone, verificationCode, birthYear: birthYearNum, agreeTos, agreePrivacy });
       toast({ title: "가입 완료", description: "환영합니다!" });
-      navigate("/");
+      // 신규 가입자 → 닉네임 확인 → 의원 팔로우 → 안내 (3단계 skippable 온보딩)
+      navigate("/welcome");
     } catch (err: any) {
       const raw = String(err?.message || "");
       const match = raw.match(/^\d+:\s*(.+)$/);

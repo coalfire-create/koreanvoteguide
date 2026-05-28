@@ -36,6 +36,7 @@ const BillVote = lazy(() => import("@/pages/bill-vote"));
 const CandidateDetail = lazy(() => import("@/pages/candidate-detail"));
 const AssemblyElection = lazy(() => import("@/pages/assembly-election"));
 const IntroTour = lazy(() => import("@/pages/intro-tour"));
+const Welcome = lazy(() => import("@/pages/welcome"));
 const DailyBriefing = lazy(() => import("@/pages/daily-briefing"));
 const Prediction = lazy(() => import("@/pages/prediction"));
 
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/city-select" component={CitySelect} />
         <Route path="/intro-tour" component={IntroTour} />
+        <Route path="/welcome" component={Welcome} />
         <Route path="/news" component={NewsPage} />
         <Route path="/daily-briefing" component={DailyBriefing} />
         <Route path="/prediction" component={Prediction} />
@@ -142,7 +144,8 @@ function MainApp() {
   const isOnboardingPage = location === "/onboarding";
   const isCitySelectPage = location === "/city-select";
   const isIntroTourPage = location === "/intro-tour";
-  const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage || isIntroTourPage;
+  const isWelcomePage = location === "/welcome";
+  const hideHeaderNav = isLoginPage || isOnboardingPage || isCitySelectPage || isIntroTourPage || isWelcomePage;
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
