@@ -434,7 +434,7 @@ export default function IntroTour() {
 
   const handleDone = () => {
     localStorage.setItem("hasSeenTour", "true");
-    setLocation("/");
+    window.location.href = "/";
   };
 
   const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
@@ -564,6 +564,8 @@ export default function IntroTour() {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={() => goTo(index - 1, -1)}
+                onTouchStart={(e: any) => e.stopPropagation()}
+                onTouchEnd={(e: any) => e.stopPropagation()}
                 className="w-14 h-14 rounded-[16px] bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors active:scale-95"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-500" />
@@ -576,6 +578,8 @@ export default function IntroTour() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
                 onClick={handleDone}
+                onTouchStart={(e: any) => e.stopPropagation()}
+                onTouchEnd={(e: any) => e.stopPropagation()}
                 className="flex-1 h-14 bg-[#0F172A] hover:bg-[#1e293b] active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black flex items-center justify-center gap-2 shadow-xl shadow-[#0F172A]/30 transition-all"
               >
                 홈 화면으로 시작하기
@@ -584,6 +588,8 @@ export default function IntroTour() {
             ) : (
               <button
                 onClick={() => goTo(index + 1, 1)}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
                 className="flex-1 h-14 bg-gray-900 hover:bg-gray-800 active:scale-[0.98] text-white rounded-[16px] text-[16px] font-black flex items-center justify-center gap-2 transition-all"
               >
                 다음

@@ -5,6 +5,9 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 import tailwindcss from "@tailwindcss/vite";
 
+// CAPACITOR_PROD=true 로 빌드하면 앱 내 API 요청이 실제 서버로 라우팅되도록 설정
+const isCapacitorProd = process.env.CAPACITOR_PROD === "true";
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
@@ -22,6 +25,10 @@ export default defineConfig({
         ]
       : []),
   ],
+  // CAPACITOR_PROD 빌드 시 API base URL을 프로덕션 서버로 고정
+  define: isCapacitorProd
+    ? { "import.meta.env.VITE_API_BASE_URL": JSON.stringify("https://xn--2r5b1f.com") }
+    : {},
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -55,7 +62,7 @@ export default defineConfig({
             id.includes("recharts") ||
             id.includes("victory-vendor") ||
             id.includes("internmap") ||
-            /[\\/]d3-[a-z-]+[\\/]/.test(id)
+            /[\/]d3-[a-z-]+[\/]/.test(id)
           )
             return "vendor-charts";
           // 나머지는 패키지 단위로 분리 — 단일 거대 vendor 청크(800KB+) 방지.

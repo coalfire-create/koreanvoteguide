@@ -51,12 +51,14 @@ function RouteSpinner() {
 function HomeWithRedirect() {
   const [, setLocation] = useLocation();
   const hasRegion = typeof window !== "undefined" && (localStorage.getItem("userRegions") || localStorage.getItem("userRegion"));
+  // 로그인 직후 (loginSuccess=1) 에는 지역 미설정이어도 city-select로 튕기지 않음
+  const isLoginSuccess = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("loginSuccess") === "1";
 
   useEffect(() => {
-    if (!hasRegion) setLocation("/city-select");
-  }, [hasRegion, setLocation]);
+    if (!hasRegion && !isLoginSuccess) setLocation("/city-select");
+  }, [hasRegion, isLoginSuccess, setLocation]);
 
-  if (!hasRegion) return null;
+  if (!hasRegion && !isLoginSuccess) return null;
   return isElectionMode() ? <ElectionHome /> : <Home />;
 }
 
@@ -97,9 +99,12 @@ function LoginSuccessToast() {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("loginSuccess") === "1") {
-      toast({ title: "로그인 성공했습니다!" });
+      // URL 파라미터를 먼저 제거 (재실행 방지)
       url.searchParams.delete("loginSuccess");
       window.history.replaceState({}, "", url.pathname + (url.search || ""));
+      // auth 쿼리 갱신 → 세션이 이미 서버에서 설정됐으므로 /api/auth/me 를 다시 fetch
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "로그인 성공했습니다! 🎉" });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

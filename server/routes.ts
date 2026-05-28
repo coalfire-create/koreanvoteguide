@@ -918,9 +918,16 @@ export async function registerRoutes(
 
       req.session.userId = user.id;
 
-      res.json({
-        success: true,
-        user: { id: user.id, username: user.username, name: user.name },
+      // 세션을 먼저 저장한 뒤 응답 — 클라이언트가 즉시 /api/auth/me 를 호출할 때 세션이 없는 문제 방지
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Login session save error:", saveErr);
+          return res.status(500).json({ error: "로그인 중 오류가 발생했습니다" });
+        }
+        res.json({
+          success: true,
+          user: { id: user.id, username: user.username, name: user.name },
+        });
       });
     } catch (error: any) {
       // 내부 에러 메시지는 서버 로그에만 남기고 클라이언트에는 노출하지 않는다.
@@ -1536,7 +1543,14 @@ export async function registerRoutes(
       req.session.oauthNext = undefined;
       res.clearCookie("_knx", { path: "/api/auth/kakao/callback" });
       console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
-      redirectWithLoginSuccess(res, next);
+      // 세션을 먼저 저장한 뒤 리디렉션 — 저장 전 redirect 시 브라우저가 세션 없는 상태로 돌아올 수 있음
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("[kakao] session save failed:", saveErr);
+          return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
+        }
+        redirectWithLoginSuccess(res, next);
+      });
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("카카오 로그인 처리 중 오류가 발생했습니다.")}`);
@@ -1649,7 +1663,14 @@ export async function registerRoutes(
       const next = safeNextUrl(req.session.oauthNext);
       req.session.oauthNext = undefined;
       console.log(`[google] login userId=${userId}`);
-      redirectWithLoginSuccess(res, next);
+      // 세션을 먼저 저장한 뒤 리디렉션
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("[google] session save failed:", saveErr);
+          return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
+        }
+        redirectWithLoginSuccess(res, next);
+      });
     } catch (error: any) {
       console.error("[google] callback failed:", error?.response?.data ?? error?.message ?? error);
       res.redirect(`/login?error=${encodeURIComponent("구글 로그인 처리 중 오류가 발생했습니다.")}`);

@@ -9,30 +9,42 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, User, Phone, Lock, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, ChevronDown } from "lucide-react";
 import { KakaoLoginButton } from "@/components/KakaoLoginButton";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
+import { queryClient } from "@/lib/queryClient";
 
 export default function AuthPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, nav] = useLocation();
   const search = useSearch();
   const returnTo = new URLSearchParams(search).get("returnTo") || "/";
   // Kakao 1차, 기존 이메일 로그인은 보조. RegisterForm은 deprecated — 노출하지 않음.
   const [showLegacyLogin, setShowLegacyLogin] = useState(false);
 
-  // Kakao 콜백에서 에러로 돌아왔을 경우 ?error= 파라미터 토스트.
+  // Kakao/Google 콜백에서 에러로 돌아왔을 경우 ?error= 파라미터 토스트.
   const { toast } = useToast();
   useEffect(() => {
     const url = new URL(window.location.href);
     const err = url.searchParams.get("error");
     if (err) {
-      toast({ title: "로그인 실패", description: err, variant: "destructive" });
+      toast({ title: "로그인 실패", description: decodeURIComponent(err), variant: "destructive" });
       url.searchParams.delete("error");
       window.history.replaceState({}, "", url.toString());
     }
   }, [toast]);
 
-  if (user) {
-    nav(returnTo);
-    return null;
+  // 이미 로그인된 경우 returnTo로 이동 (useEffect로 처리 — render 중 nav() 호출 방지)
+  useEffect(() => {
+    if (!isLoading && user) {
+      nav(returnTo, { replace: true });
+    }
+  }, [user, isLoading, nav, returnTo]);
+
+  // 로딩 중이거나 이미 로그인된 경우 스피너 표시 (깜빡임 방지)
+  if (isLoading || user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
