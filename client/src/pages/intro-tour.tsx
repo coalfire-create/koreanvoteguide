@@ -362,8 +362,8 @@ interface SlideData {
 const SLIDES: SlideData[] = [
   {
     id: 0,
-    bg: "linear-gradient(150deg, #1e0040 0%, #4c1d95 50%, #6d28d9 100%)",
-    accent: "#a78bfa",
+    bg: "linear-gradient(140deg, #020617 0%, #1e1b4b 40%, #4c1d95 100%)", // Deep midnight to rich purple
+    accent: "#c084fc", // purple-400
     tag: "2026 지방선거",
     title: "이유있게\n투표하세요",
     desc: "후보자 공약부터 국회의원 표결, AI 정치 뉴스까지 — 투표에 필요한 모든 정보를 한 곳에서.",
@@ -371,8 +371,8 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 1,
-    bg: "linear-gradient(150deg, #0a1628 0%, #1e3a8a 50%, #2563eb 100%)",
-    accent: "#93c5fd",
+    bg: "linear-gradient(140deg, #020617 0%, #1e3a8a 50%, #2563eb 100%)", // Midnight to vibrant blue
+    accent: "#60a5fa", // blue-400
     tag: "기능 01",
     title: "공약 클릭 시\nAI 정밀 분석",
     desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
@@ -380,8 +380,8 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 2,
-    bg: "linear-gradient(150deg, #052e16 0%, #065f46 50%, #059669 100%)",
-    accent: "#6ee7b7",
+    bg: "linear-gradient(140deg, #020617 0%, #064e3b 50%, #059669 100%)", // Midnight to emerald
+    accent: "#34d399", // emerald-400
     tag: "기능 02",
     title: "국회의원\n표결 추적",
     desc: "300명 국회의원이 어떤 법안에 찬성·반대했는지 투명하게 공개해드려요.",
@@ -389,8 +389,8 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 3,
-    bg: "linear-gradient(150deg, #1a0a00 0%, #92400e 50%, #d97706 100%)",
-    accent: "#fde68a",
+    bg: "linear-gradient(140deg, #020617 0%, #78350f 50%, #d97706 100%)", // Midnight to amber/orange
+    accent: "#fbbf24", // amber-400
     tag: "기능 03",
     title: "AI가 골라주는\n정치 뉴스",
     desc: "12개 주요 언론사 기사를 AI가 핵심만 정리해 편향 없이 중립적으로 전달해요.",
@@ -398,8 +398,8 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 4,
-    bg: "linear-gradient(150deg, #150a2e 0%, #3b0764 50%, #7c3aed 100%)",
-    accent: "#d8b4fe",
+    bg: "linear-gradient(140deg, #020617 0%, #4c1d95 50%, #7c3aed 100%)", // Midnight to violet
+    accent: "#a78bfa", // violet-400
     tag: "기능 04",
     title: "유권자\n커뮤니티",
     desc: "같은 지역 이웃들과 후보자·지역 현안에 대해 자유롭게 이야기 나눠요.",
@@ -407,8 +407,8 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 5,
-    bg: "linear-gradient(150deg, #0c0020 0%, #3b0764 40%, #6d28d9 100%)",
-    accent: "#c4b5fd",
+    bg: "linear-gradient(140deg, #020617 0%, #0f172a 40%, #1e1b4b 100%)", // Sleek dark theme
+    accent: "#818cf8", // indigo-400
     tag: "준비 완료",
     title: "이제\n시작해볼까요?",
     desc: "이유있는 투표와 함께 이번 2026 지방선거, 제대로 준비해보세요.",
