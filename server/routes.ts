@@ -6405,12 +6405,15 @@ export async function registerRoutes(
           )
         );
         
+      console.log(`[assembly-debug] sdName: ${sdName}, typeLabel: ${typeLabel}, dbRows length before filter: ${dbRows.length}`);
+        
       if (targetDistrictName) {
         dbRows = dbRows.filter(r => 
           r.districtName === targetDistrictName || 
           r.sggName?.includes(targetDistrictName) || 
           r.wiwName === targetDistrictName
         );
+        console.log(`[assembly-debug] targetDistrictName: ${targetDistrictName}, dbRows length after filter: ${dbRows.length}`);
       }
 
       if (dbRows.length > 0) {

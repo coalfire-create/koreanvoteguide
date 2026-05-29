@@ -381,6 +381,9 @@ function RegionView({
   const [selectedCandidateCareer1, setSelectedCandidateCareer1] = useState<string>("");
   const [selectedCompareWith, setSelectedCompareWith] = useState<CompareWith | null>(null);
   
+  // 두 공약 비교를 위한 선택 상태
+  const [compareSelection, setCompareSelection] = useState<{ pIdx: number; selections: any[] } | null>(null);
+
   // 분야별 통합 분석 상태
   const [topicAnalysisOpen, setTopicAnalysisOpen] = useState(false);
   const [selectedTopicForAnalysis, setSelectedTopicForAnalysis] = useState<string>("");
@@ -636,7 +639,7 @@ function RegionView({
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-[15px] font-bold text-foreground">핵심 공약 비교</h3>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">카드를 누르면 정당별 상세 공약을 비교할 수 있습니다.</p>
+                  <p className="text-[11px] text-muted-foreground">비교할 후보의 공약 카드를 2개 선택하면 상세 비교를 볼 수 있습니다.</p>
                 </div>
 
                 {(() => {
@@ -669,27 +672,47 @@ function RegionView({
                           const makePledgeCard = (candidate: any, p: any) => {
                             if (!candidate || !p) return <div className="flex-1 min-w-[260px] sm:min-w-0" />;
                             const color = getPartyColor(candidate.party);
-                            const otherC = displayCandidates.find(c => c.id !== candidate.id);
-                            const otherP = otherC ? normalizePledges(otherC.pledges ?? otherC.promises ?? [])[pIdx] : null;
+                            
+                            const isSelected = compareSelection?.pIdx === pIdx && compareSelection.selections.some(s => s.candidateId === String(candidate.id));
+                            
                             return (
                               <div
-                                className={`flex-1 min-w-[260px] sm:min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer active:opacity-70 transition-all hover:shadow-md relative overflow-hidden group snap-center`}
+                                className={`flex-1 min-w-[260px] sm:min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] cursor-pointer transition-all relative overflow-hidden group snap-center border-[2.5px] ${isSelected ? 'border-primary shadow-md scale-[1.02]' : 'border-black/5 dark:border-white/5 hover:shadow-md'}`}
                                 onClick={() => {
-                                  setSelectedCandidateId(String(candidate.id));
-                                  setSelectedCandidateName(candidate.name);
-                                  setSelectedCandidateParty(candidate.party);
-                                  setSelectedCandidateJob(candidate.job ?? "");
-                                  setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
-                                  setSelectedPledge(p);
-                                  if (otherC && otherP) {
-                                    setSelectedCompareWith({
-                                      candidateId: String(otherC.id),
-                                      name: otherC.name,
-                                      party: otherC.party,
-                                      job: otherC.job ?? "",
-                                      career1: otherC.career1 ?? otherC.career ?? "",
-                                      pledge: otherP,
-                                    });
+                                  const cardData = {
+                                    candidateId: String(candidate.id),
+                                    name: candidate.name,
+                                    party: candidate.party,
+                                    job: candidate.job ?? "",
+                                    career1: candidate.career1 ?? candidate.career ?? "",
+                                    pledge: p,
+                                  };
+                                  
+                                  if (!compareSelection || compareSelection.pIdx !== pIdx) {
+                                    setCompareSelection({ pIdx, selections: [cardData] });
+                                  } else {
+                                    const alreadySelected = compareSelection.selections.some(s => s.candidateId === cardData.candidateId);
+                                    if (alreadySelected) {
+                                      setCompareSelection({
+                                        pIdx,
+                                        selections: compareSelection.selections.filter(s => s.candidateId !== cardData.candidateId)
+                                      });
+                                    } else {
+                                      const newSelections = [...compareSelection.selections, cardData];
+                                      if (newSelections.length === 2) {
+                                        const [first, second] = newSelections;
+                                        setSelectedCandidateId(first.candidateId);
+                                        setSelectedCandidateName(first.name);
+                                        setSelectedCandidateParty(first.party);
+                                        setSelectedCandidateJob(first.job);
+                                        setSelectedCandidateCareer1(first.career1);
+                                        setSelectedPledge(first.pledge);
+                                        setSelectedCompareWith(second);
+                                        setCompareSelection(null);
+                                      } else {
+                                        setCompareSelection({ pIdx, selections: newSelections });
+                                      }
+                                    }
                                   }
                                 }}
                               >
@@ -697,9 +720,16 @@ function RegionView({
                                 <div className={`absolute top-0 left-0 right-0 h-1.5 ${color} opacity-80`} />
                                 
                                 <div className="p-3.5 pt-4">
-                                  <div className="flex items-center gap-1.5 mb-2">
-                                    <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
-                                    <span className="text-[12px] font-black text-foreground truncate">{candidate.name}</span>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                                      <span className="text-[12px] font-black text-foreground truncate">{candidate.name}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                        <CheckCircle2 className="w-3 h-3 text-white" />
+                                      </div>
+                                    )}
                                   </div>
                                   
                                   {p.realmName && (
