@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Search, UserCheck, Bell, ChevronLeft, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAssemblyMembers } from "@/lib/api-data";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,16 @@ export default function Welcome() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const [step, setStep] = useState<Step>(0);
+
+  // OAuth 콜백에서 /welcome?loginSuccess=1 으로 온 경우 auth 쿼리 즉시 갱신
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("loginSuccess") === "1") {
+      url.searchParams.delete("loginSuccess");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    }
+  }, []);
 
   // 비로그인 시 로그인으로
   useEffect(() => {

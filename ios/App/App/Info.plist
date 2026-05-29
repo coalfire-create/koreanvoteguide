@@ -61,12 +61,15 @@
 			</dict>
 		</dict>
 	</dict>
-	<!-- WKAppBoundDomains: 이 도메인만 WebView에서 네비게이션 허용 (App Store 4.2 준수) -->
+	<!-- WKAppBoundDomains: 이 도메인만 WebView에서 네비게이션 허용 (App Store 4.2 준수)
+	     주의: Apple 은 reserved name(localhost 등)을 invalid entry 로 처리하며,
+	     하나라도 invalid 가 섞이면 리스트 전체가 무시되거나 모든 navigation 이 차단될 수 있음.
+	     localhost 는 dev 빌드에서만 필요한데 dev 빌드는 limitsNavigationsToAppBoundDomains=false 라
+	     이 리스트 자체를 안 쓴다. 그래서 prod 도메인만 등록. -->
 	<key>WKAppBoundDomains</key>
 	<array>
 		<string>xn--2r5b1f.com</string>
 		<string>www.xn--2r5b1f.com</string>
-		<string>localhost</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

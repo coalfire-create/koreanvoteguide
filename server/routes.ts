@@ -1539,17 +1539,19 @@ export async function registerRoutes(
 
       req.session.userId = userId;
       const cookieNext = (req.cookies as Record<string, string | undefined>)?.["_knx"];
-      const next = safeNextUrl(req.session.oauthNext ?? cookieNext);
+      // 신규 사용자는 /welcome (닉네임 설정 온보딩)으로, 기존 사용자는 원래 목적지로
+      const requestedNext = safeNextUrl(req.session.oauthNext ?? cookieNext);
+      const redirectTarget = !existing ? "/welcome" : requestedNext;
       req.session.oauthNext = undefined;
       res.clearCookie("_knx", { path: "/api/auth/kakao/callback" });
-      console.log(`[kakao] login userId=${userId} ageGroup=${ageGroup} gender=${gender}`);
+      console.log(`[kakao] login userId=${userId} isNew=${!existing} ageGroup=${ageGroup} gender=${gender}`);
       // 세션을 먼저 저장한 뒤 리디렉션 — 저장 전 redirect 시 브라우저가 세션 없는 상태로 돌아올 수 있음
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error("[kakao] session save failed:", saveErr);
           return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
         }
-        redirectWithLoginSuccess(res, next);
+        redirectWithLoginSuccess(res, redirectTarget);
       });
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
@@ -1660,16 +1662,18 @@ export async function registerRoutes(
       }
 
       req.session.userId = userId;
-      const next = safeNextUrl(req.session.oauthNext);
+      // 신규 사용자는 /welcome (닉네임 설정 온보딩)으로, 기존 사용자는 원래 목적지로
+      const requestedNext = safeNextUrl(req.session.oauthNext);
+      const redirectTarget = !existing ? "/welcome" : requestedNext;
       req.session.oauthNext = undefined;
-      console.log(`[google] login userId=${userId}`);
+      console.log(`[google] login userId=${userId} isNew=${!existing}`);
       // 세션을 먼저 저장한 뒤 리디렉션
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error("[google] session save failed:", saveErr);
           return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
         }
-        redirectWithLoginSuccess(res, next);
+        redirectWithLoginSuccess(res, redirectTarget);
       });
     } catch (error: any) {
       console.error("[google] callback failed:", error?.response?.data ?? error?.message ?? error);
@@ -6184,13 +6188,16 @@ export async function registerRoutes(
     }
   });
 
-  // 국회의원 재보궐선거 후보 전용 — 14개 선거구(전국). 선거구별 그룹핑은 클라이언트에서.
+  // 국회의원 재보궐선거 후보 전용 — 선거구별 그룹핑은 클라이언트에서.
   app.get("/api/election/assembly", async (_req, res) => {
     try {
       const rows = await db
         .select()
         .from(electionCandidates)
         .where(eq(electionCandidates.electionType, "국회의원"));
+      
+      console.log(`[assembly] DB 조회 결과: ${rows.length}명`);
+
       const proxyPhoto = (raw: string | null | undefined) =>
         raw && /^https?:\/\/info\.nec\.go\.kr\//.test(raw)
           ? `/api/photo/nec?url=${encodeURIComponent(raw)}`
@@ -6235,11 +6242,68 @@ export async function registerRoutes(
           const d = (a.districtName || "").localeCompare(b.districtName || "");
           return d !== 0 ? d : partyRank(a.party) - partyRank(b.party);
         });
-      res.json(payload);
+
+      // DB에 데이터가 있으면 바로 반환
+      if (payload.length > 0) {
+        return res.json(payload);
+      }
+
+      // DB가 비어있으면 NEC API 폴백 시도
+      console.log("[assembly] DB 비어있음 → NEC API 폴백 시도");
+      const apiKey = process.env.DATA_GO_KR_API_KEY;
+      if (!apiKey) {
+        console.warn("[assembly] DATA_GO_KR_API_KEY 없음 → 빈 배열 반환");
+        return res.json([]);
+      }
+
+      try {
+        const axios2 = (await import("axios")).default;
+        // 재보궐 선거 sgId: 20260603, sgTypecode: 2 (국회의원)
+        const sgId = "20260603";
+        const r = await axios2.get(
+          "https://apis.data.go.kr/9760000/PofelcddInfoInqireService/getPofelcddRegistSttusInfoInqire",
+          {
+            params: { serviceKey: apiKey, pageNo: "1", numOfRows: "200", sgId, sgTypecode: "2", resultType: "json" },
+            timeout: 12000,
+          }
+        );
+        const body = r.data?.response?.body ?? {};
+        const rawItems = body?.items?.item ?? [];
+        const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+        console.log(`[assembly] NEC API 폴백 결과: ${items.length}건`);
+
+        const fallbackPayload = items.map((item: any) => ({
+          id: item.huboid || `${item.sgId}_${item.name}`,
+          name: item.name,
+          party: item.jdName || "무소속",
+          candidateStatus: item.status || "등록",
+          regionCode: item.sdName,
+          sdName: item.sdName,
+          districtName: item.sggName || item.wiwName || item.sdName,
+          electionType: "assembly",
+          photo: proxyPhoto(item.jpgLink || item.photo || null),
+          job: item.job || null,
+          career: null, career1: null, career2: null, edu: null,
+          age: item.age || null, gender: item.gender || null, birthday: item.birthday || null,
+          pledges: [], promises: [],
+          propertyAmount: null, militaryService: null, taxPaid: null, taxArrears: null,
+          candidacyHistory: null, criminal: null, criminalRecords: [],
+        })).sort((a: any, b: any) => {
+          const d = (a.districtName || "").localeCompare(b.districtName || "");
+          return d !== 0 ? d : partyRank(a.party) - partyRank(b.party);
+        });
+
+        return res.json(fallbackPayload);
+      } catch (necErr: any) {
+        console.error("[assembly] NEC API 폴백 실패:", necErr.message);
+        return res.json([]); // 빈 배열 반환 (에러 대신)
+      }
     } catch (err: any) {
+      console.error("[assembly] DB 조회 오류:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
+
 
   app.get("/api/election/districts", async (req, res) => {
     try {
@@ -6281,7 +6345,16 @@ export async function registerRoutes(
         "50": "제주특별자치도", "51": "강원특별자치도"
       };
 
-      const sdName = REGION_MAP[regionCode] || regionCode;
+      let actualSdName = regionCode;
+      let targetDistrictName: string | null = null;
+      if (regionCode.includes("_")) {
+        const parts = regionCode.split("_");
+        actualSdName = REGION_MAP[parts[0]] || parts[0];
+        targetDistrictName = parts.slice(1).join("_");
+      } else {
+        actualSdName = REGION_MAP[regionCode] || regionCode;
+      }
+      const sdName = actualSdName;
 
       // 2. Verify Election ID & Type
       const sgId = "20260603"; // 2026 지방선거
@@ -6316,13 +6389,13 @@ export async function registerRoutes(
       // 후보자 등록 데이터는 election_candidates 테이블이 정본(Deep Sync로 적재).
       // 외부 NEC API를 매 요청마다 2번 직렬 호출(최대 30s)하던 것을 제거하고
       // DB에서 즉시 응답 + 10분 메모리 캐시. (region_code+election_type 인덱스 사용)
-      const cacheKey = `${sdName}:${sgTypecode}`;
+      const cacheKey = `${sdName}:${targetDistrictName || 'all'}:${sgTypecode}`;
       const cached = electionCandidateCache.get(cacheKey);
       if (cached && Date.now() - cached.cachedAt < ELECTION_CANDIDATE_TTL) {
         return res.json(cached.data);
       }
 
-      const dbRows = await db
+      let dbRows = await db
         .select()
         .from(electionCandidates)
         .where(
@@ -6331,6 +6404,14 @@ export async function registerRoutes(
             eq(electionCandidates.electionType, typeLabel)
           )
         );
+        
+      if (targetDistrictName) {
+        dbRows = dbRows.filter(r => 
+          r.districtName === targetDistrictName || 
+          r.sggName?.includes(targetDistrictName) || 
+          r.wiwName === targetDistrictName
+        );
+      }
 
       if (dbRows.length > 0) {
         // 후보자 등록 마감 후에는 예비후보 레코드 제외 — 정식후보자만 노출.

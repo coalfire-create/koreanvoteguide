@@ -32,13 +32,13 @@ function WelcomeIllus() {
         {[1, 2].map((n) => (
           <motion.div
             key={n}
-            className="absolute inset-0 rounded-[32px] border-2 border-white/20"
+            className="absolute inset-0 rounded-[32px] border-2 border-[#facc15]/20"
             initial={{ scale: 1, opacity: 0.5 }}
             animate={{ scale: 1 + n * 0.22, opacity: 0 }}
             transition={{ duration: 2, delay: n * 0.5, repeat: Infinity, ease: "easeOut" }}
           />
         ))}
-        <div className="w-28 h-28 rounded-[32px] overflow-hidden shadow-2xl border border-white/30">
+        <div className="w-28 h-28 rounded-[32px] overflow-hidden shadow-2xl border border-[#facc15]/30">
           <img src="/app-icon.png" alt="이유" className="w-full h-full object-cover" />
         </div>
       </motion.div>
@@ -353,6 +353,7 @@ interface SlideData {
   id: number;
   bg: string;
   accent: string;
+  accentText?: string;
   tag: string;
   title: string;
   desc: string;
@@ -362,8 +363,9 @@ interface SlideData {
 const SLIDES: SlideData[] = [
   {
     id: 0,
-    bg: "linear-gradient(140deg, #020617 0%, #1e1b4b 40%, #4c1d95 100%)", // Deep midnight to rich purple
-    accent: "#c084fc", // purple-400
+    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #201a09 100%)", // Black to charcoal to dark amber (matching '이유' icon)
+    accent: "#facc15", // yellow-400 (matches yellow line in icon)
+    accentText: "#a16207", // dark yellow/amber-700 for high-contrast on white background
     tag: "2026 지방선거",
     title: "이유있게\n투표하세요",
     desc: "후보자 공약부터 국회의원 표결, AI 정치 뉴스까지 — 투표에 필요한 모든 정보를 한 곳에서.",
@@ -373,6 +375,7 @@ const SLIDES: SlideData[] = [
     id: 1,
     bg: "linear-gradient(140deg, #020617 0%, #1e3a8a 50%, #2563eb 100%)", // Midnight to vibrant blue
     accent: "#60a5fa", // blue-400
+    accentText: "#1d4ed8",
     tag: "기능 01",
     title: "공약 클릭 시\nAI 정밀 분석",
     desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
@@ -382,6 +385,7 @@ const SLIDES: SlideData[] = [
     id: 2,
     bg: "linear-gradient(140deg, #020617 0%, #064e3b 50%, #059669 100%)", // Midnight to emerald
     accent: "#34d399", // emerald-400
+    accentText: "#047857",
     tag: "기능 02",
     title: "국회의원\n표결 추적",
     desc: "300명 국회의원이 어떤 법안에 찬성·반대했는지 투명하게 공개해드려요.",
@@ -391,6 +395,7 @@ const SLIDES: SlideData[] = [
     id: 3,
     bg: "linear-gradient(140deg, #020617 0%, #78350f 50%, #d97706 100%)", // Midnight to amber/orange
     accent: "#fbbf24", // amber-400
+    accentText: "#b45309",
     tag: "기능 03",
     title: "AI가 골라주는\n정치 뉴스",
     desc: "12개 주요 언론사 기사를 AI가 핵심만 정리해 편향 없이 중립적으로 전달해요.",
@@ -400,6 +405,7 @@ const SLIDES: SlideData[] = [
     id: 4,
     bg: "linear-gradient(140deg, #020617 0%, #4c1d95 50%, #7c3aed 100%)", // Midnight to violet
     accent: "#a78bfa", // violet-400
+    accentText: "#6d28d9",
     tag: "기능 04",
     title: "유권자\n커뮤니티",
     desc: "같은 지역 이웃들과 후보자·지역 현안에 대해 자유롭게 이야기 나눠요.",
@@ -407,8 +413,9 @@ const SLIDES: SlideData[] = [
   },
   {
     id: 5,
-    bg: "linear-gradient(140deg, #020617 0%, #0f172a 40%, #1e1b4b 100%)", // Sleek dark theme
-    accent: "#818cf8", // indigo-400
+    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #1c1809 100%)", // Matching brand theme
+    accent: "#facc15",
+    accentText: "#a16207",
     tag: "준비 완료",
     title: "이제\n시작해볼까요?",
     desc: "이유있는 투표와 함께 이번 2026 지방선거, 제대로 준비해보세요.",
@@ -471,8 +478,14 @@ export default function IntroTour() {
       </AnimatePresence>
 
       {/* Decorative ambient glows */}
-      <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none -z-10" />
-      <div className="absolute bottom-48 left-0 w-56 h-56 rounded-full bg-white/5 blur-2xl pointer-events-none -z-10" />
+      <div
+        className="absolute top-0 right-0 w-72 h-72 rounded-full blur-3xl pointer-events-none -z-10 transition-colors duration-500"
+        style={{ backgroundColor: `${slide.accent}0d` }}
+      />
+      <div
+        className="absolute bottom-48 left-0 w-56 h-56 rounded-full blur-2xl pointer-events-none -z-10 transition-colors duration-500"
+        style={{ backgroundColor: `${slide.accent}0d` }}
+      />
 
       {/* ── Top bar ── */}
       <div className="relative z-10 flex items-center justify-between px-6 pt-12 pb-0 w-full max-w-[480px] mx-auto">
@@ -536,11 +549,15 @@ export default function IntroTour() {
               {/* Tag */}
               <div
                 className="inline-flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-2 border"
-                style={{ color: slide.accent === "#fde68a" ? "#b45309" : slide.accent.replace("fd", "8"), background: slide.accent + "18", borderColor: slide.accent + "33" }}
+                style={{
+                  color: slide.accentText || slide.accent,
+                  background: slide.accent + "18",
+                  borderColor: slide.accent + "33"
+                }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: slide.accent === "#fde68a" ? "#b45309" : slide.accent }}
+                  style={{ background: slide.accent }}
                 />
                 {slide.tag}
               </div>

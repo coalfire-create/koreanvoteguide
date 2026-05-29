@@ -148,30 +148,36 @@ function PledgeCard({ candidateId, promise, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="w-full h-full text-left flex flex-col gap-2 p-3.5 bg-white border border-gray-100 rounded-2xl hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-50 transition-all duration-200 group active:scale-[0.98]"
+      className="w-full h-full text-left flex flex-col gap-3 p-5 bg-white dark:bg-[#2C2C2E] border border-black/5 dark:border-white/5 rounded-2xl hover:border-indigo-400 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 group active:scale-[0.98] relative overflow-hidden"
     >
-      <div className="flex items-start gap-2">
-        <div className="shrink-0 w-7 h-7 rounded-xl bg-indigo-50 group-hover:bg-indigo-600 flex items-center justify-center transition-colors duration-200">
-          <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 group-hover:text-white transition-colors duration-200" />
+      <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 group-hover:bg-indigo-600 flex items-center justify-center transition-colors duration-300 border border-indigo-100 dark:border-indigo-500/20 group-hover:border-indigo-600">
+          <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:text-white transition-colors duration-300" />
         </div>
-        {promise.realmName && (
-          <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-lg mt-0.5 truncate">{promise.realmName}</span>
-        )}
+        <div className="flex-1 min-w-0">
+          {promise.realmName && (
+            <span className="inline-block text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-md mb-1.5">{promise.realmName}</span>
+          )}
+          <p className="font-extrabold text-[15px] text-foreground leading-snug line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{promise.title}</p>
+        </div>
       </div>
-      <p className="font-bold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-indigo-700 transition-colors flex-1">{promise.title}</p>
+      
       {promise.description && (
-        <p className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed">{promise.description}</p>
+        <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed mt-1 pl-11">{promise.description}</p>
       )}
-      <div className="flex items-center gap-1 flex-wrap mt-auto">
-        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${feasibility.bg} ${feasibility.color}`}>
+      
+      <div className="flex items-center gap-1.5 flex-wrap mt-auto pt-3 pl-11">
+        <span className={`text-[10px] font-black px-2 py-1 rounded-md border shadow-sm ${feasibility.bg} ${feasibility.color}`}>
           {feasibility.label}
         </span>
-        {promise.method && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg">이행</span>}
-        {promise.funding && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-lg">재원</span>}
-        {promise.duration && <span className="text-[9px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded-lg">기간</span>}
+        {promise.method && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-100 dark:border-emerald-500/20">이행 방안</span>}
+        {promise.funding && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md border border-amber-100 dark:border-amber-500/20">재원 조달</span>}
+        {promise.duration && <span className="text-[10px] font-bold text-sky-600 bg-sky-50 dark:bg-sky-500/10 px-2 py-1 rounded-md border border-sky-100 dark:border-sky-500/20">이행 기간</span>}
+        
         {comments.length > 0 && (
-          <span className="flex items-center gap-0.5 text-[9px] text-gray-400 ml-auto">
-            <MessageCircle className="w-2.5 h-2.5" />
+          <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground ml-auto bg-muted px-2 py-1 rounded-md">
+            <MessageCircle className="w-3 h-3" />
             {comments.length}
           </span>
         )}
@@ -326,19 +332,21 @@ export default function CandidateDetail() {
 
   return (
     <>
-      <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="w-full pb-24 bg-[#F0F2F8] min-h-screen"
-    >
-      {/* ── 헤더 — 딥 슬레이트 + 당색 그라디언트 오버레이 ── */}
-      <div className={`relative overflow-hidden px-4 pt-3 pb-14`} style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1e2d4a 100%)' }}>
-        {/* 당색 오라 */}
-        <div className={`absolute -top-16 -right-16 w-72 h-72 rounded-full blur-3xl opacity-30 ${partyBg}`} />
-        <div className="absolute -bottom-20 -left-10 w-56 h-56 rounded-full blur-3xl opacity-20 bg-indigo-500" />
-        {/* 하단 흰 웨이브 마스크 */}
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-[#F0F2F8] rounded-t-[32px] z-10" />
+    <div className="w-full pb-24 bg-[#F2F2F7] dark:bg-[#000000] min-h-screen">
+      {/* ── 프리미엄 헤더 영역 ── */}
+      <div className="relative overflow-hidden px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-20 bg-[#0F172A] border-b border-white/10">
+        {/* 다이내믹 오로라 배경 */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 0.5, scale: 1.2 }}
+          transition={{ duration: 2, ease: "easeOut" }}
+          className={`absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[100px] ${partyBg}`} 
+        />
+        <div className="absolute -bottom-20 -left-10 w-72 h-72 rounded-full blur-[80px] opacity-20 bg-indigo-500" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+        
+        {/* 하단 둥근 마스크 */}
+        <div className="absolute bottom-0 left-0 right-0 h-10 bg-[#F2F2F7] dark:bg-[#000000] rounded-t-[40px] z-10" />
 
         <div className="max-w-4xl mx-auto relative z-20">
           <div className="flex items-center justify-between mb-5">
@@ -355,43 +363,61 @@ export default function CandidateDetail() {
             />
           </div>
 
-          {/* 프로필 카드 — 글래스모피즘 */}
-          <div className="flex flex-row items-center gap-4 bg-white/8 backdrop-blur-xl border border-white/12 rounded-3xl p-4 shadow-2xl">
-            {/* 사진 */}
+          {/* 프리미엄 프로필 카드 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, type: "spring", stiffness: 100 }}
+            className="flex flex-col sm:flex-row items-center sm:items-start gap-6 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-[32px] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] relative overflow-hidden group"
+          >
+            {/* 카드 내부 반사광 효과 */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            {/* 사진 영역 */}
             <div className="relative shrink-0">
-              <div className="w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg">
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] rounded-full overflow-hidden border-4 border-white/20 shadow-2xl relative z-10 bg-[#1C1C1E]"
+              >
                 <PoliticianPhoto
                   name={candidate.name}
                   photo={candidate.photo}
                   monaCd={String(candidate.id)}
                   context={candidate.party}
-                  avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-xl bg-gray-100"
+                  avatarClassName="w-full h-full flex items-center justify-center text-gray-400 font-black text-2xl bg-gray-100"
                 />
-              </div>
+              </motion.div>
               {/* 당 색상 뱃지 */}
-              <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${partyBg} border-2 border-[#1e2d4a] shadow-sm`} />
+              <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full ${partyBg} border-[3px] border-[#0F172A] shadow-lg flex items-center justify-center z-20`}>
+                <Star className="w-3.5 h-3.5 text-white fill-white" />
+              </div>
             </div>
 
             {/* 텍스트 정보 */}
-            <div className="flex flex-col justify-center flex-1 min-w-0 gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[22px] sm:text-[26px] font-black text-white tracking-tight leading-none">{candidate.name}</h1>
-                <span className="text-white/80 text-[10px] font-black tracking-widest uppercase bg-white/15 px-2 py-0.5 rounded-lg border border-white/20 shrink-0">
+            <div className="flex flex-col items-center sm:items-start flex-1 min-w-0 gap-2 relative z-10">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-none drop-shadow-md">{candidate.name}</h1>
+                <span className="text-white font-black text-[11px] tracking-widest uppercase bg-white/20 px-2.5 py-1 rounded-full border border-white/30 backdrop-blur-md shadow-sm">
                   {verification.job || "후보자"}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`text-[12px] font-black ${partyBg.replace('bg-', 'text-').replace('/30','').replace('/20','').replace('/50','')} text-white/90`}>{candidate.party}</span>
+              
+              <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start bg-black/20 px-3 py-1.5 rounded-2xl border border-white/10 backdrop-blur-md mt-1">
+                <span className={`text-[13px] font-black ${partyBg.replace('bg-', 'text-').replace('/30','').replace('/20','').replace('/50','')} drop-shadow-sm`}>
+                  {candidate.party}
+                </span>
                 {verification.district && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-white/25 shrink-0" />
-                    <span className="text-white/60 text-[11px] font-medium truncate flex items-center gap-0.5">
-                      <MapPin className="w-2.5 h-2.5" />
+                    <span className="w-1 h-1 rounded-full bg-white/30 shrink-0" />
+                    <span className="text-white/80 text-[12px] font-bold flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-white/60" />
                       {verification.district}
                     </span>
                   </>
                 )}
               </div>
+              
               {/* 인라인 검증 뱃지 */}
               {(() => {
                 const age = (verifData as any)?.age;
@@ -409,14 +435,14 @@ export default function CandidateDetail() {
                 if (edu) chips.push({ label: edu, tone: "neutral" });
                 if (chips.length === 0) return null;
                 return (
-                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap mt-2">
                     {chips.slice(0, 4).map((c, i) => (
                       <span
                         key={i}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border whitespace-nowrap ${
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border backdrop-blur-md shadow-sm transition-colors ${
                           c.tone === "warn"
-                            ? "bg-red-400/20 text-red-200 border-red-400/30"
-                            : "bg-white/10 text-white/80 border-white/15"
+                            ? "bg-red-500/20 text-red-200 border-red-500/30 hover:bg-red-500/30"
+                            : "bg-white/10 text-white/90 border-white/20 hover:bg-white/20"
                         }`}
                       >
                         {c.label}
@@ -426,48 +452,54 @@ export default function CandidateDetail() {
                 );
               })()}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* ── 탭 컨텐츠 — 헤더와 자연스럽게 연결 ── */}
-      <div className="px-3 -mt-2 relative z-20 w-full max-w-6xl mx-auto">
-        <div className="space-y-3">
+      <div className="px-3 md:px-6 -mt-8 relative z-20 w-full max-w-5xl mx-auto pb-12">
+        <div className="space-y-6">
 
           {/* ── 핵심 공약 ── */}
-          <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="bg-white dark:bg-[#1C1C1E] rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/5 dark:border-white/5 overflow-hidden"
+          >
             {/* 섹션 헤더 */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-black/5 dark:border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center border border-indigo-100 dark:border-indigo-500/20">
+                  <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-black text-gray-900 leading-tight">핵심 공약</h3>
-                  <p className="text-[10px] text-gray-400 font-medium">클릭하면 AI 분석을 볼 수 있어요</p>
+                  <h3 className="text-[17px] font-black text-foreground leading-tight tracking-tight">핵심 공약</h3>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-0.5">클릭하면 AI가 세부 분석을 제공합니다</p>
                 </div>
               </div>
-              <span className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100">{candidate.promises.length}개</span>
+              <span className="text-[12px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-500/20">{candidate.promises.length}개</span>
             </div>
-            <div className="p-4 sm:p-5">
+            <div className="p-5 sm:p-6 bg-gray-50/50 dark:bg-black/20">
             {candidate.promises.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-2xl bg-gray-50 border border-dashed border-gray-200">
-                <p className="text-[13px] font-bold text-gray-700">5월 21일부터 공약 정보가 공개됩니다</p>
-                <p className="text-[11px] text-gray-400 text-center max-w-xs">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
+              <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-3xl bg-white dark:bg-[#2C2C2E] border border-dashed border-gray-200 dark:border-white/10 shadow-sm">
+                <Sparkles className="w-8 h-8 text-muted-foreground/30" />
+                <p className="text-[14px] font-bold text-foreground">5월 21일부터 공약 정보가 공개됩니다</p>
+                <p className="text-[12px] text-muted-foreground text-center max-w-sm">후보자 등록 기간이 끝나는 5월 21일 이후 선관위 공식 공약이 자동으로 업데이트됩니다.</p>
               </div>
             ) : (
               <>
                 {/* AI 힌트 배너 */}
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-3 mb-4 flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4 text-white" />
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 mb-5 flex items-center gap-3 shadow-md shadow-indigo-500/20">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm border border-white/30">
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-[12px] font-black text-indigo-900 mb-0.5">공약을 꼭 클릭해보세요! ✨</p>
-                    <p className="text-[10px] text-indigo-600 leading-snug">AI(GPT-4o)가 실현가능성과 핵심 취약점을 분석해 드립니다</p>
+                    <p className="text-[13px] font-black text-white mb-0.5 drop-shadow-sm">공약을 터치해서 자세히 분석해보세요 ✨</p>
+                    <p className="text-[11px] text-white/80 leading-snug font-medium">AI가 실현가능성과 핵심 취약점을 중립적인 시각에서 분석합니다</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {candidate.promises.map((promise: { id: string; title: string; description: string; realmName?: string; content?: string; method?: string; funding?: string; duration?: string }) => (
                     <PledgeCard
                       key={promise.id}
@@ -480,7 +512,7 @@ export default function CandidateDetail() {
               </>
             )}
             </div>
-          </section>
+          </motion.section>
 
           {/* ── 커뮤니티 게시판 ── */}
           <section className="bg-white rounded-3xl shadow-sm border border-gray-100/80 overflow-hidden">
@@ -870,7 +902,7 @@ export default function CandidateDetail() {
         </div>
 
       </div>
-    </motion.div>
+    </div>
 
     <PledgeDetailView
       candidateId={String(candidate.id)}

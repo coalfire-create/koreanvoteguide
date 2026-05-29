@@ -12,7 +12,9 @@ const config: CapacitorConfig = {
   server: {
     ...(isProd
       ? {
-          url: 'https://xn--2r5b1f.com',  // 이유.com (Punycode)
+          // www 서브도메인으로 직접 — root 도메인은 301 redirect 되는데
+          // limitsNavigationsToAppBoundDomains: true 일 때 redirect chain 에서 막힐 수 있음.
+          url: 'https://www.xn--2r5b1f.com',
           cleartext: false,
         }
       : {
@@ -35,7 +37,7 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       backgroundColor: '#0F172A',
       showSpinner: false,
-      launchAutoHide: true,
+      launchAutoHide: false,
       iosSpinnerStyle: 'small',
       spinnerColor: '#FFFFFF',
     },

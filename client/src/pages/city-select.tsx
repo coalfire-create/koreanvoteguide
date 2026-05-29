@@ -178,19 +178,44 @@ export default function CitySelect() {
     return "welcome";
   });
 
-  const [electionTab, setElectionTab] = useState<"local" | "assembly">("local");
+  const [electionTab, setElectionTab] = useState<"local" | "assembly">(() => {
+    // /city-select?tab=assembly 로 접속 시 보궐선거 탭 자동 선택
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "assembly") return "assembly";
+    }
+    return "local";
+  });
 
   // 보궐선거 후보 데이터
-  const { data: assemblyRaw = [], isLoading: assemblyLoading, isError: assemblyError, refetch: assemblyRefetch } = useQuery<any[]>({
+  const { data: assemblyRaw = [], isLoading: assemblyLoading, isError: assemblyError, refetch: assemblyRefetch, error: assemblyErrorDetail } = useQuery<any[]>({
     queryKey: ["/api/election/assembly"],
     queryFn: async () => {
-      const r = await fetch("/api/election/assembly", { credentials: "include" });
-      if (!r.ok) throw new Error(`서버 오류: ${r.status}`);
-      return r.json();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15초 타임아웃
+      try {
+        const r = await fetch("/api/election/assembly", { 
+          credentials: "include",
+          signal: controller.signal,
+          headers: { "Accept": "application/json" }
+        });
+        clearTimeout(timeoutId);
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          throw new Error(`서버 오류: ${r.status}${text ? ` - ${text.slice(0, 100)}` : ""}`);
+        }
+        const data = await r.json();
+        if (!Array.isArray(data)) throw new Error("응답 형식 오류");
+        return data;
+      } catch (e: any) {
+        clearTimeout(timeoutId);
+        if (e.name === "AbortError") throw new Error("요청 시간 초과 (15초)");
+        throw e;
+      }
     },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-    retryDelay: 2000,
+    staleTime: 3 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000), // 1s, 2s, 4s 지수 백오프
   });
 
   const assemblyDistricts = useMemo(() => {
@@ -436,11 +461,21 @@ export default function CitySelect() {
                     ))}
                   </div>
                 ) : assemblyError ? (
-                  <div className="col-span-2 py-16 text-center">
-                    <p className="text-gray-400 text-[13px] mb-3">보궐선거 정보를 불러오지 못했습니다.<br/>서버에 연결할 수 없습니다.</p>
+                  <div className="col-span-2 py-12 text-center flex flex-col items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-white text-[14px] font-bold mb-1">보궐선거 정보를 불러오지 못했습니다</p>
+                      <p className="text-gray-400 text-[12px]">
+                        {(assemblyErrorDetail as any)?.message || "서버에 연결할 수 없습니다"}
+                      </p>
+                    </div>
                     <button
                       onClick={() => assemblyRefetch()}
-                      className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-[13px] font-bold rounded-xl transition-colors"
+                      className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white text-[13px] font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/25"
                     >
                       다시 시도
                     </button>

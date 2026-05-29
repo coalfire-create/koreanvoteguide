@@ -632,15 +632,18 @@ function RegionView({
 
               {/* Pledge Comparison Grid */}
               <div className="p-4">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h3 className="text-[15px] font-bold text-foreground">핵심 공약 비교</h3>
+                <div className="flex flex-col gap-1 mb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-[15px] font-bold text-foreground">핵심 공약 비교</h3>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">카드를 누르면 정당별 상세 공약을 비교할 수 있습니다.</p>
                 </div>
 
                 {(() => {
-                  // 모든 메인 후보자의 공약 수집
-                  const allMainPledges = vsCandidates.map(c => normalizePledges(c.pledges ?? c.promises ?? []));
+                  // 모든 후보자의 공약 수집
+                  const allMainPledges = displayCandidates.map(c => normalizePledges(c.pledges ?? c.promises ?? []));
                   const maxPledgeCount = Math.max(...allMainPledges.map(p => p.length), 0);
-                  const hasAnyPledges = maxPledgeCount > 0 || minorCandidates.some(c => normalizePledges(c.pledges ?? c.promises ?? []).length > 0);
+                  const hasAnyPledges = maxPledgeCount > 0;
 
                   if (!hasAnyPledges) {
                     // Empty State — 공약 데이터가 없을 때
@@ -657,23 +660,20 @@ function RegionView({
 
                   return (
                     <div className="flex flex-col gap-8 sm:gap-12">
-                      {/* 주요 후보 공약 비교 — VS 2열 레이아웃 */}
+                      {/* 주요 후보 공약 비교 — 가로 스크롤 레이아웃 */}
                       <div className="flex flex-col gap-6">
                         {Array.from({ length: maxPledgeCount }).map((_, pIdx) => {
-                          const leftC = vsCandidates[0];
-                          const rightC = vsCandidates[1];
-                          const leftP = leftC ? normalizePledges(leftC.pledges ?? leftC.promises ?? [])[pIdx] : null;
-                          const rightP = rightC ? normalizePledges(rightC.pledges ?? rightC.promises ?? [])[pIdx] : null;
-                          if (!leftP && !rightP) return null;
+                          const candidatesWithPledge = displayCandidates.filter(c => normalizePledges(c.pledges ?? c.promises ?? [])[pIdx]);
+                          if (candidatesWithPledge.length === 0) return null;
 
-                          const makePledgeCard = (candidate: typeof leftC, p: typeof leftP, isLeft: boolean) => {
-                            if (!candidate || !p) return <div className="flex-1" />;
+                          const makePledgeCard = (candidate: any, p: any) => {
+                            if (!candidate || !p) return <div className="flex-1 min-w-[260px] sm:min-w-0" />;
                             const color = getPartyColor(candidate.party);
-                            const otherC = candidate.id === leftC?.id ? rightC : leftC;
+                            const otherC = displayCandidates.find(c => c.id !== candidate.id);
                             const otherP = otherC ? normalizePledges(otherC.pledges ?? otherC.promises ?? [])[pIdx] : null;
                             return (
                               <div
-                                className={`flex-1 min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer active:opacity-70 transition-all hover:shadow-md relative overflow-hidden group`}
+                                className={`flex-1 min-w-[260px] sm:min-w-0 bg-white dark:bg-[#2C2C2E] rounded-[18px] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer active:opacity-70 transition-all hover:shadow-md relative overflow-hidden group snap-center`}
                                 onClick={() => {
                                   setSelectedCandidateId(String(candidate.id));
                                   setSelectedCandidateName(candidate.name);
@@ -731,75 +731,29 @@ function RegionView({
                                   <span className="text-[11px] font-black text-muted-foreground tracking-widest">공약 {pIdx + 1}</span>
                                 </div>
                               </div>
-                              <div className="flex items-stretch gap-3 relative z-0">
-                                {makePledgeCard(leftC, leftP, true)}
-                                
-                                {/* 중앙 VS 뱃지 */}
-                                {rightC && (
-                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center pointer-events-none">
-                                    <div className="w-7 h-7 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shadow-lg border-[2px] border-white dark:border-[#1C1C1E]">
-                                      <span className="text-white dark:text-gray-900 text-[10px] font-black italic tracking-tighter pr-0.5">VS</span>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {rightC && makePledgeCard(rightC, rightP, false)}
+                              <div className="flex items-stretch gap-3 relative z-0 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                                {candidatesWithPledge.map((candidate, idx, arr) => {
+                                  const p = normalizePledges(candidate.pledges ?? candidate.promises ?? [])[pIdx];
+                                  return (
+                                    <React.Fragment key={candidate.id}>
+                                      {makePledgeCard(candidate, p)}
+                                      
+                                      {/* 중앙 VS 뱃지 */}
+                                      {idx < arr.length - 1 && (
+                                        <div className="flex flex-col items-center justify-center shrink-0 w-6 relative z-10">
+                                          <div className="w-7 h-7 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center shadow-lg border-[2px] border-white dark:border-[#1C1C1E] shrink-0">
+                                            <span className="text-white dark:text-gray-900 text-[10px] font-black italic tracking-tighter pr-0.5">VS</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-
-                      {/* 기타 후보 공약 */}
-                      {minorCandidates.length > 0 && (
-                        <div className="pt-5 border-t border-black/5 dark:border-white/10">
-                          <div className="text-[11px] font-bold text-muted-foreground mb-3 flex items-center gap-1.5">
-                            <Plus className="w-3 h-3" /> 기타 정당 후보 공약
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            {minorCandidates.map((candidate) => {
-                              const pledges = normalizePledges(candidate.pledges ?? candidate.promises ?? []);
-                              const color = getPartyColor(candidate.party);
-
-                              return (
-                                <div key={candidate.id} className="bg-white dark:bg-[#2C2C2E] p-3 rounded-xl shadow-sm">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
-                                    <span className={`text-[11px] font-bold ${color.replace('bg-', 'text-')}`}>{candidate.name} (기호 {getPartyRank(candidate.party)})</span>
-                                  </div>
-                                  {pledges.length === 0 ? (
-                                    <p className="text-[11px] text-muted-foreground">5월 21일 이후 공개 예정</p>
-                                  ) : (
-                                    <div className="flex flex-col gap-1.5">
-                                      {pledges.slice(0, 3).map((p, pIdx) => (
-                                        <div
-                                          key={`${candidate.id}-${p.id}`}
-                                          className="cursor-pointer active:opacity-70"
-                                          onClick={() => {
-                                            setSelectedCandidateId(String(candidate.id));
-                                            setSelectedCandidateName(candidate.name);
-                                            setSelectedCandidateParty(candidate.party);
-                                            setSelectedCandidateJob(candidate.job ?? "");
-                                            setSelectedCandidateCareer1(candidate.career1 ?? candidate.career ?? "");
-                                            setSelectedPledge(p);
-                                          }}
-                                        >
-                                          <h5 className="text-[12px] font-medium text-foreground line-clamp-1">
-                                            {pIdx + 1}. {p.title}
-                                          </h5>
-                                        </div>
-                                      ))}
-                                      {pledges.length > 3 && (
-                                        <span className="text-[10px] text-muted-foreground">+{pledges.length - 3}개 더보기</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })()}

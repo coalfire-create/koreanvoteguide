@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { flushSync } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
@@ -93,15 +93,39 @@ function GuestPrompt() {
 }
 
 function NicknameSheet({
-  open, onClose, currentNickname,
+  open, onClose, currentNickname, nicknameUpdatedAt,
 }: {
   open: boolean;
   onClose: () => void;
   currentNickname?: string | null;
+  nicknameUpdatedAt?: string | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [value, setValue] = useState(currentNickname || "");
+  const trimmed = value.trim();
+  const charCount = trimmed.length;
+  const isValid = charCount >= 2 && charCount <= 20;
+  const isUnchanged = trimmed === (currentNickname || "").trim();
+
+  // 닉네임 변경 7일 제한 계산
+  const canChange = (() => {
+    if (!nicknameUpdatedAt) return true;
+    const last = new Date(nicknameUpdatedAt).getTime();
+    const diffDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
+    return diffDays >= 7;
+  })();
+  const nextAvailable = (() => {
+    if (!nicknameUpdatedAt) return null;
+    const last = new Date(nicknameUpdatedAt);
+    last.setDate(last.getDate() + 7);
+    return last.toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
+  })();
+
+  // 시트가 열릴 때 현재 닉네임으로 초기화
+  useEffect(() => {
+    if (open) setValue(currentNickname || "");
+  }, [open, currentNickname]);
 
   const mutation = useMutation({
     mutationFn: async (nickname: string) => {
@@ -112,7 +136,7 @@ function NicknameSheet({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: "닉네임이 변경되었습니다" });
+      toast({ title: "닉네임이 변경되었습니다 ✨" });
       onClose();
     },
     onError: (err: Error) => {
@@ -126,18 +150,44 @@ function NicknameSheet({
         <SheetHeader>
           <SheetTitle className="text-left text-lg font-bold">닉네임 변경</SheetTitle>
         </SheetHeader>
-        <p className="text-sm text-gray-400">닉네임은 7일에 한 번만 변경할 수 있어요 (2~20자)</p>
-        <Input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="새 닉네임 입력"
-          maxLength={20}
-          className="h-12 rounded-xl border-gray-200 text-base"
-        />
+
+        {/* 현재 닉네임 표시 */}
+        {currentNickname && (
+          <div className="flex items-center gap-2 bg-muted/50 rounded-xl px-4 py-3">
+            <span className="text-[12px] text-muted-foreground font-medium">현재 닉네임</span>
+            <span className="text-[13px] font-bold text-foreground">{currentNickname}</span>
+          </div>
+        )}
+
+        {/* 7일 제한 경고 */}
+        {!canChange ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-[13px] text-amber-700 font-medium">
+            ⏱ 닉네임은 변경 후 7일간 다시 바꿀 수 없어요.<br />
+            다음 변경 가능일: <span className="font-bold">{nextAvailable}</span>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">닉네임은 7일에 한 번만 변경할 수 있어요</p>
+        )}
+
+        <div className="space-y-1.5">
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="새 닉네임 입력 (2~20자)"
+            maxLength={20}
+            disabled={!canChange}
+            className="h-12 rounded-xl border-gray-200 text-base"
+            autoFocus={canChange}
+          />
+          <p className={`text-[11px] text-right pr-1 ${charCount > 20 ? "text-red-500" : "text-muted-foreground"}`}>
+            {charCount}/20
+          </p>
+        </div>
+
         <Button
-          className="w-full h-12 bg-[#6D28D9] hover:bg-[#5B21B6] text-white rounded-xl font-bold"
-          disabled={mutation.isPending || value.trim().length < 2}
-          onClick={() => mutation.mutate(value.trim())}
+          className="w-full h-12 bg-[#6D28D9] hover:bg-[#5B21B6] text-white rounded-xl font-bold disabled:opacity-50"
+          disabled={mutation.isPending || !isValid || isUnchanged || !canChange}
+          onClick={() => mutation.mutate(trimmed)}
         >
           {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "변경하기"}
         </Button>
@@ -451,6 +501,16 @@ export default function More() {
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">@{user.username}</p>
+                  {/* 닉네임 미설정 시 안내 뱃지 */}
+                  {!user.nickname && (
+                    <button
+                      onClick={() => setNicknameSheetOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full hover:bg-amber-100 transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      닉네임을 설정해 주세요
+                    </button>
+                  )}
                   {(() => {
                     const demo = formatDemographic(user.ageGroup, user.gender);
                     return demo ? (
@@ -607,6 +667,33 @@ export default function More() {
         <section className="space-y-4 pb-4">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">설정</h3>
           <div className="bg-card rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border/30 divide-y divide-border/30 overflow-hidden">
+            {/* 닉네임 변경 */}
+            {user && (
+              <button
+                className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
+                onClick={() => setNicknameSheetOpen(true)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary relative">
+                    <Edit3 className="w-5 h-5" />
+                    {/* 닉네임 미설정 시 빨간 점 */}
+                    {!user.nickname && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-400 border-2 border-card rounded-full" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[15px] font-bold text-foreground block">닉네임 변경</span>
+                    {user.nickname ? (
+                      <span className="text-[12px] text-muted-foreground">현재: {user.nickname}</span>
+                    ) : (
+                      <span className="text-[12px] text-amber-500 font-semibold">닉네임을 설정해 주세요</span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+              </button>
+            )}
+
             {/* 지역 설정 */}
             <button
               className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors text-left group"
@@ -718,6 +805,7 @@ export default function More() {
           open={nicknameSheetOpen}
           onClose={() => setNicknameSheetOpen(false)}
           currentNickname={user.nickname}
+          nicknameUpdatedAt={user.nicknameUpdatedAt}
         />
       )}
 

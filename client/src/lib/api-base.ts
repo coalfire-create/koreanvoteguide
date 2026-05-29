@@ -30,6 +30,15 @@ function shouldRewrite(url: string): boolean {
 
 export function withApiBase(url: string): string {
   if (!isNative() || !shouldRewrite(url)) return url;
+  
+  if (typeof window !== "undefined") {
+    // 만약 WebView가 원격 서버(이유.com)를 직접 로드하고 있다면, 상대 경로가 정상 동작하므로 재작성 불필요
+    const isLocalOrigin = window.location.protocol === "capacitor:" || window.location.hostname === "localhost";
+    if (!isLocalOrigin) {
+      return url;
+    }
+  }
+  
   return `${API_BASE}${url}`;
 }
 
