@@ -111,6 +111,26 @@ export default function AuthPage() {
             </p>
           </div>
 
+          {/* 개발용 즉시 로그인 — dev 환경에서만 노출 */}
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await apiRequest("POST", "/api/auth/login", { username: "tester", password: "test1234" });
+                  const data = await res.json();
+                  if (data.success) {
+                    await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+                    window.location.href = returnTo;
+                  }
+                } catch {}
+              }}
+              className="w-full h-10 rounded-xl border-2 border-dashed border-amber-400 text-amber-600 text-[13px] font-bold bg-amber-50 hover:bg-amber-100 transition-colors mt-1"
+            >
+              🛠 개발용 즉시 로그인 (tester)
+            </button>
+          )}
+
           {/* 구분선 — 다른 로그인 방법 */}
           <div className="flex items-center gap-3 my-6">
             <div className="h-px flex-1 bg-slate-200" />

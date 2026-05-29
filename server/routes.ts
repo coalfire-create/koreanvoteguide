@@ -4802,7 +4802,7 @@ export async function registerRoutes(
               subtitle: `${r.vote.voteResult} · ${r.bill?.committee ?? ""}`.trim(),
               billId: r.vote.billId,
               voteResult: r.vote.voteResult,
-              occurredAt: r.bill?.proposeDate || r.vote.syncedAt?.toISOString?.() || "",
+              occurredAt: r.bill?.passedDate || r.bill?.proposeDate || r.vote.syncedAt?.toISOString?.() || "",
               isRecommended: false,
             };
           })
