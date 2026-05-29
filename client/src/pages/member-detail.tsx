@@ -360,6 +360,7 @@ export default function MemberDetail() {
     onSuccess: (_, action) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me/follows"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users/me/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed/stories"] });
       toast({
         title: action === "follow" ? "팔로우했습니다" : "언팔로우했습니다",
         description: action === "follow" ? "관심 의원 피드에서 활동을 확인하세요" : undefined,

@@ -259,6 +259,8 @@ function FollowStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void
     },
     onSuccess: ({ ok, fail }) => {
       if (ok > 0) toast({ title: `${ok}명 팔로우 완료`, description: fail ? `${fail}건 실패` : undefined });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/follows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed/stories"] });
       onDone();
     },
     onError: (e: Error) => {

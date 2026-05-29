@@ -244,6 +244,7 @@ export default function Members() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me/follows"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed/timeline"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed/stories"] });
     },
   });
 

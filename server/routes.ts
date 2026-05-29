@@ -4495,7 +4495,7 @@ export async function registerRoutes(
       });
 
       // 48시간 내 공개활동(뉴스)이 있는 의원만 표시, 최신순 정렬
-      const stories = allStories
+      let stories = allStories
         .filter((s) => s.hasNews)
         .sort((a, b) => {
           const aLatest = a.newsItems[0]?.pubDate ? new Date(a.newsItems[0].pubDate).getTime() : 0;
@@ -4503,7 +4503,59 @@ export async function registerRoutes(
           return bLatest - aLatest;
         });
 
-      res.json({ stories, followedCount: followed.length });
+      let isRecommended = false;
+
+      if (stories.length === 0) {
+        // 관심 의원 중 활동한 의원이 없으므로, 다른 활동 중인 의원을 노출
+        const allLegislators = await db
+          .select({
+            monaCd: legislators.monaCd,
+            name: legislators.name,
+            party: legislators.party,
+            photo: legislators.photoUrl,
+          })
+          .from(legislators);
+
+        const followedIds = new Set(followed.map((f) => f.politicianId));
+        const otherLegislators = allLegislators.filter((l) => !followedIds.has(l.monaCd));
+
+        const otherStories = otherLegislators.map((l) => {
+          const name = l.name ?? "";
+          const matched = name
+            ? recentNews
+                .filter((item) => item.title.includes(name))
+                .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
+                .slice(0, 5)
+            : [];
+          return {
+            id: l.monaCd,
+            name,
+            party: l.party ?? "",
+            photo: l.photo ?? null,
+            hasNews: matched.length > 0,
+            newsItems: matched.map((n) => ({
+              title: n.title,
+              link: n.link,
+              pubDate: n.pubDate,
+              source: n.source,
+              summary: n.summary ?? "",
+            })),
+          };
+        });
+
+        const activeOthers = otherStories
+          .filter((s) => s.hasNews)
+          .sort((a, b) => {
+            const aLatest = a.newsItems[0]?.pubDate ? new Date(a.newsItems[0].pubDate).getTime() : 0;
+            const bLatest = b.newsItems[0]?.pubDate ? new Date(b.newsItems[0].pubDate).getTime() : 0;
+            return bLatest - aLatest;
+          });
+
+        stories = activeOthers.slice(0, 15);
+        isRecommended = true;
+      }
+
+      res.json({ stories, followedCount: followed.length, isRecommended });
     } catch (err: any) {
       console.error("stories feed error:", err);
       res.status(500).json({ error: "스토리 피드 조회 오류" });

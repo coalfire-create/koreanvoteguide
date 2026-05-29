@@ -27,6 +27,7 @@ interface Story {
 interface StoriesResponse {
   stories: Story[];
   followedCount: number;
+  isRecommended?: boolean;
 }
 
 interface AnalysisData {
@@ -511,11 +512,11 @@ export function StoryFeed({ className = "" }: { className?: string }) {
       >
         <div className="flex items-center justify-between mb-3 px-1">
           <h3 className="text-[13px] font-bold text-foreground tracking-tight flex items-center gap-1.5">
-            관심 의원
+            {data?.isRecommended ? "추천 활동 의원" : "관심 의원"}
             {hasNews && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded-full">
                 <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse" />
-                NEW
+                {data?.isRecommended ? "추천" : "NEW"}
               </span>
             )}
           </h3>
