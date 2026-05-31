@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { ArrowLeft, CheckCircle2, MessageCircle, ThumbsUp, Sparkles, AlertCircle, Loader2, ChevronDown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -1131,7 +1132,9 @@ export default function PledgeDetailView({
 
   if (!promise) return null;
 
-  return (
+  // 전체화면 모달을 document.body로 포털 — 사이드바(z-50) 등 상위 요소 위에 확실히 덮이도록.
+  // (부모의 transform/opacity 스태킹 컨텍스트에 갇혀 좌측이 사이드바에 가려지던 문제 해결)
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -1252,6 +1255,7 @@ export default function PledgeDetailView({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
