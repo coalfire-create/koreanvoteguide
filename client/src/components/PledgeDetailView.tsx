@@ -1189,7 +1189,7 @@ export default function PledgeDetailView({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: "100%", opacity: 0 }}
           transition={{ type: "spring", damping: 30, stiffness: 300 }}
-          className="fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden"
+          className="fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
         >
           {/* 헤더 */}
           <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
@@ -1203,7 +1203,7 @@ export default function PledgeDetailView({
           </div>
 
           {/* 본문 */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col w-full">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col w-full pb-[env(safe-area-inset-bottom)]">
             {isCompareMode ? (
               <ComparisonView
                 candidateA={{
