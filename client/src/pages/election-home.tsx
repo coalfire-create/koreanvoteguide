@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark } from "lucide-react";
+import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark, CheckCircle2 } from "lucide-react";
 import { NotificationPanel, useHasUnread } from "@/components/NotificationPanel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
