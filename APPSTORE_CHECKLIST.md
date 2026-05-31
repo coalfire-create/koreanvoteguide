@@ -32,10 +32,16 @@
 - [ ] **(본인) 서버 환경변수 5개 설정** (아래 "환경변수" 참고) → Render 재배포
 - [ ] **(본인) Xcode**: App 타겟에 'Sign in with Apple' Capability 추가
 
-### 2. 웹 로딩 방식 (가이드 4.2) — **✅ 결정: A안(server.url 유지)**
+### 2. 웹 로딩 방식 (가이드 4.2) — **✅ 결정: A안(server.url 유지) + 푸시알림 통합 완료**
 `server.url: https://이유.com` 유지 → 모든 로그인·세션이 그대로 동작. 번들링 보류(v1.1).
-- [ ] **(권장) 4.2 방어용 네이티브 기능 1개 추가** — 예: 푸시알림(`@capacitor/push-notifications`) 또는 공유(`@capacitor/share`)
-- [ ] 심사 노트에 "공공데이터(선관위·국회) 기반 + 커뮤니티·평가·AI분석 등 네이티브 경험" 강조
+- [x] **4.2 방어용 네이티브 기능: 푸시 알림(`@capacitor/push-notifications`) 통합 완료**
+  - [x] 클라이언트 `client/src/lib/push.ts` (권한요청·토큰등록·탭 시 딥링크) + `App.tsx` 연결
+  - [x] 서버 `POST /api/push/register|unregister`, 관리자 `POST /api/push/send`, `server/utils/apns.ts`(HTTP/2+JWT)
+  - [x] `device_tokens` 테이블(런타임 자동생성), entitlements `aps-environment=production`
+  - [x] `AppDelegate.swift` APNs 등록 콜백 전달, `npx cap sync ios` 완료
+  - [ ] **(본인) Apple Developer → Keys 에서 APNs .p8 키 발급** → 서버 `APNS_*` 환경변수 5개 설정
+  - [ ] **(본인) Xcode**: App 타겟에 'Push Notifications' Capability 추가(자동 서명 시 자동 반영)
+- [ ] 심사 노트에 "공공데이터(선관위·국회) 기반 + 커뮤니티·평가·AI분석·푸시알림 등 네이티브 경험" 강조
 
 ### 3. 개인정보처리방침 / 이용약관 URL
 - [x] `server/legal-pages.ts` 존재 (확인됨) — 공개 URL 접근 가능한지 검증 필요
@@ -45,6 +51,18 @@
 ### 4. 정치·선거 콘텐츠 심사 대응
 - [ ] 한국 선거 정보 앱 — 공직선거법 준수 문구, 출처 표기(선관위/국회 공공데이터)
 - [ ] 중립성 고지(앱 내 이미 일부 존재)
+
+### 5. UGC 모더레이션 (가이드 1.2) — **✅ 코드 보강 완료**
+- [x] 게시글/댓글 신고 (`POST /api/community/report`)
+- [x] **사용자 차단** (`POST /api/community/block` / `unblock` / `GET blocked`) — 차단 시 피드·댓글에서 숨김
+- [x] 모더레이션 임시조치(hiddenAt) — 신고 누적 글 숨김
+- [x] **게시 전 EULA 동의 체크박스** (community-write, 최초 1회 필수) — 부적절 콘텐츠 무관용 동의
+- [x] 이용약관에 콘텐츠 무관용 정책 + 24시간 신고처리 + 차단 조항 명시(`legal-pages.ts` 제4·5조)
+
+### 6. 보안/운영 보강 — **✅ 2026-05-31 적용**
+- [x] `/api/upload` 로그인 필수화 + Supabase Storage 이전(휘발성 디스크 → 영속) — `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` 설정 필요
+- [x] 로컬(아이디/비번) 회원가입·SMS 엔드포인트 프로덕션 차단(소셜 로그인 일원화)
+- [x] DB 연결 TLS(SSL) 강제 + Transaction Pooler(6543) 경고 로깅
 
 ---
 

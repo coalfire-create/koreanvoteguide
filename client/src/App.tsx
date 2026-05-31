@@ -143,6 +143,17 @@ function AttendanceCheck() {
   return null;
 }
 
+// 네이티브(iOS) 빌드에서 푸시 알림 초기화 — 권한 요청·토큰 등록·탭 시 딥링크 이동.
+function PushInit() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    import("@/lib/push")
+      .then(({ initPush }) => initPush((path) => setLocation(path)))
+      .catch(() => {});
+  }, [setLocation]);
+  return null;
+}
+
 function MainApp() {
   const [location] = useLocation();
   const isLoginPage = location === "/login";
@@ -166,6 +177,7 @@ function MainApp() {
       <Toaster />
       <LoginSuccessToast />
       <AttendanceCheck />
+      <PushInit />
     </div>
   );
 }

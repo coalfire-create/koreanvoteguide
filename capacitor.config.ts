@@ -33,6 +33,10 @@ const config: CapacitorConfig = {
     limitsNavigationsToAppBoundDomains: isProd,
   },
   plugins: {
+    PushNotifications: {
+      // 포그라운드에서도 배너+사운드로 표시 (4.2 네이티브 경험 강조)
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#0F172A',

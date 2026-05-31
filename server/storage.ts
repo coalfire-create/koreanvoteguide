@@ -1,10 +1,10 @@
 import {
   type User, type InsertUser, type FavoritePolitician, users, verificationCodes, assemblyDataCache, schedulerStatus,
-  communityPosts, communityComments, communityReactions, communityReports, communityBookmarks,
+  communityPosts, communityComments, communityReactions, communityReports, communityBookmarks, userBlocks, deviceTokens,
   type CommunityPost, type CommunityComment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc, inArray, or, isNull, type SQL } from "drizzle-orm";
+import { eq, desc, sql, and, asc, inArray, notInArray, or, isNull, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -22,7 +22,7 @@ export interface IStorage {
   markVerificationCodeUsed(id: string): Promise<void>;
   getCachedData(key: string): Promise<any[] | null>;
   getSchedulerStatus(): Promise<{ lastRun: Date | null; success: boolean | null; errorMessage: string | null; consecutiveFailures: number } | null>;
-  getPosts(opts?: { boardType?: string; category?: string; sort?: string; legislatorId?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
+  getPosts(opts?: { boardType?: string; category?: string; sort?: string; legislatorId?: string; tagType?: string; tagId?: string; viewerId?: string }): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]>;
   getPost(id: string): Promise<(CommunityPost & { authorBadges: string[]; authorName: string }) | undefined>;
   createPost(userId: string, title: string, content: string, anonNickname: string, boardType?: string, category?: string, showRealName?: boolean, legislatorId?: string, authorType?: string, displayName?: string | null, isVerified?: boolean, thumbnailUrl?: string | null, tagType?: string | null, tagId?: string | null, tagName?: string | null, attachments?: any[], contentType?: string, hasPoll?: boolean): Promise<CommunityPost>;
   incrementViewCount(postId: string): Promise<void>;
@@ -36,6 +36,13 @@ export interface IStorage {
   addReaction(postId: string, userId: string, type: string): Promise<void>;
   getUserReactions(postId: string, userId: string): Promise<{ sentiment: string | null; stance: string | null }>;
   createReport(userId: string, reason: string, postId?: string, commentId?: string): Promise<void>;
+  blockUser(blockerId: string, blockedId: string): Promise<void>;
+  unblockUser(blockerId: string, blockedId: string): Promise<void>;
+  getBlockedIds(blockerId: string): Promise<string[]>;
+  resolveAuthorId(opts: { postId?: string; commentId?: string }): Promise<string | undefined>;
+  upsertDeviceToken(token: string, platform: string, userId?: string | null): Promise<void>;
+  removeDeviceToken(token: string): Promise<void>;
+  getAllDeviceTokens(platform?: string): Promise<{ token: string; platform: string }[]>;
   toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }>;
   getUserBookmarks(userId: string): Promise<string[]>;
   updateUserFavorites(userId: string, favorites: FavoritePolitician[]): Promise<User>;
@@ -165,7 +172,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPosts(opts: { boardType?: string; category?: string; sort?: string; legislatorId?: string; tagType?: string; tagId?: string } = {}): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]> {
+  async getPosts(opts: { boardType?: string; category?: string; sort?: string; legislatorId?: string; tagType?: string; tagId?: string; viewerId?: string } = {}): Promise<(CommunityPost & { commentCount: number; authorBadges: string[]; authorName: string })[]> {
     const orderCol = opts.sort === "popular"
       ? desc(sql`${communityPosts.likes} + ${communityPosts.agreeCount}`)
       : opts.sort === "views"
@@ -177,6 +184,11 @@ export class DatabaseStorage implements IStorage {
       isNull(communityPosts.hiddenAt),
       isNull(communityPosts.deletedAt),
     ];
+    // 차단한 작성자의 글 제외
+    if (opts.viewerId) {
+      const blocked = await this.getBlockedIds(opts.viewerId);
+      if (blocked.length > 0) conditions.push(notInArray(communityPosts.userId, blocked));
+    }
     if (opts.boardType) conditions.push(eq(communityPosts.boardType, opts.boardType));
     if (opts.category) conditions.push(eq(communityPosts.category, opts.category));
     if (opts.legislatorId) {
@@ -458,6 +470,53 @@ export class DatabaseStorage implements IStorage {
     if (postId) {
       await db.execute(sql`UPDATE community_posts SET report_count = report_count + 1 WHERE id = ${postId}`);
     }
+  }
+
+  // 글/댓글 id로부터 작성자 actor id("anon:..." 포함)를 찾는다.
+  async resolveAuthorId(opts: { postId?: string; commentId?: string }): Promise<string | undefined> {
+    if (opts.commentId) {
+      const [c] = await db.select({ userId: communityComments.userId }).from(communityComments).where(eq(communityComments.id, opts.commentId));
+      return c?.userId;
+    }
+    if (opts.postId) {
+      const [p] = await db.select({ userId: communityPosts.userId }).from(communityPosts).where(eq(communityPosts.id, opts.postId));
+      return p?.userId;
+    }
+    return undefined;
+  }
+
+  async blockUser(blockerId: string, blockedId: string): Promise<void> {
+    if (blockerId === blockedId) throw new Error("자기 자신은 차단할 수 없습니다");
+    await db.insert(userBlocks).values({ blockerId, blockedId }).onConflictDoNothing();
+  }
+
+  async unblockUser(blockerId: string, blockedId: string): Promise<void> {
+    await db.delete(userBlocks).where(and(eq(userBlocks.blockerId, blockerId), eq(userBlocks.blockedId, blockedId)));
+  }
+
+  async getBlockedIds(blockerId: string): Promise<string[]> {
+    const rows = await db.select({ blockedId: userBlocks.blockedId }).from(userBlocks).where(eq(userBlocks.blockerId, blockerId));
+    return rows.map((r) => r.blockedId);
+  }
+
+  async upsertDeviceToken(token: string, platform: string, userId?: string | null): Promise<void> {
+    await db.insert(deviceTokens)
+      .values({ token, platform, userId: userId ?? null })
+      .onConflictDoUpdate({
+        target: deviceTokens.token,
+        set: { platform, userId: userId ?? null, lastSeenAt: new Date() },
+      });
+  }
+
+  async removeDeviceToken(token: string): Promise<void> {
+    await db.delete(deviceTokens).where(eq(deviceTokens.token, token));
+  }
+
+  async getAllDeviceTokens(platform?: string): Promise<{ token: string; platform: string }[]> {
+    const rows = platform
+      ? await db.select({ token: deviceTokens.token, platform: deviceTokens.platform }).from(deviceTokens).where(eq(deviceTokens.platform, platform))
+      : await db.select({ token: deviceTokens.token, platform: deviceTokens.platform }).from(deviceTokens);
+    return rows;
   }
 
   async updateUserFavorites(userId: string, favorites: FavoritePolitician[]): Promise<User> {

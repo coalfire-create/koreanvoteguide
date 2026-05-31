@@ -1,0 +1,37 @@
+# 이유(KoreanVote) 앱이 사용하는 테이블 목록 (shared/schema.ts 기준 + 런타임 생성분).
+# 이 목록의 테이블만 새 전용 DB로 이관한다. 주석(#)과 빈 줄은 무시됨.
+ai_cache
+announcements
+assembly_bills
+assembly_data_cache
+assembly_votes
+bill_opinion_votes
+candidate_ratings
+candidate_statements
+candidate_support_votes
+community_bookmarks
+community_comments
+community_posts
+community_reactions
+community_reports
+daily_poll_votes
+daily_polls
+device_tokens
+election_candidates
+election_issues
+election_schedules
+legislators
+pledge_comments
+pledge_ratings
+politician_photo_cache
+poll_comments
+poll_results
+reactions
+scheduler_status
+search_history
+session
+statement_fact_checks
+user_blocks
+user_follows
+users
+verification_codes
