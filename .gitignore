@@ -20,3 +20,6 @@ seed_mock_candidates.ts
 .claude/
 .env*
 ! .env.example
+
+# DB 백업 — PII 포함, 커밋 금지
+backups/
