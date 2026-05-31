@@ -47,8 +47,15 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
+      // 네이티브 WebView(특히 iOS WebKit)는 localhost 개발 서버로의 첫 fetch가
+      // 콜드 스타트/네트워크 타이밍으로 간헐 실패할 수 있다. retry:false 면 한 번
+      // 실패한 쿼리가 영구히 빈 상태로 남아(웹에선 정상인데 앱만 데이터 없음) 보인다.
+      // → 지수 백오프로 3회 재시도하고, 네트워크 복귀/마운트 시 자동 재요청.
       staleTime: Infinity,
-      retry: false,
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+      refetchOnReconnect: true,
+      refetchOnMount: true,
     },
     mutations: {
       retry: false,

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark, CheckCircle2 } from "lucide-react";
+import { ChevronRight, Bell, HelpCircle, Plus, ChevronLeft, TrendingUp, Sparkles, Users, MessageSquare, Flame, Landmark, CheckCircle2, MapPin } from "lucide-react";
 import { NotificationPanel, useHasUnread } from "@/components/NotificationPanel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -532,7 +532,10 @@ function RegionView({
                           {formatDDayLabel(dDays)}
                         </span>
                         <Link href="/city-select">
-                          <button className="text-[12px] text-muted-foreground/50 hover:text-muted-foreground active:opacity-60 transition-colors font-medium">지역 변경</button>
+                          <button className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-white/50 dark:bg-black/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50 hover:bg-white dark:hover:bg-black/40 shadow-sm transition-all flex items-center gap-1 active:opacity-70">
+                            <MapPin className="w-3 h-3" />
+                            지역 변경
+                          </button>
                         </Link>
                       </div>
                       

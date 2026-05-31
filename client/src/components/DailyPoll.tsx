@@ -38,7 +38,7 @@ export function DailyPoll({ board }: DailyPollProps) {
 
   const { data: poll, isLoading } = useQuery<Poll>({
     queryKey: ["/api/polls/today", board],
-    queryFn: () => fetch(`/api/polls/today?board=${board}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/polls/today?board=${board}`).then(r => { if (!r.ok) throw new Error("API Error"); return r.json(); }),
     staleTime: 60 * 1000,
   });
 

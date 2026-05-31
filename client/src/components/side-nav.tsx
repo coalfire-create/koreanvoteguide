@@ -22,7 +22,7 @@ const navItems = [
 export function SideNav() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
-  const [userRegions, setUserRegions] = useState<{ code: string; name: string }[]>([]);
+  const [userRegions, setUserRegions] = useState<{ code: string; name: string; level?: string }[]>([]);
   const [currentRegionCode, setCurrentRegionCode] = useState(() => localStorage.getItem("currentRegionCode") || "");
 
   useEffect(() => {
@@ -51,10 +51,12 @@ export function SideNav() {
 
   if (location === "/login" || location === "/onboarding" || location === "/city-select") return null;
 
-  const handleRegionClick = (r: { code: string; name: string }) => {
-    if (location !== "/") {
+  const handleRegionClick = (r: { code: string; name: string; level?: string }) => {
+    const targetPath = r.level === "assembly" ? "/assembly-election" : "/";
+    
+    if (location !== targetPath) {
       localStorage.setItem("lastSelectedRegionCode", r.code);
-      setLocation("/");
+      setLocation(targetPath);
     } else {
       if (typeof (window as any).switchRegion === "function") {
         (window as any).switchRegion(r);

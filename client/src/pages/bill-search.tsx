@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Flame, FileText, MessageSquare, TrendingUp, AlertCircle, Newspaper, ExternalLink, ChevronRight, Clock, X } from "lucide-react";
+import { Search, Flame, FileText, MessageSquare, TrendingUp, AlertCircle, Newspaper, ExternalLink, ChevronRight, Clock, X, Sparkles, LayoutGrid } from "lucide-react";
 import { getBillEmoji } from "@/lib/utils";
 import { useAssemblyBills, useAssemblyMembers, useHotBills, useSearchHistory, saveSearchQuery, clearSearchHistory, deleteSearchHistoryItem } from "@/lib/api-data";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,14 +38,28 @@ function statusLabel(s: string | undefined | null) {
   return !s || s === "" || s === "계류" ? "심사중" : s;
 }
 
-function statusColor(label: string) {
-  if (label === "심사중") return "text-amber-500";
-  if (label === "통과") return "text-primary";
-  return "text-muted-foreground";
+function statusPill(label: string) {
+  if (label === "심사중") return "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400";
+  if (label === "통과") return "bg-primary/10 text-primary";
+  return "bg-black/5 text-muted-foreground dark:bg-white/10";
 }
+
+const StatusBadge = ({ label }: { label: string }) => (
+  <span className={`inline-flex items-center px-1.5 py-px rounded-md text-[10px] font-bold leading-tight ${statusPill(label)}`}>
+    {label}
+  </span>
+);
+
+// 인기 법안 1·2·3위 메달 뱃지
+const RANK_STYLES = [
+  "bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow-sm shadow-amber-500/30",
+  "bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-sm shadow-slate-400/30",
+  "bg-gradient-to-br from-orange-300 to-orange-500 text-white shadow-sm shadow-orange-500/30",
+];
 
 export default function BillSearch() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { bills, isLoading: billsLoading } = useAssemblyBills();
@@ -181,20 +195,26 @@ export default function BillSearch() {
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? "text-primary" : "text-muted-foreground"}`} />
               <input
-                className="w-full h-10 pl-9 pr-9 bg-black/5 dark:bg-white/10 rounded-xl text-[15px] focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground font-medium text-foreground"
+                className={`w-full h-10 pl-9 pr-9 rounded-xl text-[15px] outline-none placeholder:text-muted-foreground font-medium text-foreground transition-all duration-200 ${
+                  searchFocused
+                    ? "bg-white dark:bg-[#1C1C1E] ring-2 ring-primary/30 shadow-sm"
+                    : "bg-black/5 dark:bg-white/10 ring-2 ring-transparent"
+                }`}
                 placeholder="법안 검색..."
                 value={searchQuery}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearchClick()}
               />
               {searchQuery && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 active:opacity-70"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full bg-black/10 dark:bg-white/15 active:scale-90 transition-transform"
                 >
-                  <X className="w-4 h-4 text-muted-foreground" />
+                  <X className="w-3 h-3 text-muted-foreground" />
                 </button>
               )}
             </div>
@@ -217,7 +237,7 @@ export default function BillSearch() {
 
         {/* ===== 검색 결과 ===== */}
         {isSearching ? (
-          <section className="space-y-3">
+          <section className="space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
             {/* 최근 검색어 chips */}
             {!historyLoading && searchHistory.length > 0 && (
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -276,21 +296,20 @@ export default function BillSearch() {
               <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
                 {searchResults.map((bill: any, idx: number) => {
                   const sl = statusLabel(bill.status);
-                  const sc = statusColor(sl);
                   const billName = bill.name || bill.billName || "이름 없는 법안";
                   const committee = bill.summary || bill.committee || "";
                   return (
                     <div key={bill.id || bill.billId || idx}>
                       <div
                         onClick={() => navigate(`/bills/${bill.id || bill.billId}/vote`)}
-                        className="px-4 py-3 flex items-center gap-3 cursor-pointer active:opacity-70"
+                        className="px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03] active:bg-black/5 dark:active:bg-white/10"
                       >
                         <span className="text-xl w-8 text-center shrink-0">{getBillEmoji(billName, committee)}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[14px] font-semibold text-foreground line-clamp-1 leading-snug">{highlight(billName)}</p>
-                          <p className="text-[11px] mt-0.5">
-                            <span className={`font-bold ${sc}`}>{sl}</span>
-                            {committee && <span className="text-muted-foreground"> · {committee}</span>}
+                          <p className="text-[11px] mt-1 flex items-center gap-1.5">
+                            <StatusBadge label={sl} />
+                            {committee && <span className="text-muted-foreground truncate">{committee}</span>}
                           </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
@@ -310,7 +329,10 @@ export default function BillSearch() {
             {/* ===== 법안 관련 뉴스 ===== */}
             <section>
               <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-[15px] font-bold text-foreground">법안 관련 뉴스</h2>
+                <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5">
+                  <Newspaper className="w-4 h-4 text-sky-500" />
+                  법안 관련 뉴스
+                </h2>
                 <Link href="/news" className="text-[12px] text-muted-foreground active:opacity-70">더보기</Link>
               </div>
 
@@ -407,7 +429,10 @@ export default function BillSearch() {
                 {/* ===== 인기 법안 Top 3 ===== */}
                 <section>
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <h2 className="text-[15px] font-bold text-foreground">인기 법안</h2>
+                    <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-rose-500" />
+                      인기 법안
+                    </h2>
                     <span className="text-[11px] text-muted-foreground">뉴스 언급 기반</span>
                   </div>
 
@@ -436,29 +461,24 @@ export default function BillSearch() {
                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
                       {hotSlice.slice(0, 3).map((bill: any, idx: number) => {
                         const sl = statusLabel(bill.result);
-                        const sc = statusColor(sl);
-                        const rankColor =
-                          idx === 0 ? "text-foreground font-black" :
-                          idx === 1 ? "text-foreground/70 font-black" :
-                          idx === 2 ? "text-foreground/50 font-bold" :
-                          "text-muted-foreground/40 font-semibold";
-                        const matchedNews: any[] = bill.matchedNews ?? [];
                         return (
                           <div key={bill.billId}>
                             <div
                               onClick={() => navigate(`/bills/${bill.billId}/vote`)}
-                              className="px-3 pt-2 pb-1.5 flex items-start gap-2.5 cursor-pointer active:opacity-70"
+                              className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03] active:bg-black/5 dark:active:bg-white/10"
                             >
-                              <span className={`text-[12px] font-black w-3 text-center shrink-0 mt-0.5 ${rankColor}`}>{idx + 1}</span>
+                              <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-black shrink-0 ${RANK_STYLES[idx] ?? "bg-black/5 text-muted-foreground"}`}>
+                                {idx + 1}
+                              </span>
                               <span className="text-base w-6 text-center shrink-0">{getBillEmoji(bill.billName, bill.committee)}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[13px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.billName}</p>
-                                <p className="text-[10px] mt-0.5">
-                                  <span className={`font-bold ${sc}`}>{sl}</span>
-                                  {bill.committee && <span className="text-muted-foreground"> · {bill.committee}</span>}
+                                <p className="text-[10px] mt-1 flex items-center gap-1.5">
+                                  <StatusBadge label={sl} />
+                                  {bill.committee && <span className="text-muted-foreground truncate">{bill.committee}</span>}
                                 </p>
                               </div>
-                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
                             </div>
                             {idx < Math.min(hotSlice.length, 3) - 1 && <div className="h-px bg-black/5 dark:bg-white/10 ml-[52px]" />}
                           </div>
@@ -471,7 +491,10 @@ export default function BillSearch() {
                 {/* ===== 최신 발의된 법안 Top 3 ===== */}
                 <section>
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <h2 className="text-[15px] font-bold text-foreground">최신 발의</h2>
+                    <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-violet-500" />
+                      최신 발의
+                    </h2>
                     <span className="text-[11px] text-muted-foreground">발의일 최신순</span>
                   </div>
 
@@ -499,19 +522,18 @@ export default function BillSearch() {
                     <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
                       {latestBills.slice(0, 3).map((bill, idx) => {
                         const sl = statusLabel(bill.status);
-                        const sc = statusColor(sl);
                         return (
                           <div key={bill.id}>
                             <div
                               onClick={() => navigate(`/bills/${bill.id}/vote`)}
-                              className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer active:opacity-70"
+                              className="px-3 py-2.5 flex items-center gap-2.5 cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03] active:bg-black/5 dark:active:bg-white/10"
                             >
                               <span className="text-base w-6 text-center shrink-0">{getBillEmoji(bill.name, bill.summary)}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[13px] font-semibold text-foreground line-clamp-1 leading-snug">{bill.name}</p>
-                                <p className="text-[10px] mt-0.5">
-                                  <span className={`font-bold ${sc}`}>{sl}</span>
-                                  {bill.proposer && <span className="text-muted-foreground"> · {bill.proposer.split("(")[0].trim()}</span>}
+                                <p className="text-[10px] mt-1 flex items-center gap-1.5">
+                                  <StatusBadge label={sl} />
+                                  {bill.proposer && <span className="text-muted-foreground truncate">{bill.proposer.split("(")[0].trim()}</span>}
                                 </p>
                               </div>
                               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
@@ -597,7 +619,10 @@ export default function BillSearch() {
             {/* ===== 카테고리별 법안 탐색 ===== */}
             <section>
               <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-[15px] font-bold text-foreground">카테고리별 탐색</h2>
+                <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5">
+                  <LayoutGrid className="w-4 h-4 text-teal-500" />
+                  카테고리별 탐색
+                </h2>
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
@@ -640,22 +665,22 @@ export default function BillSearch() {
                 <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm overflow-hidden">
                   {filteredBills.map((bill: any, idx: number) => {
                     const sl = statusLabel(bill.status);
-                    const sc = statusColor(sl);
                     const billName = bill.name || bill.billName || "이름 없는 법안";
                     const committee = bill.summary || bill.committee || "";
                     return (
                       <div key={bill.id || `filtered-${idx}`}>
                         <div
                           onClick={() => navigate(`/bills/${bill.id || bill.billId}/vote`)}
-                          className="px-4 py-3 flex items-center gap-3 cursor-pointer active:opacity-70"
+                          className="px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03] active:bg-black/5 dark:active:bg-white/10"
                         >
                           <span className="text-lg w-8 text-center shrink-0">{getBillEmoji(billName, committee)}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-semibold text-foreground line-clamp-1 leading-snug">{billName}</p>
-                            <p className="text-[11px] mt-0.5">
-                              <span className={`font-bold ${sc}`}>{sl}</span>
-                              {committee && <span className="text-muted-foreground"> · {committee}</span>}
-                              {bill.proposer && <span className="text-muted-foreground"> · {bill.proposer.split("(")[0].trim()}</span>}
+                            <p className="text-[11px] mt-1 flex items-center gap-1.5">
+                              <StatusBadge label={sl} />
+                              <span className="text-muted-foreground truncate">
+                                {[committee, bill.proposer && bill.proposer.split("(")[0].trim()].filter(Boolean).join(" · ")}
+                              </span>
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />

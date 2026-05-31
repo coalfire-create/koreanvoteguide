@@ -382,7 +382,12 @@ export function useHotBills() {
   const query = useQuery<any[]>({
     queryKey: ["/api/bills/hot"],
     staleTime: 10 * 60 * 1000,
-    queryFn: () => fetch("/api/bills/hot").then((r) => r.json()),
+    // r.ok 를 검사해 비정상 응답은 throw → 기본 retry(지수 백오프) 가 동작하도록.
+    queryFn: () =>
+      fetch("/api/bills/hot").then((r) => {
+        if (!r.ok) throw new Error(`인기 법안을 불러올 수 없습니다 (${r.status})`);
+        return r.json();
+      }),
   });
 
   return {
