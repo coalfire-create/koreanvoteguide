@@ -529,7 +529,7 @@ export function StoryFeed({ className = "" }: { className?: string }) {
             )}
           </h3>
           {stories.length > 0 && (
-            <Link href="/more">
+            <Link href="/members?tab=discover">
               <span className="text-[11px] font-semibold text-muted-foreground hover:text-primary cursor-pointer">
                 전체보기
               </span>

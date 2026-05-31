@@ -1,5 +1,5 @@
-import { Link } from "wouter";
-import { useState, useMemo } from "react";
+import { Link, useSearch } from "wouter";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, Users, ChevronDown, FileText, Vote, Sparkles,
   UserPlus, UserCheck, Heart, Compass, Rss, TrendingUp, Newspaper,
@@ -185,7 +185,15 @@ function FeedSkeleton() {
 }
 
 export default function Members() {
-  const [tab, setTab] = useState<"feed" | "discover">("feed");
+  const search = useSearch();
+  const [tab, setTab] = useState<"feed" | "discover">(
+    () => (new URLSearchParams(search).get("tab") === "discover" ? "discover" : "feed"),
+  );
+  // ?tab= 쿼리로 탭 전환 (전체보기 링크 등). 같은 페이지 내 이동도 반영.
+  useEffect(() => {
+    const t = new URLSearchParams(search).get("tab");
+    if (t === "discover" || t === "feed") setTab(t);
+  }, [search]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParty, setSelectedParty] = useState("전체");
   const [visibleCount, setVisibleCount] = useState(12);
