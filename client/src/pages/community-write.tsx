@@ -149,6 +149,10 @@ export default function CommunityWrite() {
     tagIdFromQuery && tagNameFromQuery ? { id: tagIdFromQuery, name: tagNameFromQuery } : null
   );
   const [hasPoll, setHasPoll] = useState(false);
+  // 커뮤니티 운영정책(EULA) 동의 — UGC 무관용 정책(App Store 1.2). 최초 1회 동의 후 localStorage에 기억.
+  const [agreedPolicy, setAgreedPolicy] = useState<boolean>(
+    () => isEditing || (typeof window !== "undefined" && localStorage.getItem("communityEulaAgreed") === "1"),
+  );
   // 신규 작성은 즉시 준비완료, 수정은 기존 글을 불러온 뒤 준비완료(에디터 초기 content 보장)
   const [initialized, setInitialized] = useState(!isEditing);
 
@@ -464,6 +468,27 @@ export default function CommunityWrite() {
             )}
           </div>
 
+          {/* 커뮤니티 운영정책 동의 (신규 작성 최초 1회) — App Store 1.2 UGC 요건 */}
+          {!isEditing && (
+            <label className="flex items-start gap-2.5 pt-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreedPolicy}
+                onChange={(e) => {
+                  setAgreedPolicy(e.target.checked);
+                  if (e.target.checked && typeof window !== "undefined") {
+                    localStorage.setItem("communityEulaAgreed", "1");
+                  }
+                }}
+                className="mt-0.5 w-4 h-4 accent-primary shrink-0"
+              />
+              <span className="text-xs text-slate-600 leading-relaxed">
+                <a href="/legal/terms" target="_blank" rel="noreferrer" className="underline text-primary font-semibold">커뮤니티 운영정책</a>에 동의하며,
+                욕설·비방·혐오 표현·허위사실 등 부적절한 콘텐츠를 게시하지 않겠습니다. 위반 시 게시물 삭제 및 이용 제한될 수 있습니다. <span className="text-rose-500">(필수)</span>
+              </span>
+            </label>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
               variant="outline"
@@ -475,7 +500,7 @@ export default function CommunityWrite() {
             <Button
               size="lg"
               className="h-14 rounded-2xl font-black flex-[2] bg-slate-900 shadow-xl shadow-slate-900/10 hover:shadow-primary/40 text-md transition-all duration-300"
-              disabled={!title.trim() || !content.trim() || createMutation.isPending || (!isEditing && boardConfig.showTag && !selectedTag)}
+              disabled={!title.trim() || !content.trim() || createMutation.isPending || (!isEditing && boardConfig.showTag && !selectedTag) || (!isEditing && !agreedPolicy)}
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? (

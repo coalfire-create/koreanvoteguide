@@ -5,7 +5,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema, favoritesUpdateSchema } from "@shared/schema";
+import { registerSchema, loginSchema, phoneVerificationSchema, insertPostSchema, insertCommentSchema, insertReportSchema, insertBlockSchema, favoritesUpdateSchema } from "@shared/schema";
 import { scrypt, randomBytes, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
 import pgSession from "connect-pg-simple";
@@ -31,6 +31,8 @@ import { getAiCache, setAiCache } from "./utils/ai-cache";
 import { LruMap } from "./utils/lru";
 import { fetchRecentNews, stripHtml, type RecentNewsItem } from "./utils/news";
 import { sanitizeHtml, sanitizeText } from "./utils/sanitize";
+import { saveUploadedImage, extForMime, isSupabaseStorageConfigured } from "./utils/storage-upload";
+import { sendPush, isApnsConfigured } from "./utils/apns";
 import { calculateAgeGroup, parseBirthDate, normalizeGender } from "./utils/age";
 import {
   loadKakaoConfig,
@@ -683,6 +685,21 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// 로컬(아이디/비번) 회원가입 + SMS 인증은 v1에서 소셜 로그인으로 일원화.
+// 운영용 SMS 발송이 연동되지 않은 상태라 회원가입 경로를 막아 "코드를 영영 못 받는" 상태를 차단한다.
+// 재활성화하려면 ENABLE_LOCAL_SIGNUP=1 + SMS_PROVIDER 환경변수를 함께 설정해야 한다.
+function localSignupGuard(_req: Request, res: Response, next: NextFunction) {
+  const enabled =
+    process.env.ENABLE_LOCAL_SIGNUP === "1" && Boolean(process.env.SMS_PROVIDER);
+  if (isProduction && !enabled) {
+    return res.status(403).json({
+      error: "현재 카카오·구글·애플 로그인만 지원합니다.",
+      code: "LOCAL_SIGNUP_DISABLED",
+    });
+  }
+  next();
+}
+
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "로그인이 필요합니다" });
@@ -787,11 +804,11 @@ export async function registerRoutes(
     }
   };
 
-  app.post("/api/auth/send-sms", sendCodeLimiter, sendSmsHandler);
-  app.post("/api/auth/send-code", sendCodeLimiter, sendSmsHandler);
+  app.post("/api/auth/send-sms", localSignupGuard, sendCodeLimiter, sendSmsHandler);
+  app.post("/api/auth/send-code", localSignupGuard, sendCodeLimiter, sendSmsHandler);
 
   // 검증 — register 전에 코드만 미리 확인. mark used는 하지 않으므로 register에서 한 번 더 검증/소비.
-  app.post("/api/auth/verify-sms", sendCodeLimiter, async (req, res) => {
+  app.post("/api/auth/verify-sms", localSignupGuard, sendCodeLimiter, async (req, res) => {
     try {
       const { phone, code } = req.body ?? {};
       if (typeof phone !== "string" || typeof code !== "string") {
@@ -817,7 +834,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/register", authLimiter, async (req, res) => {
+  app.post("/api/auth/register", localSignupGuard, authLimiter, async (req, res) => {
     try {
       const result = registerSchema.safeParse(req.body);
       if (!result.success) {
@@ -3871,26 +3888,20 @@ export async function registerRoutes(
   });
 
   // ===== 파일 업로드 API =====
-  // ⚠️ 디스크 저장은 컨테이너 재배포 시 휘발됨. 운영에서는 Supabase Storage / S3 / R2 등 외부 객체 저장소로 옮길 것.
+  // 운영에서는 Supabase Storage(영속)에, 미설정 시 로컬 디스크(휘발성, 개발용)에 저장.
+  // 파일은 메모리로 받은 뒤 storage-upload 헬퍼가 목적지를 결정한다.
   const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
   const ALLOWED_IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
-  const storageMap = multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      const uploadPath = path.resolve(process.cwd(), "server/static/uploads");
-      cb(null, uploadPath);
-    },
-    filename: (_req, file, cb) => {
-      // 확장자는 mimetype에서 유도 (originalname의 공격자 조작 차단)
-      const ext = file.mimetype === "image/png" ? ".png"
-        : file.mimetype === "image/webp" ? ".webp"
-        : file.mimetype === "image/gif" ? ".gif"
-        : ".jpg";
-      cb(null, randomBytes(16).toString("hex") + ext);
-    },
-  });
+  if (isProduction && !isSupabaseStorageConfigured()) {
+    console.warn(
+      "[upload] Supabase Storage 미설정 — 업로드가 휘발성 로컬 디스크에 저장됩니다. " +
+        "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 를 설정하세요.",
+    );
+  }
+
   const upload = multer({
-    storage: storageMap,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024, files: 1 },
     fileFilter: (_req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase();
@@ -3901,8 +3912,10 @@ export async function registerRoutes(
     },
   });
 
+  // 로그인 사용자만 업로드 허용 (익명 업로드로 인한 스토리지 남용·유해물 업로드 차단)
   app.post(
     "/api/upload",
+    requireAuth,
     (req, res, next) => {
       upload.single("file")(req, res, (err: any) => {
         if (err) {
@@ -3911,11 +3924,19 @@ export async function registerRoutes(
         next();
       });
     },
-    (req, res) => {
+    async (req, res) => {
       if (!req.file) {
         return res.status(400).json({ error: "파일이 업로드되지 않았습니다." });
       }
-      res.json({ url: `/uploads/${req.file.filename}` });
+      try {
+        // 파일명/확장자는 mimetype에서 유도 (originalname의 공격자 조작 차단)
+        const filename = randomBytes(16).toString("hex") + extForMime(req.file.mimetype);
+        const url = await saveUploadedImage(filename, req.file.buffer, req.file.mimetype);
+        res.json({ url });
+      } catch (e: any) {
+        console.error("Upload error:", e?.message || e);
+        res.status(500).json({ error: "이미지 저장 중 오류가 발생했습니다." });
+      }
     }
   );
 
@@ -4030,6 +4051,7 @@ export async function registerRoutes(
           }
         }
       }
+      const listActorId = peekActorId(req);
       const posts = await storage.getPosts({
         boardType: theme || board || undefined,
         category: category || undefined,
@@ -4037,8 +4059,8 @@ export async function registerRoutes(
         legislatorId: legislatorId || undefined,
         tagType: tagType || undefined,
         tagId: tagId || undefined,
+        viewerId: listActorId || undefined,
       });
-      const listActorId = peekActorId(req);
       res.json(posts.map((p) => sanitizePost(p, listActorId)));
     } catch (error) {
       console.error("Get posts error:", error);
@@ -4056,12 +4078,15 @@ export async function registerRoutes(
       }
       // 조회수 증가 (비동기, 실패해도 무관)
       storage.incrementViewCount(post.id).catch(() => {});
-      const comments = await storage.getComments(post.id);
+      let comments = await storage.getComments(post.id);
       let userReactions: { sentiment: string | null; stance: string | null } = { sentiment: null, stance: null };
       let isBookmarked = false;
       const activeUserId = peekActorId(req);
       if (activeUserId) {
         userReactions = await storage.getUserReactions(post.id, activeUserId);
+        // 차단한 작성자의 댓글 숨김
+        const blocked = await storage.getBlockedIds(activeUserId);
+        if (blocked.length > 0) comments = comments.filter((c) => !blocked.includes(c.userId));
       }
       if (req.session.userId) {
         const bookmarks = await storage.getUserBookmarks(req.session.userId);
@@ -6002,6 +6027,108 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Report error:", error);
       res.status(500).json({ error: "신고 처리 중 오류가 발생했습니다" });
+    }
+  });
+
+  // ===== 사용자 차단 (UGC 모더레이션 — App Store 1.2) =====
+  // 차단하면 해당 작성자의 글/댓글이 피드에서 숨겨진다. 익명 작성자도 글/댓글 id로 차단 가능.
+  app.post("/api/community/block", requireAuth, async (req, res) => {
+    try {
+      const result = insertBlockSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "차단 대상을 지정하세요" });
+      }
+      const blockerId = req.session.userId!;
+      let blockedId = result.data.blockedId;
+      if (!blockedId) {
+        blockedId = await storage.resolveAuthorId({ postId: result.data.postId, commentId: result.data.commentId });
+      }
+      if (!blockedId) {
+        return res.status(404).json({ error: "대상을 찾을 수 없습니다" });
+      }
+      if (blockedId === blockerId) {
+        return res.status(400).json({ error: "자기 자신은 차단할 수 없습니다" });
+      }
+      await storage.blockUser(blockerId, blockedId);
+      res.json({ success: true, message: "차단되었습니다. 이 사용자의 글과 댓글이 더 이상 보이지 않습니다." });
+    } catch (error) {
+      console.error("Block error:", error);
+      res.status(500).json({ error: "차단 처리 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/community/unblock", requireAuth, async (req, res) => {
+    try {
+      const blockedId = (req.body?.blockedId as string | undefined)?.trim();
+      if (!blockedId) return res.status(400).json({ error: "해제할 대상을 지정하세요" });
+      await storage.unblockUser(req.session.userId!, blockedId);
+      res.json({ success: true, message: "차단이 해제되었습니다" });
+    } catch (error) {
+      console.error("Unblock error:", error);
+      res.status(500).json({ error: "차단 해제 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/community/blocked", requireAuth, async (req, res) => {
+    try {
+      const ids = await storage.getBlockedIds(req.session.userId!);
+      res.json({ blockedIds: ids });
+    } catch (error) {
+      console.error("Blocked list error:", error);
+      res.status(500).json({ error: "차단 목록 조회 중 오류가 발생했습니다" });
+    }
+  });
+
+  // ===== 푸시 알림 (APNs) =====
+  // 기기 토큰 등록 — 비로그인(익명)도 허용. 로그인 시 actor id와 연결.
+  app.post("/api/push/register", async (req, res) => {
+    try {
+      const token = (req.body?.token as string | undefined)?.trim();
+      const platform = ((req.body?.platform as string | undefined) || "ios").trim();
+      if (!token || token.length < 32 || token.length > 400) {
+        return res.status(400).json({ error: "유효하지 않은 토큰" });
+      }
+      await storage.upsertDeviceToken(token, platform, peekActorId(req));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Push register error:", error);
+      res.status(500).json({ error: "토큰 등록 중 오류" });
+    }
+  });
+
+  app.post("/api/push/unregister", async (req, res) => {
+    try {
+      const token = (req.body?.token as string | undefined)?.trim();
+      if (token) await storage.removeDeviceToken(token);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Push unregister error:", error);
+      res.status(500).json({ error: "토큰 해제 중 오류" });
+    }
+  });
+
+  // 관리자 수동 발송(테스트/공지) — ADMIN_USER_IDS만.
+  app.post("/api/push/send", requireAdmin, async (req, res) => {
+    try {
+      if (!isApnsConfigured()) {
+        return res.status(503).json({ error: "APNs가 설정되지 않았습니다(APNS_* 환경변수)." });
+      }
+      const title = (req.body?.title as string | undefined)?.trim();
+      const body = (req.body?.body as string | undefined)?.trim();
+      const link = (req.body?.link as string | undefined)?.trim() || undefined;
+      if (!title || !body) {
+        return res.status(400).json({ error: "title과 body가 필요합니다" });
+      }
+      const rows = await storage.getAllDeviceTokens("ios");
+      const result = await sendPush(rows.map((r) => r.token), { title, body, link });
+      // 무효 토큰 정리
+      for (const t of result.invalidTokens) {
+        await storage.removeDeviceToken(t).catch(() => {});
+      }
+      res.json({ success: true, ...result, total: rows.length });
+    } catch (error) {
+      console.error("Push send error:", error);
+      res.status(500).json({ error: "발송 중 오류" });
     }
   });
 

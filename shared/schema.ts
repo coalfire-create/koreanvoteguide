@@ -360,6 +360,41 @@ export const communityReports = pgTable("community_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 푸시 알림 기기 토큰 — APNs(iOS) 디바이스 토큰 저장. 한 기기당 1행(token 유니크).
+export const deviceTokens = pgTable("device_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: text("token").notNull(),
+  platform: text("platform").default("ios").notNull(),
+  userId: varchar("user_id"), // actor id("anon:..." 포함), 비로그인도 허용
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenUniq: uniqueIndex("device_tokens_token_uniq").on(table.token),
+}));
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+
+// 사용자 차단 — blockerId가 blockedId(글/댓글 작성자 actor id, "anon:..." 포함)를 숨김.
+export const userBlocks = pgTable("user_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  blockerId: varchar("blocker_id").notNull(),
+  blockedId: varchar("blocked_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  blockerBlockedUniq: uniqueIndex("user_blocks_blocker_blocked_uniq").on(table.blockerId, table.blockedId),
+  blockerIdx: index("user_blocks_blocker_idx").on(table.blockerId),
+}));
+export type UserBlock = typeof userBlocks.$inferSelect;
+
+export const insertBlockSchema = z.object({
+  // 차단할 대상의 글 또는 댓글 id (서버가 작성자 actor id를 역으로 찾아 차단)
+  postId: z.string().optional(),
+  commentId: z.string().optional(),
+  blockedId: z.string().optional(),
+}).refine((d) => d.postId || d.commentId || d.blockedId, {
+  message: "차단 대상을 지정하세요",
+});
+export type InsertBlock = z.infer<typeof insertBlockSchema>;
+
 export const insertPostSchema = createInsertSchema(communityPosts).pick({
   title: true,
   content: true,

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ThumbsUp, ThumbsDown, MessageCircle, ArrowLeft, Flag,
-  MoreVertical, CheckCircle, XCircle, Bookmark, BookmarkCheck, Eye, Pencil, Trash2,
+  MoreVertical, CheckCircle, XCircle, Bookmark, BookmarkCheck, Eye, Pencil, Trash2, Ban,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -143,6 +143,20 @@ export default function CommunityDetail() {
     },
     onSuccess: () => {
       toast({ title: "신고 접수", description: "신고가 접수되었습니다. 검토 후 조치하겠습니다." });
+    },
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: async ({ postId, commentId }: { postId?: string; commentId?: string }) => {
+      const res = await apiRequest("POST", "/api/community/block", { postId, commentId });
+      return res.json();
+    },
+    onSuccess: (data: any, vars) => {
+      toast({ title: "차단 완료", description: data?.message || "이 사용자의 글과 댓글이 더 이상 보이지 않습니다." });
+      queryClient.invalidateQueries({ queryKey: ["/api/community/posts"] });
+      // 글 작성자를 차단한 경우 목록으로 돌아간다(현재 글이 숨겨지므로)
+      if (vars.postId) navigate("/community");
+      else queryClient.invalidateQueries({ queryKey: ["/api/community/posts", params.id] });
     },
   });
 
@@ -316,6 +330,18 @@ export default function CommunityDetail() {
                       신고: {reason}
                     </DropdownMenuItem>
                   ))}
+                  {!post.isMine && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => user ? blockMutation.mutate({ postId: post.id }) : requireLoginToast()}
+                        className="text-destructive"
+                      >
+                        <Ban className="w-3.5 h-3.5 mr-2" />
+                        이 사용자 차단
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -459,6 +485,18 @@ export default function CommunityDetail() {
                               신고: {reason}
                             </DropdownMenuItem>
                           ))}
+                          {!c.isMine && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => user ? blockMutation.mutate({ commentId: c.id }) : requireLoginToast()}
+                                className="text-destructive text-xs"
+                              >
+                                <Ban className="w-3 h-3 mr-1.5" />
+                                이 사용자 차단
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
