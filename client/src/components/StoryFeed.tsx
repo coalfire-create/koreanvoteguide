@@ -37,7 +37,6 @@ interface AnalysisData {
   otherPerspectives: string;
 }
 
-const SLIDE_MS = 6000; // 슬라이드당 자동 재생 시간
 
 function formatRelativeTime(pubDate: string): string {
   const diff = Date.now() - new Date(pubDate).getTime();
@@ -89,6 +88,15 @@ function StoryViewer({
 
   const analysis = analysisRes?.data;
 
+  // 자동 넘김 시간을 본문 길이(읽는 시간)에 비례시켜, 긴 요약이 다 읽히기 전에 넘어가지 않게 한다.
+  const slideMs = (() => {
+    const text = analysis
+      ? [analysis.summary, analysis.background, analysis.otherPerspectives].filter(Boolean).join(" ")
+      : (current?.summary || current?.title || "");
+    // 기본 5초 + 글자당 약 45ms (한국어 읽기 속도), 6~30초로 클램프
+    return Math.min(30000, Math.max(6000, 5000 + text.length * 45));
+  })();
+
   const goNext = useCallback(() => {
     if (itemIdx + 1 < slides.length) {
       setItemIdx(itemIdx + 1);
@@ -119,12 +127,12 @@ function StoryViewer({
     if (paused || isAnalyzing) return;
     const tick = setInterval(() => {
       const elapsed = Date.now() - startRef.current;
-      const pct = Math.min(1, elapsed / SLIDE_MS);
+      const pct = Math.min(1, elapsed / slideMs);
       setProgress(pct);
       if (pct >= 1) goNext();
     }, 50);
     return () => clearInterval(tick);
-  }, [personIdx, itemIdx, paused, isAnalyzing, goNext]);
+  }, [personIdx, itemIdx, paused, isAnalyzing, goNext, slideMs]);
 
   // 스토리 시청 완료 처리
   useEffect(() => {
@@ -176,7 +184,7 @@ function StoryViewer({
       {/* 스토리 카드 (모바일 9:16, 데스크탑 중앙 고정폭) */}
       <div className="relative w-full h-full max-w-[460px] sm:h-[92vh] sm:rounded-2xl overflow-hidden flex flex-col bg-zinc-950">
         {/* 진행바 */}
-        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 px-3 pt-3">
+        <div className="absolute top-0 left-0 right-0 z-30 flex gap-1 px-3 pt-3">
           {slides.map((_, i) => (
             <div key={i} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
               <div
@@ -191,7 +199,7 @@ function StoryViewer({
         </div>
 
         {/* 헤더 */}
-        <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 px-4 pt-7 pb-3">
+        <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-3 px-4 pt-7 pb-3">
           <div className="w-9 h-9 rounded-full overflow-hidden bg-white/10 shrink-0 ring-1 ring-white/30">
             <PoliticianPhoto
               name={person.name}
@@ -235,8 +243,8 @@ function StoryViewer({
 
         {/* 본문 (z-20) */}
         <div className="relative z-20 flex-1 flex flex-col justify-between pt-20 px-6 pb-8 h-full">
-          {/* 중간 영역: scrollable AI 뉴스 요약 (z-20) */}
-          <div className="flex-1 flex flex-col justify-center my-4 overflow-y-auto no-scrollbar max-h-[55vh]">
+          {/* 중간 영역: scrollable AI 뉴스 요약 (z-20) — 가용 높이를 꽉 채우고 길면 스크롤 */}
+          <div className="flex-1 min-h-0 flex flex-col my-4 overflow-y-auto no-scrollbar">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${personIdx}-${itemIdx}`}
@@ -277,8 +285,8 @@ function StoryViewer({
                     </div>
                   ) : (
                     // AI 뉴스 분석 결과 렌더링
-                    <div 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md overflow-y-auto max-h-[48vh] no-scrollbar space-y-4"
+                    <div
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4"
                       onMouseEnter={() => setPaused(true)}
                       onMouseLeave={() => setPaused(false)}
                       onTouchStart={() => setPaused(true)}

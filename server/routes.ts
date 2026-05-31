@@ -5000,6 +5000,11 @@ export async function registerRoutes(
     res.json(SOURCE_META);
   });
 
+  // 뉴스 분석 캐시 — 같은 기사는 한 번만 스크래핑/LLM 호출하고 이후 재사용(AI 비용 절감 핵심).
+  // L1: 인메모리 LRU(재시작 전까지 즉답), L2: ai_cache 테이블(영속, 30일). + 동시 요청 dedup.
+  const newsAnalysisCache = new LruMap<string, any>(500);
+  const newsAnalysisInFlight = new Map<string, Promise<any>>();
+
   app.post("/api/news/analyze", async (req, res) => {
     try {
       const { url, title: clientTitle, source: clientSource } = req.body;
@@ -5007,35 +5012,62 @@ export async function registerRoutes(
         return res.status(400).json({ error: "URL 또는 제목이 필요합니다." });
       }
 
-      let analysisTitle = clientTitle || "";
-      let analysisContent = "";
-
-      // 1. 스크래핑 시도 (실패해도 제목으로 폴백)
+      // 캐시 키: URL 우선(쿼리스트링 제거로 동일 기사 통합), 없으면 제목.
+      let cacheKey = "news:";
       if (url) {
-        try {
-          const article = await scrapeNewsArticle(url);
-          if (article?.content && article.content.length >= 200) {
-            analysisContent = article.content;
+        try { const u = new URL(url); cacheKey += u.origin + u.pathname; }
+        catch { cacheKey += String(url); }
+      } else {
+        cacheKey += `title:${clientTitle}`;
+      }
+
+      // L1
+      const l1 = newsAnalysisCache.get(cacheKey);
+      if (l1) return res.json({ success: true, data: l1, cached: "l1" });
+      // L2 (DB 영속)
+      const l2 = await getAiCache<any>(cacheKey);
+      if (l2) {
+        newsAnalysisCache.set(cacheKey, l2);
+        return res.json({ success: true, data: l2, cached: "l2" });
+      }
+      // 동일 기사 동시 요청은 한 번만 분석하고 결과 공유
+      if (newsAnalysisInFlight.has(cacheKey)) {
+        const data = await newsAnalysisInFlight.get(cacheKey)!;
+        return res.json({ success: true, data, cached: "inflight" });
+      }
+
+      const work = (async () => {
+        let analysisTitle = clientTitle || "";
+        let analysisContent = "";
+        // 1. 스크래핑 시도 (실패해도 제목으로 폴백)
+        if (url) {
+          try {
+            const article = await scrapeNewsArticle(url);
+            if (article?.content && article.content.length >= 200) analysisContent = article.content;
+            if (article?.title && !analysisTitle) analysisTitle = article.title;
+          } catch (scrapeErr) {
+            console.warn("[news/analyze] 스크래핑 실패, 제목만으로 분석:", scrapeErr);
           }
-          if (article?.title && !analysisTitle) {
-            analysisTitle = article.title;
-          }
-        } catch (scrapeErr) {
-          console.warn("[news/analyze] 스크래핑 실패, 제목만으로 분석:", scrapeErr);
         }
+        if (!analysisTitle) throw Object.assign(new Error("기사 제목을 확인할 수 없습니다."), { status: 400 });
+        // 2. AI 분석 (본문 없어도 제목+출처만으로 수행)
+        const analysis = await analyzeNewsWithAI(analysisTitle, analysisContent, clientSource);
+        // 캐시 저장 (L1 즉시, L2 영속 30일)
+        newsAnalysisCache.set(cacheKey, analysis);
+        setAiCache(cacheKey, "news/analyze", analysis, 30).catch(() => {});
+        return analysis;
+      })();
+      newsAnalysisInFlight.set(cacheKey, work);
+
+      try {
+        const analysis = await work;
+        res.json({ success: true, data: analysis });
+      } finally {
+        newsAnalysisInFlight.delete(cacheKey);
       }
-
-      if (!analysisTitle) {
-        return res.status(400).json({ error: "기사 제목을 확인할 수 없습니다." });
-      }
-
-      // 2. AI 분석 (본문 없어도 제목+출처만으로 수행)
-      const analysis = await analyzeNewsWithAI(analysisTitle, analysisContent, clientSource);
-
-      res.json({ success: true, data: analysis });
     } catch (error: any) {
       console.error("News analyze error:", error);
-      res.status(500).json({ error: error.message || "뉴스 분석 중 오류가 발생했습니다." });
+      res.status(error.status || 500).json({ error: error.message || "뉴스 분석 중 오류가 발생했습니다." });
     }
   });
 
