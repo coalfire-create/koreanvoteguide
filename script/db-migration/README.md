@@ -22,14 +22,29 @@
    ```
 
 ## 실행
+
+### 방법 A — pg_dump (표준)
 ```bash
 export SOURCE_DATABASE_URL='postgresql://...(현재 공유 DB, 다이렉트 5432)'
 export TARGET_DATABASE_URL='postgresql://...(새 전용 DB, 다이렉트 5432)'
 
-# 1) 덤프 + 복원
-bash script/db-migration/migrate.sh
+bash script/db-migration/migrate.sh        # 덤프 + 복원
+tsx  script/db-migration/verify.ts          # 행 수 대조
+```
 
-# 2) 행 수 대조 검증
+### 방법 B — pg_dump 없이 (drizzle-kit + Node, 권장: 이 프로젝트 환경)
+`pg_dump`/`psql` 클라이언트가 없어도 동작. 스키마는 drizzle-kit으로 생성, 데이터는 Node로 복사.
+```bash
+export SOURCE_DATABASE_URL='postgresql://...(현재 공유 DB)'
+export TARGET_DATABASE_URL='postgresql://...(새 전용 DB)'
+
+# 1) 새 DB에 스키마 생성 (빈 DB라 db:push 안전)
+DATABASE_URL="$TARGET_DATABASE_URL" npx drizzle-kit push
+
+# 2) 데이터 복사 (멱등 — 재실행 안전)
+tsx script/db-migration/copy-data.ts
+
+# 3) 행 수 대조
 tsx script/db-migration/verify.ts
 ```
 
