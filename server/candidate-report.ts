@@ -337,7 +337,9 @@ export async function generateCandidateReport(
     temperature: 0.1,
     maxTokens: 1800,
     label: "candidates/evaluation-report",
-    provider: "openai",
+    provider: "groq",
+    // 추론 무거운 플래그십 분석 — 기본 8B 대신 70B로 품질 우선.
+    model: "llama-3.3-70b-versatile",
   });
 
   // 키워드 정확히 3개 보정 (모델이 초과/미만 반환 시 방어)

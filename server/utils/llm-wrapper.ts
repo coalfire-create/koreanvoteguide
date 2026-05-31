@@ -6,7 +6,7 @@
  * 보장 사항:
  *   1. Strict JSON Mode    — `response_format: { type: "json_object" }` 자동 주입
  *   2. Markdown Stripping  — ```json … ``` 펜스 제거 후 안전 파싱
- *   3. Exponential Backoff — 5xx / 429 / 네트워크 오류만 재시도 (1s → 2s → 4s)
+ *   3. Exponential Backoff — 5xx / 429 / 네트워크 오류만 재시도 (0.6s → 1.2s, 총 3회)
  *   4. Deep Error Logging  — 상태코드, 에러 본문, 파싱 실패 원본 문자열까지 stderr에 기록
  *   5. Generic Typing      — `callLLMJson<T>` 로 응답 타입 컴파일 타임 보장
  */
@@ -16,11 +16,15 @@ import OpenAI from "openai";
 // ─────────────────────────────────────────────
 // 환경 / 상수
 // ─────────────────────────────────────────────
-const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+// 속도 최우선: Groq 최고속 모델. 더 높은 추론 품질이 필요하면 호출부에서
+// model: "llama-3.3-70b-versatile" 로 개별 오버라이드.
+const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
-const MAX_RETRIES = 4;            // 1차 + 재시도 4 = 총 5회
-const BACKOFF_BASE_MS = 2000;     // 2s → 4s → 8s → 16s
-const RATE_LIMIT_EXTRA_MS = 5000; // 429 에러 시 추가 대기
+// 재시도를 공격적으로 단축 — 기존(4회/2s base/429 +5s)은 rate limit 시
+// 최악 ~50s 대기로 "AI가 너무 느림"의 주원인이었다. 이제 최악 ~4s.
+const MAX_RETRIES = 2;            // 1차 + 재시도 2 = 총 3회
+const BACKOFF_BASE_MS = 600;      // 0.6s → 1.2s
+const RATE_LIMIT_EXTRA_MS = 1200; // 429 에러 시 추가 대기
 
 // 4xx 가운데 재시도 가치가 있는 상태코드 (rate limit)
 const TRANSIENT_4XX = new Set<number>([408, 425, 429]);
@@ -251,7 +255,7 @@ async function callWithRetry(params: InternalCallParams): Promise<string> {
 
       // 429(rate limit) 시에는 추가 대기를 부여해 Groq 할당량 회복을 기다린다
       const is429 = (err as any)?.status === 429;
-      const baseWait = BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s, 16s
+      const baseWait = BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // 0.6s, 1.2s
       const wait = is429 ? baseWait + RATE_LIMIT_EXTRA_MS : baseWait;
       process.stderr.write(`  ⚠ [llm:${label}] ${wait}ms 후 재시도 (${attempt}/${MAX_RETRIES})${is429 ? ' [429 rate limit]' : ''}\n`);
       await delay(wait);

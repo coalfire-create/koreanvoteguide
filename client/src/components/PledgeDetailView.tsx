@@ -58,23 +58,70 @@ function FormattedText({ text, size = "sm" }: { text: string; size?: "sm" | "bas
 }
 
 // ─── 단독 공약 실현가능성 초기 추정 (로딩 중 표시용 키워드 기반) ─────────
-export function analyzeFeasibility(title: string, description: string): {
+export function analyzeFeasibility(
+  title: string,
+  description: string,
+  opts?: { method?: string; funding?: string; duration?: string; realmName?: string; content?: string },
+): {
   score: number; label: string; color: string; bg: string; reasons: string[]; concerns: string[];
 } {
-  const text = (title + " " + (description || "")).toLowerCase();
-  let score = 50;
+  const method = opts?.method ?? "";
+  const funding = opts?.funding ?? "";
+  const duration = opts?.duration ?? "";
+  const content = opts?.content ?? "";
+
+  // 전체 텍스트를 종합적으로 분석
+  const text = [title, description, method, funding, duration, content].join(" ").toLowerCase();
+  let score = 35; // 기본 점수를 낮게 시작 — 구체성이 있어야 올라가도록
   const reasons: string[] = [];
   const concerns: string[] = [];
 
-  if (text.includes("예산") || text.includes("재원")) { score += 5; reasons.push("재원 조달 계획 언급"); }
-  if (text.includes("단계") || text.includes("순차") || text.includes("점진")) { score += 10; reasons.push("단계적 실현 방안 제시"); }
-  if (text.includes("법안") || text.includes("입법") || text.includes("개정")) { score += 8; reasons.push("입법 기반 마련 필요"); }
-  if (text.includes("확대") || text.includes("강화") || text.includes("개선")) { score += 5; reasons.push("기존 제도 개선 방향"); }
-  if (text.includes("무상") || text.includes("전면")) { score -= 10; concerns.push("전면 시행 시 재정 부담"); }
-  if (text.includes("즉시") || text.includes("바로") || text.includes("당장")) { score -= 8; concerns.push("단기 실현 가능성 불투명"); }
-  if (text.includes("혁신") || text.includes("대전환") || text.includes("전면개편")) { score -= 5; concerns.push("구조적 변화 수반, 장기간 소요"); }
-  if (text.includes("연구") || text.includes("검토")) { score -= 5; concerns.push("구체적 방안 미확정"); }
-  if (text.includes("지원") || text.includes("보조금")) { score += 5; reasons.push("지원 중심 정책, 시행 용이"); }
+  // ── 1) 구조적 정보 존재 여부 (가장 큰 차별화 요인) ──
+  const hasMethod = method.trim().length > 10;
+  const hasFunding = funding.trim().length > 10;
+  const hasDuration = duration.trim().length > 5;
+  const hasContent = content.trim().length > 20 || description.trim().length > 20;
+
+  if (hasMethod) { score += 12; reasons.push("이행 방법 제시"); }
+  else { concerns.push("이행 방법 미기재"); }
+
+  if (hasFunding) { score += 15; reasons.push("재원 조달 방안 제시"); }
+  else { concerns.push("재원 조달 방안 미기재"); }
+
+  if (hasDuration) { score += 8; reasons.push("이행 기간 명시"); }
+  else { concerns.push("이행 기간 미기재"); }
+
+  if (hasContent) { score += 5; }
+
+  // ── 2) 재원 조달 구체성 (금액·출처 언급 시 가산) ──
+  const fundingText = funding.toLowerCase();
+  if (fundingText && (/\d/.test(fundingText) || fundingText.includes("억") || fundingText.includes("조"))) {
+    score += 5; reasons.push("구체적 금액 명시");
+  }
+  if (fundingText && (fundingText.includes("국비") || fundingText.includes("지방비") || fundingText.includes("민자"))) {
+    score += 3;
+  }
+
+  // ── 3) 이행 방법 구체성 ──
+  const methodText = method.toLowerCase();
+  if (methodText && methodText.length > 50) { score += 3; }
+  if (methodText && (methodText.includes("조례") || methodText.includes("법률") || methodText.includes("개정"))) {
+    score += 4; reasons.push("법적 근거 마련 계획");
+  }
+
+  // ── 4) 이행 기간 구체성 ──
+  const durationText = duration.toLowerCase();
+  if (durationText && (durationText.includes("년") || durationText.includes("단계") || /\d/.test(durationText))) {
+    score += 3;
+  }
+
+  // ── 5) 키워드 기반 보정 (기존 로직 유지하되 비중 축소) ──
+  if (text.includes("예산") || text.includes("재원")) { score += 2; }
+  if (text.includes("단계") || text.includes("순차") || text.includes("점진")) { score += 3; reasons.push("단계적 실현 방안"); }
+  if (text.includes("확대") || text.includes("강화") || text.includes("개선")) { score += 2; }
+  if (text.includes("무상") || text.includes("전면")) { score -= 5; concerns.push("전면 시행 시 재정 부담"); }
+  if (text.includes("즉시") || text.includes("바로") || text.includes("당장")) { score -= 4; concerns.push("단기 실현 가능성 불투명"); }
+  if (text.includes("혁신") || text.includes("대전환") || text.includes("전면개편")) { score -= 3; concerns.push("구조적 변화 수반"); }
 
   score = Math.max(10, Math.min(95, score));
   if (reasons.length === 0) reasons.push("공약 내용 검토 중");
@@ -174,7 +221,7 @@ function PledgeFeasibilitySection({
   candidateJob?: string;
   candidateCareer1?: string;
 }) {
-  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+  const fallback = analyzeFeasibility(promise.title, promise.description || "", { method: promise.method, funding: promise.funding, duration: promise.duration, content: promise.content, realmName: promise.realmName });
   const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
 
   const { data: ai, isLoading, isError } = useQuery<PledgeAnalysisResult>({
@@ -321,7 +368,7 @@ function usePledgeAnalysis(
   promise: Pledge,
   candidate: { name?: string; party?: string; job?: string; career1?: string },
 ) {
-  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+  const fallback = analyzeFeasibility(promise.title, promise.description || "", { method: promise.method, funding: promise.funding, duration: promise.duration, content: promise.content, realmName: promise.realmName });
   const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
 
   const query = useQuery<PledgeAnalysisResult>({
@@ -799,7 +846,7 @@ function SinglePledgeView({
   candidateJob?: string;
   candidateCareer1?: string;
 }) {
-  const fallback = analyzeFeasibility(promise.title, promise.description || "");
+  const fallback = analyzeFeasibility(promise.title, promise.description || "", { method: promise.method, funding: promise.funding, duration: promise.duration, content: promise.content, realmName: promise.realmName });
 
   const pledgeText = promise.title + (promise.description ? ` — ${promise.description}` : "");
 

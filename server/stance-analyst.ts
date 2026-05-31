@@ -390,7 +390,9 @@ export async function analyzePolicyStance(
     temperature: 0.2,
     maxTokens: 900,
     label: `stance-analyst/${dimension}`,
-    provider: "openai",
+    provider: "groq",
+    // 표결 기반 정치성향 분석 — 정확도 위해 기본 8B 대신 70B 고정.
+    model: "llama-3.3-70b-versatile",
   });
 
   const norm = normalizeLLMResult(result, decisive);

@@ -143,7 +143,7 @@ function PledgeCard({ candidateId, promise, onClick }: {
     staleTime: 30 * 1000,
   });
 
-  const feasibility = analyzeFeasibility(promise.title, promise.description);
+  const feasibility = analyzeFeasibility(promise.title, promise.description, { method: promise.method, funding: promise.funding, duration: promise.duration });
 
   return (
     <button

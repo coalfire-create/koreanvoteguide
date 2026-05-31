@@ -24,8 +24,8 @@ const config: CapacitorConfig = {
     allowNavigation: ['xn--2r5b1f.com', '*.xn--2r5b1f.com', 'localhost'],
   },
   ios: {
-    backgroundColor: '#FFFFFF',
-    contentInset: 'always',
+    backgroundColor: '#000000',
+    contentInset: 'automatic',
     scrollEnabled: true,
     // App Bound Domains 는 프로덕션 빌드에서만 활성화 (App Store 가이드 4.2 준수).
     // 개발 빌드(localhost:3000)에서는 비활성 — Apple WK 가 'localhost' 를 valid
@@ -38,10 +38,13 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: '#0F172A',
+      // 검정 스플래시 + 안전장치: JS(main.tsx)가 SplashScreen.hide()를 호출하지만,
+      // dev 서버 미도달 등으로 JS가 안 돌면 launchAutoHide:false 일 때 스플래시에
+      // 영구 고정된다(보라/검정 화면에서 멈춤). → autoHide:true 로 1.5s 후 자동 해제.
+      launchShowDuration: 1500,
+      backgroundColor: '#000000',
       showSpinner: false,
-      launchAutoHide: false,
+      launchAutoHide: true,
       iosSpinnerStyle: 'small',
       spinnerColor: '#FFFFFF',
     },
