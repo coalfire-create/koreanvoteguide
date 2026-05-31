@@ -73,26 +73,26 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 w-full bg-black backdrop-blur-md border-b border-white/10 pt-[env(safe-area-inset-top)] text-white">
         <div className="h-[60px] sm:h-[72px] flex items-center px-4 sm:px-8">
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-[500px] group">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white transition-colors" />
             <input
-              className="w-full h-9 sm:h-10 pl-9 sm:pl-11 pr-4 sm:pr-12 bg-muted border border-border/30 rounded-xl text-[14px] focus:bg-background focus:border-primary/30 outline-none transition-all placeholder:text-muted-foreground font-medium text-foreground"
+              className="w-full h-9 sm:h-10 pl-9 sm:pl-11 pr-4 sm:pr-12 bg-white/10 border border-white/20 rounded-xl text-[14px] focus:bg-white/20 focus:border-white/30 outline-none transition-all placeholder:text-gray-400 font-medium text-white"
               placeholder="국회의원 이름으로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-background border border-border/30 rounded shadow-sm">
-              <span className="text-[10px] font-bold text-muted-foreground">⌘K</span>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-white/10 border border-white/20 rounded shadow-sm">
+              <span className="text-[10px] font-bold text-gray-300">⌘K</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => setNotifOpen(true)} className="p-2 text-muted-foreground hover:text-foreground transition-colors relative">
+          <button onClick={() => setNotifOpen(true)} className="p-2 text-gray-400 hover:text-white transition-colors relative">
             <Bell className="w-5 h-5" />
-            {hasUnread && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background" />}
+            {hasUnread && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />}
           </button>
           {user ? (
             <Link href="/more">

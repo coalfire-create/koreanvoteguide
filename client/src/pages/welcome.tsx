@@ -58,7 +58,7 @@ export default function Welcome() {
   return (
     <div className="min-h-screen bg-white flex flex-col text-foreground">
       {/* 상단 진행바 + 건너뛰기 */}
-      <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-xl border-b border-gray-100 px-4 pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-20 bg-black backdrop-blur-xl border-b border-gray-800 px-4 pt-[env(safe-area-inset-top)] text-white">
         <div className="flex items-center gap-3 h-12">
           {step > 0 ? (
             <button
@@ -66,7 +66,7 @@ export default function Welcome() {
               className="p-1 -ml-1 active:opacity-60"
               aria-label="이전"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-500" />
+              <ChevronLeft className="w-5 h-5 text-white" />
             </button>
           ) : (
             <div className="w-7" />
@@ -76,14 +76,14 @@ export default function Welcome() {
               <span
                 key={i}
                 className={`h-1 rounded-full flex-1 transition-colors ${
-                  i <= step ? "bg-indigo-500" : "bg-gray-200"
+                  i <= step ? "bg-indigo-500" : "bg-gray-800"
                 }`}
               />
             ))}
           </div>
           <button
             onClick={skip}
-            className="text-[13px] font-bold text-gray-400 active:opacity-60 px-1"
+            className="text-[13px] font-bold text-gray-300 active:opacity-60 px-1"
           >
             건너뛰기
           </button>

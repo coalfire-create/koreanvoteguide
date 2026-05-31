@@ -50,7 +50,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       {/* 백그라운드 데코레이션 그라데이션 */}
-      <div className="absolute top-0 left-0 right-0 h-[45vh] bg-gradient-to-br from-indigo-600 via-primary to-indigo-800 rounded-b-[3.5rem] shadow-2xl z-0 overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[45vh] bg-black rounded-b-[3.5rem] shadow-2xl z-0 overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.05] mix-blend-overlay" />
         <motion.div 
           animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
