@@ -223,14 +223,14 @@ function StoryViewer({
           onClick={goPrev}
           onPointerDown={() => setPaused(true)}
           onPointerUp={() => setPaused(false)}
-          className="absolute left-0 top-0 bottom-0 w-[32%] z-10"
+          className="absolute left-0 top-20 bottom-0 w-[32%] z-10"
         />
         <button
           aria-label="다음"
           onClick={goNext}
           onPointerDown={() => setPaused(true)}
           onPointerUp={() => setPaused(false)}
-          className="absolute right-0 top-0 bottom-0 w-[68%] z-10"
+          className="absolute right-0 top-20 bottom-0 w-[68%] z-10"
         />
 
         {/* 본문 (z-20) */}
