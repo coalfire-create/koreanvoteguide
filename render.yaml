@@ -84,6 +84,10 @@ services:
       - key: SMS_PROVIDER
         sync: false                # 빈 값이면 /api/auth/send-sms가 prod에서 503
 
+      # ===== AI 결과 캐시 =====
+      - key: AI_CACHE_TTL_DAYS
+        value: "1"                 # AI 분석 DB 캐시 유효기간(일). 1=24시간(실시간성). 비용 더 줄이려면 늘리기
+
       # ===== 안전장치 =====
       - key: ENABLE_DEV_TESTER
         value: "0"                 # mock 계정 비활성화. prod에서 절대 "1"로 두지 말 것
