@@ -5359,7 +5359,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "공약 내용이 필요합니다" });
       }
 
-      const cacheKey = `analyze-pledge:v2:${[name, pledgeTitle, method, funding, duration].join("||")}`;
+      const cacheKey = `analyze-pledge:v3:${[name, pledgeTitle, method, funding, duration].join("||")}`;
       const memHit = pledgeAnalyzeCache.get(cacheKey) as Record<string, any> | undefined;
       if (memHit?.detailedAxes) return res.json(memHit);
       // L2: DB 영속 캐시 — detailedAxes 없는 구버전은 무시하고 재실행
@@ -5434,6 +5434,7 @@ export async function registerRoutes(
         "• feasibilityLabel은 점수와 엄격히 연동: 75+ '높음', 55-74 '중간', 35-54 '보통', 0-34 '낮음'.",
         "• voterTip에는 유권자가 후보에게 질문하는 형식을 사용하지 마십시오. 대신, 이 공약의 실현 가능성을 유권자가 직접 검증/행동할 수 있는 구체적인 행동 방안(예: 정보공개청구, 선관위 자료 확인, 지자체 예산안/조례 검색 등)을 1~2문장으로 제시하십시오.",
         "• keyVulnerability에는 이 공약의 가장 큰 구조적 약점을 2~3문장으로 적는다.",
+        "• 모든 텍스트는 한자·중국어·일본어 표기 없이 순한글로만 작성한다(예: '大量'→'대량', '参考'→'참고'). 숫자와 인명·고유명사는 예외.",
         "",
         "[출력 — 아래 JSON 스키마와 정확히 동일한 키만 사용. 코드펜스·접두어·설명문 금지.]",
         '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 이 공약의 실현 여부를 검증/감시할 수 있는 구체적인 감시 및 행동 방안 1~2문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"planSpecificity":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"financialFeasibility":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"economicViability":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"precedentVerification":{"score":<1-5>,"analysis":"실제 유사 사례를 든 3~4문장"}}}',
