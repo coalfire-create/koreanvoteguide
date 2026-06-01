@@ -16,9 +16,11 @@ import OpenAI from "openai";
 // ─────────────────────────────────────────────
 // 환경 / 상수
 // ─────────────────────────────────────────────
-// 속도 최우선: Groq 최고속 모델. 더 높은 추론 품질이 필요하면 호출부에서
-// model: "llama-3.3-70b-versatile" 로 개별 오버라이드.
-const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
+// 품질 우선: 기본을 70B versatile 로 둔다(8B instant 는 분석 깊이가 얕음).
+// 속도/rate-limit 이슈 시 GROQ_MODEL 환경변수로 오버라이드(예: llama-3.1-8b-instant).
+const DEFAULT_GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+// 짧은 단순 작업(법안 한줄설명 등)은 속도용 경량 모델을 쓰고 싶을 때 사용.
+export const FAST_GROQ_MODEL = "llama-3.1-8b-instant";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 // 재시도를 공격적으로 단축 — 기존(4회/2s base/429 +5s)은 rate limit 시
 // 최악 ~50s 대기로 "AI가 너무 느림"의 주원인이었다. 이제 최악 ~4s.

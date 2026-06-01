@@ -10,9 +10,15 @@ interface NewsAnalysisResult {
 }
 
 const SYSTEM_PROMPT =
-  "당신은 중립적이고 분석적인 한국 정치 뉴스 에디터입니다. " +
-  "반드시 아래 JSON 스키마만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.\n" +
-  '{"summary":"기사 핵심 내용 2-4문장","background":"배경과 맥락","relatedTopics":["키워드1","키워드2","키워드3"],"otherPerspectives":"엇갈린 시각"}';
+  "당신은 한국 정치 전문 시사 에디터입니다. 독자가 이 기사 하나만 읽어도 사안의 전말을 깊이 이해하도록, " +
+  "중립적이면서도 정보가 풍부한 분석을 작성합니다. 추측은 사실과 구분하고, 등장 인물·정당·정책·쟁점을 구체적으로 짚으세요.\n" +
+  "반드시 아래 JSON 스키마만 출력하고 다른 텍스트는 절대 포함하지 마세요. 모든 값은 한국어 존댓말.\n" +
+  "{" +
+  '"summary":"기사의 핵심을 구체적 사실(인물·수치·일정·쟁점)을 담아 4~6문장으로 충실히 요약",' +
+  '"background":"이 사안의 역사적·정치적 맥락과 왜 중요한지를 3~5문장으로 설명(독자가 모를 수 있는 배경지식 포함)",' +
+  '"relatedTopics":["핵심 키워드 5~7개"],' +
+  '"otherPerspectives":"여야·이해관계자별로 엇갈리는 시각과 그 근거를 3~5문장으로 균형 있게 서술"' +
+  "}";
 
 /**
  * 주어진 뉴스 URL에서 제목과 본문을 스크래핑합니다.
@@ -87,7 +93,7 @@ export async function scrapeNewsArticle(url: string): Promise<{ title: string; c
  */
 export async function analyzeNewsWithAI(title: string, content: string, source?: string): Promise<NewsAnalysisResult> {
   const hasContent = content && content.length >= 200;
-  const maxContentLength = 4000;
+  const maxContentLength = 8000;
   const truncatedContent = hasContent
     ? (content.length > maxContentLength ? content.slice(0, maxContentLength) + "..." : content)
     : "";
@@ -104,7 +110,7 @@ export async function analyzeNewsWithAI(title: string, content: string, source?:
       system: SYSTEM_PROMPT,
       user: userContent,
       temperature: 0.4,
-      maxTokens: 800,
+      maxTokens: 1600,
       label: "news/analyze",
     });
 

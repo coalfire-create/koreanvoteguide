@@ -5013,7 +5013,8 @@ export async function registerRoutes(
       }
 
       // 캐시 키: URL 우선(쿼리스트링 제거로 동일 기사 통합), 없으면 제목.
-      let cacheKey = "news:";
+      // v2 = 70B 모델 + 강화 프롬프트 적용 — 옛 8B 캐시를 무시하고 재생성.
+      let cacheKey = "news:v2:";
       if (url) {
         try { const u = new URL(url); cacheKey += u.origin + u.pathname; }
         catch { cacheKey += String(url); }
@@ -5146,11 +5147,12 @@ export async function registerRoutes(
 
           return await callLLMText({
             system:
-              "당신은 한국 국회 법안을 시민이 쉽게 이해할 수 있도록 설명하는 전문가입니다. " +
-              "2~3문장(80자 이내)으로만 설명하세요. 다른 말은 하지 마세요.",
+              "당신은 한국 국회 법안을 시민이 쉽게 이해하도록 설명하는 전문가입니다. " +
+              "① 이 법안이 무엇을 바꾸려 하는지(목적), ② 시민 생활에 미치는 실제 영향을 " +
+              "쉽고 구체적인 표현으로 3~4문장(180자 내외)으로 설명하세요. 전문용어는 풀어 쓰고, 다른 말은 하지 마세요.",
             user: `법안명: ${billName}${context ? `\n추가정보: ${context}` : ""}`,
             temperature: 0.3,
-            maxTokens: 200,
+            maxTokens: 450,
             label: "bills/describe",
           });
         } finally {
