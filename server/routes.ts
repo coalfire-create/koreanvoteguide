@@ -5013,8 +5013,8 @@ export async function registerRoutes(
       }
 
       // 캐시 키: URL 우선(쿼리스트링 제거로 동일 기사 통합), 없으면 제목.
-      // v2 = 70B 모델 + 강화 프롬프트 적용 — 옛 8B 캐시를 무시하고 재생성.
-      let cacheKey = "news:v2:";
+      // v3 = 70B + 강화 프롬프트 + 순한글 지침 — 옛 캐시 무시하고 재생성.
+      let cacheKey = "news:v3:";
       if (url) {
         try { const u = new URL(url); cacheKey += u.origin + u.pathname; }
         catch { cacheKey += String(url); }
