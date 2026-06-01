@@ -5359,7 +5359,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "공약 내용이 필요합니다" });
       }
 
-      const cacheKey = `analyze-pledge::${[name, pledgeTitle, method, funding, duration].join("||")}`;
+      const cacheKey = `analyze-pledge:v2:${[name, pledgeTitle, method, funding, duration].join("||")}`;
       const memHit = pledgeAnalyzeCache.get(cacheKey) as Record<string, any> | undefined;
       if (memHit?.detailedAxes) return res.json(memHit);
       // L2: DB 영속 캐시 — detailedAxes 없는 구버전은 무시하고 재실행
@@ -5417,16 +5417,17 @@ export async function registerRoutes(
         "B. fundingScore (재원): 구체 세입 출처·금액·연차로 검증 가능한가. '국비 확보' '민자 유치' '예산 절감'은 25점 이하.",
         "C. timelineScore (기간): 임기 4년 내 분기·연차별 마일스톤이 명시되어 있는가. '추진' '검토' '단계적'만 있으면 25점 이하.",
         "",
-        "[5축 정밀 평가 — 각 항목 1~5점(정수) + 2~3문장 분석]",
-        "아래 5개 축을 detailedAxes 객체 안에 포함시켜라. 각 축은 {score: 1~5 정수, analysis: '2~3문장 한국어 평가'} 형태이다.",
-        "1. internalConsistency (내부 정합성): 재원조달방안이 이행방법을 논리적으로 뒷받침하는가? 재원 규모와 일정 사이에 모순은 없는가?",
-        "2. planSpecificity (이행계획 구체성): 단계별 계획이 구체적인가, 아니면 선언적 수준에 머무는가? 후보 고유의 전략이 있는가, 기존 정부 계획을 인용한 것인가?",
-        "3. financialFeasibility (재정 실현가능성): 재원 조달 수단(국비/지방비/민자)의 현실성은? 유사 사업의 예산 초과 선례를 감안할 때 총사업비 전망은?",
-        "4. economicViability (경제적 타당성): 비용편익(B/C) 비율, 경제적 파급효과, 주요 변수 리스크는?",
-        "5. precedentVerification (선례 검증): 유사 사업의 성공/실패 이력, 전문가 컨센서스, 정치적 리스크는?",
+        "[5축 정밀 평가 — 각 항목 1~5점(정수) + 3~4문장 분석]",
+        "아래 5개 축을 detailedAxes 객체 안에 포함시켜라. 각 축은 {score: 1~5 정수, analysis: '3~4문장 한국어 평가'} 형태이다.",
+        "★ 중요: 입력에 일부 정보가 '기재 안 됨'이어도, 당신이 보유한 정책·행정·경제 지식과 실제 국내외 사례를 적극 활용해 '구체적이고 서로 다른' 분석을 작성하라. '데이터가 없다/고려되지 않았다/확인할 수 없다'는 식의 회피성 문장은 금지한다. 각 축마다 그 축에 고유한 근거를 제시하라.",
+        "1. internalConsistency (내부 정합성): 공약의 목표·이행방법·재원·일정이 서로 논리적으로 맞물리는가? 목표 규모에 비해 수단이 과소/과대하지 않은가? 내부 모순을 구체적으로 지적하라.",
+        "2. planSpecificity (이행계획 구체성): 단계별·연차별 계획이 구체적인가, 선언적 수준인가? 후보 고유 전략인지 기존 정부 계획 인용인지 판단하라.",
+        "3. financialFeasibility (재정 실현가능성): 재원 수단(국비/지방비/민자)의 현실성, 추정 총사업비 규모, 유사 사업의 예산 초과 경향을 당신의 지식으로 추정해 평가하라.",
+        "4. economicViability (경제적 타당성): 이 공약이 창출할 경제적 파급효과·편익과 비용을 일반 경제 원리와 유사 사례로 추론하고, 핵심 리스크 변수를 제시하라.",
+        "5. precedentVerification (선례 검증): 이 공약과 유사한 국내외 정책·사업(예: 행정통합·메가시티·광역교통망·물류특구 등)의 실제 성공/실패 사례를 1개 이상 구체적으로 언급하고, 그로부터 이 공약의 성패 가능성을 추론하라. 절대 '선례가 고려되지 않았다'고 쓰지 말 것.",
         "",
         "[추가 룰]",
-        "• 이행방법·재원조달·이행기간 중 어느 하나라도 '기재 안 됨'이면 feasibilityScore는 50점을 절대 넘지 마라.",
+        "• 구조화 필드(이행방법·재원조달·이행기간)가 '기재 안 됨'이어도 '목표/내용' 본문에 이행수단·재원·일정에 대한 단서가 있으면 그것을 근거로 점수를 차등 부여하라. 본문에도 단서가 전혀 없을 때에만 feasibilityScore 50점 상한을 적용한다. (모든 공약을 일률적으로 50점으로 만들지 말 것)",
         "• detailedAxes의 5개 축 점수를 기계적으로 통일하지 마십시오 (예: 전부 2점으로 도배 금지). 정보가 부족하더라도 각 축의 고유한 특성을 반영해 점수(1~5)를 차등 부여하십시오.",
         "• 의도·비전·필요성에 가산점 금지. strengths에는 검증 가능한 실행 메커니즘만 적는다.",
         "• 후보 경력·정당·현직은 가산점 사유가 아니다. 정당명·이념·인신을 평가 근거로 쓰지 않는다.",
@@ -5435,7 +5436,7 @@ export async function registerRoutes(
         "• keyVulnerability에는 이 공약의 가장 큰 구조적 약점을 2~3문장으로 적는다.",
         "",
         "[출력 — 아래 JSON 스키마와 정확히 동일한 키만 사용. 코드펜스·접두어·설명문 금지.]",
-        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 이 공약의 실현 여부를 검증/감시할 수 있는 구체적인 감시 및 행동 방안 1~2문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"2~3문장"},"planSpecificity":{"score":<1-5>,"analysis":"2~3문장"},"financialFeasibility":{"score":<1-5>,"analysis":"2~3문장"},"economicViability":{"score":<1-5>,"analysis":"2~3문장"},"precedentVerification":{"score":<1-5>,"analysis":"2~3문장"}}}',
+        '{"feasibilityScore":<0-100 정수>,"feasibilityLabel":"높음|중간|보통|낮음","authorityScore":<0-100>,"fundingScore":<0-100>,"timelineScore":<0-100>,"summary":"공약 핵심 1문장(중립적 사실)","strengths":["검증 가능한 실행 요소만; 없으면 빈 배열"],"concerns":["구체 약점 — 권한/재원/기간 중 어느 축이 부족한지 명시"],"feasibility_critique":"팩트 기반 1~2줄 비판","voterTip":"유권자가 이 공약의 실현 여부를 검증/감시할 수 있는 구체적인 감시 및 행동 방안 1~2문장","keyVulnerability":"이 공약의 가장 큰 구조적 약점 2~3문장","detailedAxes":{"internalConsistency":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"planSpecificity":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"financialFeasibility":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"economicViability":{"score":<1-5>,"analysis":"3~4문장 구체적 분석"},"precedentVerification":{"score":<1-5>,"analysis":"실제 유사 사례를 든 3~4문장"}}}',
       ].join("\n");
 
       // 사용자 명시 포맷 — [공약 1] {title} / - 이행방법 / - 재원조달 / - 이행기간
@@ -5455,15 +5456,15 @@ export async function registerRoutes(
         `- 전과 기록: ${criminalRecords}\n\n` +
         `${pledgeBlock}\n` +
         `(분야: ${blockRealm} · 목표/내용: ${blockContent})\n\n` +
-        `위 엄격 채점 규칙에 따라 평가하라. 이행방법·재원조달·이행기간 중 '기재 안 됨'이 하나라도 있으면 50점을 넘지 마라. 반드시 detailedAxes 5개 축 모두 포함하라.`;
+        `위 채점 규칙에 따라 평가하라. 구조화 필드가 비어 있어도 '목표/내용' 본문의 단서를 적극 활용해 차등 채점하고, detailedAxes 5개 축은 모두 당신의 정책·경제 지식과 실제 유사 사례를 근거로 구체적으로 서술하라(회피 문장 금지). 반드시 5개 축 모두 포함하라.`;
 
       await aiCallThrottle(); // rate limit 방어 스로틀
       const rawResult = await callLLMJsonOrFallback<Record<string, any>>(
         {
           system: SYSTEM_PROMPT,
           user: userPrompt,
-          temperature: 0.2,
-          maxTokens: 1500,
+          temperature: 0.3,
+          maxTokens: 2400,
           label: "candidates/analyze-pledge",
           provider: "groq",
           model: "llama-3.3-70b-versatile",
