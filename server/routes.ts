@@ -5055,7 +5055,9 @@ export async function registerRoutes(
         const analysis = await analyzeNewsWithAI(analysisTitle, analysisContent, clientSource);
         // 캐시 저장 (L1 즉시, L2 영속 30일)
         newsAnalysisCache.set(cacheKey, analysis);
-        setAiCache(cacheKey, "news/analyze", analysis, 30).catch(() => {});
+        // TTL은 AI_CACHE_TTL_DAYS(기본 7일)로 통일 관리. 기사 본문은 불변이라 길수록 비용↓,
+        // 실시간성을 더 원하면 AI_CACHE_TTL_DAYS=1(24h)로 설정.
+        setAiCache(cacheKey, "news/analyze", analysis).catch(() => {});
         return analysis;
       })();
       newsAnalysisInFlight.set(cacheKey, work);
@@ -5300,6 +5302,8 @@ export async function registerRoutes(
 
   // ===== 단독 공약 AI 분석 =====
   const pledgeAnalyzeCache = new LruMap<string, object>(1000);
+  // 동일 공약 동시 요청 dedup — 진행 중인 분석 결과를 공유해 LLM 중복 호출 방지.
+  const pledgeAnalyzeInFlight = new Map<string, Promise<Record<string, any> | null>>();
 
   // DB의 null/빈값을 LLM이 안전하게 처리할 수 있도록 통일된 placeholder 적용
   const orNoData = (v: unknown): string => {
@@ -5365,6 +5369,19 @@ export async function registerRoutes(
       // L2: DB 영속 캐시 — detailedAxes 없는 구버전은 무시하고 재실행
       const pledgeL2 = await getAiCache<Record<string, any>>(cacheKey);
       if (pledgeL2?.detailedAxes) { pledgeAnalyzeCache.set(cacheKey, pledgeL2); return res.json(pledgeL2); }
+
+      // In-flight dedup: 같은 공약이 이미 분석 중이면 그 결과를 공유(중복 LLM 호출 방지).
+      const inFlight = pledgeAnalyzeInFlight.get(cacheKey);
+      if (inFlight) {
+        const shared = await inFlight.catch(() => null);
+        if (shared?.detailedAxes) return res.json(shared);
+        // 진행 중 요청이 실패했으면 아래에서 직접 분석
+      }
+      // 이 요청을 in-flight 대표로 등록. 응답이 끝나면(성공/실패 무관) 해제 + 대기자 깨우기.
+      let settleInFlight: (v: Record<string, any> | null) => void = () => {};
+      pledgeAnalyzeInFlight.set(cacheKey, new Promise<Record<string, any> | null>((resolve) => { settleInFlight = resolve; }));
+      res.on("finish", () => { settleInFlight(null); pledgeAnalyzeInFlight.delete(cacheKey); });
+      res.on("close", () => { settleInFlight(null); pledgeAnalyzeInFlight.delete(cacheKey); });
 
       if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI 서비스 미설정 (GROQ_API_KEY)" });
 
@@ -5492,6 +5509,8 @@ export async function registerRoutes(
         // 폴백 응답에 플래그 추가 — 프론트엔드에서 감지 후 재시도
         result._isFallback = true;
       }
+      // in-flight 대기자에게 결과 공유 (폴백이 아닌 정상 결과만)
+      settleInFlight(result._isFallback ? null : result);
       res.json(result);
     } catch (error: any) {
       console.error("[analyze-pledge] error:", error);
