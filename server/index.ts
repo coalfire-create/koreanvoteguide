@@ -5,6 +5,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { registerLegalPages } from "./legal-pages";
+import { registerSupportPage } from "./support-page";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { startScheduler } from "./scheduler";
@@ -175,6 +176,7 @@ app.use((req, res, next) => {
 
 (async () => {
   registerLegalPages(app);
+  registerSupportPage(app);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {
