@@ -675,6 +675,8 @@ declare module "express-session" {
     googleRedirectUri?: string;
     appleRedirectUri?: string;
     oauthNext?: string;
+    // 네이티브 앱(시스템 브라우저) OAuth 여부 — true면 콜백에서 딥링크+1회용 코드로 처리
+    oauthNative?: boolean;
   }
 }
 
@@ -1381,6 +1383,46 @@ export async function registerRoutes(
     res.redirect(url.pathname + url.search);
   }
 
+  // ── 네이티브 앱 소셜 로그인 핸드오프 ──────────────────────────────────────────
+  // 시스템 브라우저(Safari)에서 OAuth가 끝나면 세션 쿠키는 Safari 쿠키함에만 생긴다.
+  // 앱 웹뷰로 세션을 넘기기 위해, 콜백 성공 시 1회용 코드를 발급해 커스텀 스킴(iyu://)
+  // 딥링크로 앱에 전달하고, 앱은 웹뷰에서 /api/auth/native-exchange 로 코드를 교환해
+  // 자신의 쿠키 세션을 만든다.
+  const NATIVE_AUTH_SCHEME = "iyu://auth";
+  const nativeAuthCodes = new Map<string, { userId: string; exp: number }>();
+  function issueNativeAuthCode(userId: string): string {
+    // 만료된 코드 청소
+    const now = Date.now();
+    for (const [k, v] of nativeAuthCodes) if (v.exp < now) nativeAuthCodes.delete(k);
+    const code = randomBytes(24).toString("hex");
+    nativeAuthCodes.set(code, { userId, exp: now + 2 * 60 * 1000 }); // 2분 유효
+    return code;
+  }
+  function finishOAuthLogin(req: Request, res: Response, next: string) {
+    if (req.session.oauthNative && req.session.userId) {
+      req.session.oauthNative = undefined;
+      const code = issueNativeAuthCode(req.session.userId);
+      return res.redirect(`${NATIVE_AUTH_SCHEME}?code=${code}`);
+    }
+    redirectWithLoginSuccess(res, next);
+  }
+
+  // 앱 웹뷰가 1회용 코드를 자신의 세션 쿠키로 교환 (Set-Cookie 가 웹뷰 쿠키함에 저장됨)
+  app.post("/api/auth/native-exchange", authLimiter, (req, res) => {
+    const code = typeof req.body?.code === "string" ? req.body.code : "";
+    const entry = code ? nativeAuthCodes.get(code) : undefined;
+    if (!entry || entry.exp < Date.now()) {
+      if (code) nativeAuthCodes.delete(code);
+      return res.status(400).json({ error: "유효하지 않거나 만료된 로그인 코드입니다." });
+    }
+    nativeAuthCodes.delete(code);
+    req.session.userId = entry.userId;
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: "세션 저장 실패" });
+      res.json({ success: true });
+    });
+  });
+
   // 요청 host에서 동적 redirect URI를 계산 — 로컬 개발과 프로덕션 모두 동작
   function buildDynamicRedirectUri(req: Request, path: string): string {
     const proto = (req.get("x-forwarded-proto") as string) || (req.socket && (req.socket as any).encrypted ? "https" : "http");
@@ -1400,6 +1442,7 @@ export async function registerRoutes(
     req.session.kakaoOAuthState = state;
     req.session.kakaoRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
+    req.session.oauthNative = req.query.native === "1";
     const url = buildAuthorizeUrl(config, state);
     req.session.save((err) => {
       if (err) {
@@ -1568,7 +1611,7 @@ export async function registerRoutes(
           console.error("[kakao] session save failed:", saveErr);
           return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
         }
-        redirectWithLoginSuccess(res, redirectTarget);
+        finishOAuthLogin(req, res, redirectTarget);
       });
     } catch (error: any) {
       console.error("[kakao] callback failed:", error?.response?.data ?? error?.message ?? error);
@@ -1594,6 +1637,7 @@ export async function registerRoutes(
     req.session.googleOAuthState = state;
     req.session.googleRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
+    req.session.oauthNative = req.query.native === "1";
     req.session.save((err) => {
       if (err) {
         console.error("[google] session save failed:", err);
@@ -1690,7 +1734,7 @@ export async function registerRoutes(
           console.error("[google] session save failed:", saveErr);
           return res.redirect(`/login?error=${encodeURIComponent("세션 저장 실패. 다시 시도해주세요.")}`);
         }
-        redirectWithLoginSuccess(res, redirectTarget);
+        finishOAuthLogin(req, res, redirectTarget);
       });
     } catch (error: any) {
       console.error("[google] callback failed:", error?.response?.data ?? error?.message ?? error);
@@ -1716,6 +1760,7 @@ export async function registerRoutes(
     req.session.appleOAuthState = state;
     req.session.appleRedirectUri = config.redirectUri;
     req.session.oauthNext = safeNextUrl(req.query.next);
+    req.session.oauthNative = req.query.native === "1";
     req.session.save((err) => {
       if (err) {
         console.error("[apple] session save failed:", err);
@@ -1812,7 +1857,7 @@ export async function registerRoutes(
         const next = safeNextUrl(req.session.oauthNext);
         req.session.oauthNext = undefined;
         console.log(`[apple] login userId=${userId}`);
-        redirectWithLoginSuccess(res, next);
+        finishOAuthLogin(req, res, next);
       } catch (error: any) {
         console.error("[apple] callback failed:", error?.response?.data ?? error?.message ?? error);
         res.redirect(`/login?error=${encodeURIComponent("애플 로그인 처리 중 오류가 발생했습니다.")}`);

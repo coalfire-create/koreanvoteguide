@@ -3,6 +3,7 @@
 // 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
 import { withApiBase } from "@/lib/api-base";
+import { isNativeApp, openNativeSocialLogin } from "@/lib/native-auth";
 
 interface Props {
   className?: string;
@@ -16,6 +17,12 @@ export function GoogleLoginButton({ className = "", label = "구글 계정으로
   return (
     <a
       href={href}
+      onClick={(e) => {
+        if (isNativeApp()) {
+          e.preventDefault();
+          void openNativeSocialLogin("google", next);
+        }
+      }}
       data-testid="google-login-button"
       className={`relative flex items-center justify-center gap-3 w-full h-14 rounded-2xl bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors border border-[#e0e0e0] shadow-sm text-gray-700 font-bold text-[15px] ${className}`}
       aria-label="구글 계정으로 로그인"

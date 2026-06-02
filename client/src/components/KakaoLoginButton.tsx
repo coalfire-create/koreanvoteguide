@@ -3,6 +3,7 @@
 // 클라이언트 SDK가 아니라 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
 import { withApiBase } from "@/lib/api-base";
+import { isNativeApp, openNativeSocialLogin } from "@/lib/native-auth";
 
 interface Props {
   className?: string;
@@ -18,6 +19,12 @@ export function KakaoLoginButton({ className = "", label = "카카오로 1초 �
   return (
     <a
       href={href}
+      onClick={(e) => {
+        if (isNativeApp()) {
+          e.preventDefault();
+          void openNativeSocialLogin("kakao", next);
+        }
+      }}
       data-testid="kakao-login-button"
       className={`relative flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#FEE500] hover:bg-[#FDD800] active:bg-[#F1C400] transition-colors shadow-sm text-[#191919] font-bold text-[15px] ${className}`}
       aria-label="카카오 계정으로 로그인"

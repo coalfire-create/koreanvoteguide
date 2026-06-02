@@ -39,6 +39,8 @@
     "cap:ios:prod": "CAPACITOR_PROD=true npm run build && CAPACITOR_PROD=true npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",

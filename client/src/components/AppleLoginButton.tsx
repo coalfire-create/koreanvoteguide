@@ -3,6 +3,7 @@
 // 서버 OAuth 흐름이므로 SPA 라우터(<Link/>)가 아닌 full-page navigation 필요.
 
 import { withApiBase } from "@/lib/api-base";
+import { isNativeApp, openNativeSocialLogin } from "@/lib/native-auth";
 
 interface Props {
   className?: string;
@@ -16,6 +17,12 @@ export function AppleLoginButton({ className = "", label = "Apple로 로그인",
   return (
     <a
       href={href}
+      onClick={(e) => {
+        if (isNativeApp()) {
+          e.preventDefault();
+          void openNativeSocialLogin("apple", next);
+        }
+      }}
       data-testid="apple-login-button"
       className={`relative flex items-center justify-center gap-3 w-full h-14 rounded-2xl bg-black hover:bg-neutral-900 active:bg-neutral-800 transition-colors text-white font-bold text-[15px] ${className}`}
       aria-label="Apple로 로그인"
