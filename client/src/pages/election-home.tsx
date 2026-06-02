@@ -14,7 +14,6 @@ import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailVie
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
-import { DailyPollWidget } from "@/components/DailyPollWidget";
 
 // 후보 영역 로딩용 Skeleton — 실제 카드와 같은 골격을 회색 펄스로 그린다.
 // 헤더/사이드 위젯은 그대로 두고 이 부분만 데이터 도착 시 교체된다.
@@ -799,9 +798,6 @@ function RegionView({
 
           {/* RIGHT: Widget Section */}
           <div className="flex flex-col gap-6">
-            
-            {/* Widget: 데일리 폴 (오늘의 핫이슈 1분 투표) */}
-            <DailyPollWidget />
 
             {/* Widget 1: 선거 주요 일정 (DB 연동) */}
             <ScheduleWidget regionName={region.name} />
