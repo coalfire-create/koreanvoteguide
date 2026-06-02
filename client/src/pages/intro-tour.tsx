@@ -1,8 +1,59 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, MessageSquare, Users, Home, Search, User } from "lucide-react";
 import { getDaysUntilElection } from "@/lib/election-config";
+
+// ─── 하단 탭바 위치 안내 (어떤 탭을 누르면 되는지) ──────────────────────────────
+// bottom-nav.tsx 와 동일한 순서: 커뮤니티 · 인물 · 홈(가운데) · 법안 · 마이
+const TABS = [
+  { icon: MessageSquare, label: "커뮤니티" },
+  { icon: Users, label: "인물" },
+  { icon: Home, label: "홈" },
+  { icon: Search, label: "법안" },
+  { icon: User, label: "마이" },
+] as const;
+
+function TabHint({ active, accent }: { active: number; accent: string }) {
+  return (
+    <div className="mb-4">
+      <div className="text-[10px] font-bold text-gray-400 mb-1.5 text-center">
+        화면 맨 아래 <span style={{ color: accent }}>{TABS[active].label}</span> 탭을 누르세요
+      </div>
+      <div className="relative flex items-end justify-around bg-gray-50 border border-gray-100 rounded-2xl px-2 py-2">
+        {TABS.map((t, i) => {
+          const on = i === active;
+          return (
+            <div key={t.label} className="flex flex-col items-center gap-0.5 flex-1">
+              <motion.div
+                animate={on ? { y: [-2, -6, -2] } : { y: 0 }}
+                transition={on ? { duration: 1.4, repeat: Infinity, ease: "easeInOut" } : {}}
+                className="flex items-center justify-center rounded-xl"
+                style={{
+                  width: on ? 40 : 30,
+                  height: on ? 40 : 30,
+                  background: on ? accent : "transparent",
+                  boxShadow: on ? `0 8px 18px ${accent}55` : "none",
+                }}
+              >
+                <t.icon
+                  className="shrink-0"
+                  style={{ width: on ? 20 : 17, height: on ? 20 : 17, color: on ? "#fff" : "#cbd5e1" }}
+                />
+              </motion.div>
+              <span
+                className="text-[9px] font-bold"
+                style={{ color: on ? accent : "#cbd5e1" }}
+              >
+                {t.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── Illustration: Welcome ───────────────────────────────────────────────────
 function WelcomeIllus() {
@@ -14,10 +65,10 @@ function WelcomeIllus() {
   }, []);
 
   const features = [
-    { icon: "🗺️", label: "후보자 비교" },
-    { icon: "📊", label: "표결 추적"  },
-    { icon: "📰", label: "AI 뉴스"   },
-    { icon: "💬", label: "커뮤니티"  },
+    { icon: "🏠", label: "홈" },
+    { icon: "👥", label: "인물" },
+    { icon: "📜", label: "법안" },
+    { icon: "💬", label: "커뮤니티" },
   ];
   return (
     <div className="flex flex-col items-center gap-6 w-full">
@@ -78,12 +129,12 @@ function WelcomeIllus() {
   );
 }
 
-// ─── Illustration: Candidates ─────────────────────────────────────────────────
-function CandidateIllus() {
+// ─── Illustration: 홈 탭 (내 지역 후보) ────────────────────────────────────────
+function HomeIllus() {
   const items = [
     { initials: "김", name: "김민준", party: "민주당", color: "#3A6BFF", pct: 38 },
-    { initials: "이", name: "이수현", party: "국민의힘",     color: "#FF3B3B", pct: 34 },
-    { initials: "박", name: "박지우", party: "개혁신당",     color: "#f97316", pct: 18 },
+    { initials: "이", name: "이수현", party: "국민의힘", color: "#FF3B3B", pct: 34 },
+    { initials: "박", name: "박지우", party: "개혁신당", color: "#f97316", pct: 18 },
   ];
   return (
     <div className="w-full max-w-[340px]">
@@ -93,7 +144,7 @@ function CandidateIllus() {
         animate={{ y: 0, opacity: 1 }}
         className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full mb-4 w-fit"
       >
-        <span className="text-white/80 text-[12px] font-black">📍 서울 광역단체장</span>
+        <span className="text-white/90 text-[12px] font-black">📍 서울 · 광역단체장</span>
       </motion.div>
 
       {/* Candidate cards */}
@@ -117,7 +168,7 @@ function CandidateIllus() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[14px] font-black text-gray-900">{c.name}</span>
-                <span className="text-[13px] font-black" style={{ color: c.color }}>{c.pct}%</span>
+                <span className="text-[12px] font-bold text-gray-400">탭하여 공약 보기 ›</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <motion.div
@@ -136,14 +187,14 @@ function CandidateIllus() {
   );
 }
 
-// ─── Illustration: Vote record ────────────────────────────────────────────────
-function VoteIllus() {
+// ─── Illustration: 인물 탭 (의원 표결·성향) ────────────────────────────────────
+function PeopleIllus() {
   const member = { name: "홍길동", party: "민주당", pColor: "#3A6BFF" };
   const bills = [
-    { name: "민생회복지원금법",  vote: "찬성", yes: true  },
+    { name: "민생회복지원금법", vote: "찬성", yes: true },
     { name: "반도체클러스터특별법", vote: "반대", yes: false },
-    { name: "저출생대응특별법",  vote: "찬성", yes: true  },
-    { name: "전세사기피해지원법", vote: "찬성", yes: true  },
+    { name: "저출생대응특별법", vote: "찬성", yes: true },
+    { name: "전세사기피해지원법", vote: "찬성", yes: true },
   ];
   const yesCount = bills.filter((b) => b.yes).length;
 
@@ -206,57 +257,80 @@ function VoteIllus() {
   );
 }
 
-// ─── Illustration: News ───────────────────────────────────────────────────────
-function NewsIllus() {
-  const sources = [
-    { name: "조선일보", color: "#3A6BFF", headline: "여당, 지방선거 공천 마무리" },
-    { name: "한겨레",   color: "#059669", headline: "야당 후보 지지율 급상승세" },
-    { name: "중앙일보", color: "#f97316", headline: "경기지사 3파전 압축 전망" },
+// ─── Illustration: 법안 탭 (검색 + AI 해설) ────────────────────────────────────
+function BillIllus() {
+  const bills = [
+    { name: "저출생대응특별법", tag: "심사중", tagColor: "#f59e0b" },
+    { name: "전세사기피해지원법", tag: "본회의 통과", tagColor: "#059669" },
   ];
   return (
     <div className="w-full max-w-[340px] space-y-3">
-      {/* AI summary banner */}
+      {/* Search bar */}
       <motion.div
-        initial={{ scale: 0.94, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-[20px] p-4 shadow-lg"
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-2 bg-white rounded-full px-4 py-3 shadow-lg"
       >
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] font-black text-white">AI</div>
-          <span className="text-[12px] font-black text-gray-800">핵심 요약</span>
-          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full ml-auto">12개 언론사</span>
-        </div>
-        <p className="text-[12px] text-gray-600 leading-relaxed">
-          여야 공천이 마무리되며 주요 광역단체장 선거 판도가 윤곽을 드러내고 있습니다.
-        </p>
+        <Search className="w-4 h-4 text-gray-400" />
+        <span className="text-[13px] text-gray-400 font-semibold">법안 이름으로 검색…</span>
       </motion.div>
 
-      {/* News cards */}
-      {sources.map((s, i) => (
-        <motion.div
-          key={s.name}
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.2 + i * 0.1 }}
-          className="flex items-center gap-3 bg-white rounded-[16px] px-4 py-3 shadow-md"
-        >
-          <div className="w-1 h-8 rounded-full shrink-0" style={{ background: s.color }} />
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-bold mb-0.5" style={{ color: s.color }}>{s.name}</div>
-            <div className="text-[12px] font-bold text-gray-800 truncate">{s.headline}</div>
-          </div>
-        </motion.div>
-      ))}
+      {/* AI 해설 카드 */}
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.15 }}
+        className="bg-white rounded-[20px] p-4 shadow-lg"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[13px] font-black text-gray-900">저출생대응특별법</span>
+          <span className="text-[10px] font-black text-white bg-violet-500 px-2 py-0.5 rounded-full ml-auto">AI 해설</span>
+        </div>
+        {[
+          { q: "왜 나왔나", a: "출산·양육 부담을 줄이려고", color: "#6d28d9" },
+          { q: "누구에게 좋은가", a: "신혼·양육 가구", color: "#059669" },
+          { q: "누구에게 부담", a: "일부 기업·재정", color: "#ef4444" },
+        ].map((row, i) => (
+          <motion.div
+            key={row.q}
+            initial={{ x: -12, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.25 + i * 0.1 }}
+            className="flex items-start gap-2 py-1.5 border-b border-gray-50 last:border-0"
+          >
+            <span className="text-[11px] font-black shrink-0 w-[72px]" style={{ color: row.color }}>{row.q}</span>
+            <span className="text-[11px] text-gray-600 font-semibold flex-1">{row.a}</span>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* 관련 법안 미니 리스트 */}
+      <div className="bg-white rounded-[16px] shadow-md overflow-hidden">
+        {bills.map((b, i) => (
+          <motion.div
+            key={b.name}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 + i * 0.1 }}
+            className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 last:border-0"
+          >
+            <span className="text-[12px] text-gray-700 font-semibold truncate flex-1 pr-3">{b.name}</span>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0" style={{ background: `${b.tagColor}1a`, color: b.tagColor }}>
+              {b.tag}
+            </span>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ─── Illustration: Community ──────────────────────────────────────────────────
+// ─── Illustration: 커뮤니티 탭 ─────────────────────────────────────────────────
 function CommunityIllus() {
   const posts = [
     { avatar: "이", color: "#3A6BFF", title: "서울시장 후보 공약 비교해봤어요", likes: 142, hot: true },
-    { avatar: "김", color: "#059669", title: "우리 동네 기초의원 누가 낫나요?",   likes: 87,  hot: false },
-    { avatar: "박", color: "#f97316", title: "이번 선거 처음 투표하는데 어디서 정보 얻나요?", likes: 63, hot: false },
+    { avatar: "김", color: "#059669", title: "우리 동네 기초의원 누가 낫나요?", likes: 87, hot: false },
+    { avatar: "박", color: "#f97316", title: "처음 투표하는데 어디서 정보 얻나요?", likes: 63, hot: false },
   ];
   return (
     <div className="w-full max-w-[340px] space-y-3">
@@ -289,9 +363,57 @@ function CommunityIllus() {
   );
 }
 
+// ─── Illustration: 마이 탭 ─────────────────────────────────────────────────────
+function MoreIllus() {
+  const menu = [
+    { icon: "📍", label: "내 지역 변경", desc: "서울 · 경기 …" },
+    { icon: "⭐", label: "즐겨찾기", desc: "관심 후보·의원" },
+    { icon: "🔔", label: "알림 설정", desc: "선거 D-day 알림" },
+    { icon: "👤", label: "로그인 · 계정", desc: "내 정보 관리" },
+  ];
+  return (
+    <div className="w-full max-w-[340px] space-y-3">
+      {/* Profile header */}
+      <motion.div
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-3 bg-white rounded-[20px] px-4 py-3.5 shadow-lg"
+      >
+        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center text-white text-[15px] font-black shadow-md">
+          나
+        </div>
+        <div className="flex-1">
+          <div className="text-[14px] font-black text-gray-900">나의 이유</div>
+          <div className="text-[11px] font-bold text-gray-400 mt-0.5">서울 유권자</div>
+        </div>
+      </motion.div>
+
+      {/* Menu rows */}
+      <div className="bg-white rounded-[20px] shadow-lg overflow-hidden">
+        {menu.map((m, i) => (
+          <motion.div
+            key={m.label}
+            initial={{ x: 16, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.12 + i * 0.1 }}
+            className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0"
+          >
+            <span className="text-lg w-6 text-center">{m.icon}</span>
+            <div className="flex-1">
+              <div className="text-[13px] font-bold text-gray-800">{m.label}</div>
+              <div className="text-[10px] text-gray-400 font-semibold">{m.desc}</div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300" />
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Illustration: Final ──────────────────────────────────────────────────────
 function FinalIllus() {
-  const icons = ["🗺️", "📊", "📰", "💬"];
+  const icons = ["🏠", "👥", "📜", "💬"];
   return (
     <div className="flex flex-col items-center gap-5">
       <motion.div
@@ -357,63 +479,79 @@ interface SlideData {
   tag: string;
   title: string;
   desc: string;
+  tabIndex?: number; // 하단 탭바에서 강조할 탭 (없으면 미표시)
   Illustration: () => React.JSX.Element;
 }
 
 const SLIDES: SlideData[] = [
   {
     id: 0,
-    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #201a09 100%)", // Black to charcoal to dark amber (matching '이유' icon)
-    accent: "#facc15", // yellow-400 (matches yellow line in icon)
-    accentText: "#a16207", // dark yellow/amber-700 for high-contrast on white background
-    tag: "2026 지방선거",
-    title: "이유있게\n투표하세요",
-    desc: "후보자 공약부터 국회의원 표결, AI 정치 뉴스까지 — 투표에 필요한 모든 정보를 한 곳에서.",
+    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #201a09 100%)",
+    accent: "#facc15",
+    accentText: "#a16207",
+    tag: "사용 가이드",
+    title: "이렇게\n사용하세요",
+    desc: "이유는 화면 맨 아래 5개 탭으로 움직여요. 탭마다 무엇을 할 수 있는지 하나씩 알려드릴게요.",
     Illustration: WelcomeIllus,
   },
   {
     id: 1,
-    bg: "linear-gradient(140deg, #020617 0%, #1e3a8a 50%, #2563eb 100%)", // Midnight to vibrant blue
-    accent: "#60a5fa", // blue-400
+    bg: "linear-gradient(140deg, #020617 0%, #1e3a8a 50%, #2563eb 100%)",
+    accent: "#60a5fa",
     accentText: "#1d4ed8",
-    tag: "기능 01",
-    title: "공약 클릭 시\nAI 정밀 분석",
-    desc: "무엇보다 중요한 기능입니다! 후보자의 공약을 클릭하면 최신 AI가 실현가능성과 핵심 취약점을 다각도로 분석해 드립니다.",
-    Illustration: CandidateIllus,
+    tag: "① 홈 탭",
+    title: "홈에서\n내 지역 후보 보기",
+    desc: "앱을 켜면 가장 먼저 보이는 화면이에요. 내 지역의 단체장·기초의원 후보가 한눈에 떠요. 후보 카드를 누르면 공약·이력·AI 분석으로 들어가고, 위쪽에서 지역도 바꿀 수 있어요.",
+    tabIndex: 2,
+    Illustration: HomeIllus,
   },
   {
     id: 2,
-    bg: "linear-gradient(140deg, #020617 0%, #064e3b 50%, #059669 100%)", // Midnight to emerald
-    accent: "#34d399", // emerald-400
+    bg: "linear-gradient(140deg, #020617 0%, #064e3b 50%, #059669 100%)",
+    accent: "#34d399",
     accentText: "#047857",
-    tag: "기능 02",
-    title: "국회의원\n표결 추적",
-    desc: "300명 국회의원이 어떤 법안에 찬성·반대했는지 투명하게 공개해드려요.",
-    Illustration: VoteIllus,
+    tag: "② 인물 탭",
+    title: "인물에서\n정치인 파헤치기",
+    desc: "현직 국회의원과 출마 후보를 검색해요. 이름을 누르면 정치 성향, 입법 관심분야, 그리고 실제로 어떤 법안에 찬성·반대했는지 표결 기록까지 확인할 수 있어요.",
+    tabIndex: 1,
+    Illustration: PeopleIllus,
   },
   {
     id: 3,
-    bg: "linear-gradient(140deg, #020617 0%, #78350f 50%, #d97706 100%)", // Midnight to amber/orange
-    accent: "#fbbf24", // amber-400
-    accentText: "#b45309",
-    tag: "기능 03",
-    title: "AI가 골라주는\n정치 뉴스",
-    desc: "12개 주요 언론사 기사를 AI가 핵심만 정리해 편향 없이 중립적으로 전달해요.",
-    Illustration: NewsIllus,
+    bg: "linear-gradient(140deg, #020617 0%, #4c1d95 50%, #7c3aed 100%)",
+    accent: "#a78bfa",
+    accentText: "#6d28d9",
+    tag: "③ 법안 탭",
+    title: "법안에서\nAI 해설 보기",
+    desc: "관심 있는 법안을 검색하면, AI가 '왜 나왔고 · 누구에게 좋은지 · 누구에게 부담인지'를 쉽게 풀어줘요. 어려운 법안도 한눈에 이해할 수 있어요.",
+    tabIndex: 3,
+    Illustration: BillIllus,
   },
   {
     id: 4,
-    bg: "linear-gradient(140deg, #020617 0%, #4c1d95 50%, #7c3aed 100%)", // Midnight to violet
-    accent: "#a78bfa", // violet-400
-    accentText: "#6d28d9",
-    tag: "기능 04",
-    title: "유권자\n커뮤니티",
-    desc: "같은 지역 이웃들과 후보자·지역 현안에 대해 자유롭게 이야기 나눠요.",
+    bg: "linear-gradient(140deg, #020617 0%, #78350f 50%, #d97706 100%)",
+    accent: "#fbbf24",
+    accentText: "#b45309",
+    tag: "④ 커뮤니티 탭",
+    title: "커뮤니티에서\n이웃과 토론",
+    desc: "같은 지역 이웃들과 후보·지역 현안을 이야기해요. 글쓰기 버튼으로 질문을 올리고, '오늘의 투표'에 참여해 여론을 확인해보세요.",
+    tabIndex: 0,
     Illustration: CommunityIllus,
   },
   {
     id: 5,
-    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #1c1809 100%)", // Matching brand theme
+    bg: "linear-gradient(140deg, #020617 0%, #334155 50%, #64748b 100%)",
+    accent: "#cbd5e1",
+    accentText: "#475569",
+    tag: "⑤ 마이 탭",
+    title: "마이에서\n내 설정 관리",
+    desc: "내 지역 변경, 즐겨찾기한 후보·의원, 알림 설정, 로그인·계정 관리를 모두 여기서 할 수 있어요.",
+    tabIndex: 4,
+    Illustration: MoreIllus,
+  },
+  {
+    id: 6,
+    bg: "linear-gradient(140deg, #000000 0%, #111111 40%, #1c1809 100%)",
     accent: "#facc15",
     accentText: "#a16207",
     tag: "준비 완료",
@@ -571,6 +709,11 @@ export default function IntroTour() {
               <p className="text-[13px] text-gray-500 leading-relaxed mb-4">
                 {slide.desc}
               </p>
+
+              {/* 하단 탭 위치 안내 */}
+              {slide.tabIndex !== undefined && (
+                <TabHint active={slide.tabIndex} accent={slide.accentText || slide.accent} />
+              )}
             </motion.div>
           </AnimatePresence>
 
