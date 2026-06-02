@@ -11,6 +11,7 @@ import { saveCandidateToSession } from "@/pages/candidate-detail";
 import { MAYOR_RACES } from "@/lib/mayor-candidates";
 import { getPartyRank } from "@/lib/mock-data";
 import PledgeDetailView, { type CompareWith } from "@/components/PledgeDetailView";
+import { DailyPollWidget } from "@/components/DailyPollWidget";
 import { PoliticianPhoto } from "@/components/PoliticianPhoto";
 import TopicAnalysisView from "@/components/TopicAnalysisView";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
@@ -798,6 +799,9 @@ function RegionView({
 
           {/* RIGHT: Widget Section */}
           <div className="flex flex-col gap-6">
+
+            {/* Widget: 데일리 폴 (오늘의 핫이슈 1분 투표) */}
+            <DailyPollWidget />
 
             {/* Widget 1: 선거 주요 일정 (DB 연동) */}
             <ScheduleWidget regionName={region.name} />

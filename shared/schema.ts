@@ -106,7 +106,8 @@ export type DailyPoll = typeof dailyPolls.$inferSelect;
 export const dailyPollVotes = pgTable("daily_poll_votes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   pollId: varchar("poll_id").notNull().references(() => dailyPolls.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  // 비로그인(anon:) 투표 허용 — users 외래키 없음 (db.ts 런타임에서 FK 제거)
+  userId: varchar("user_id").notNull(),
   optionId: text("option_id").notNull(), // 선택한 보기 ID
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({

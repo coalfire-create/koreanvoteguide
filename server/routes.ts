@@ -7450,7 +7450,10 @@ export async function registerRoutes(
       }
       return res.json({ success: true, reward });
     } catch (e: any) {
-      if (e.code === '23505') return res.status(400).json({ error: "이미 투표하셨습니다." });
+      // Drizzle은 PG 에러 코드를 e.cause.code 에 담는다 (e.code 가 아님)
+      if (e?.code === '23505' || e?.cause?.code === '23505') {
+        return res.status(400).json({ error: "이미 투표하셨습니다." });
+      }
       console.error(e);
       return res.status(500).json({ error: "서버 오류" });
     }
