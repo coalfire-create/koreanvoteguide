@@ -47,7 +47,7 @@ import pandas as pd
 # ① CONFIGURATION
 # ═══════════════════════════════════════════════════════════════
 
-API_KEY      = "80f8ef48f77b481799d90567d9cda2d9"
+API_KEY      = os.environ.get("OPEN_ASSEMBLY_API_KEY", "")
 API_BASE     = "https://open.assembly.go.kr/portal/openapi"
 PAGE_SIZE    = 100      # rows per page (API hard limit is 100)
 CONCURRENCY  = 4        # simultaneous page requests per endpoint
